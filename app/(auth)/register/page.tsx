@@ -1,14 +1,8 @@
 import AuthBrandPanel from "@/components/auth-brand-panel";
+import AuthForm from "@/components/auth-form";
 import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import {
-  Briefcase,
-  Clock3,
-  FileText,
-  FolderKanban,
-  TrendingUp,
-  Users,
-} from "lucide-react";
+import { FileText, TrendingUp, Users } from "lucide-react";
 
 export default function Register() {
   return (
@@ -55,9 +49,10 @@ export default function Register() {
         />
       </div>
 
-      <div className="flex flex-1 bg-white items-center justify-center">
+      <div className="flex flex-1 items-center justify-center">
         {/* Register form */}
-        <ThemeToggle />
+        <AuthForm mode="register" />
+        {/* <ThemeToggle /> */}
       </div>
     </main>
   );
