@@ -1,10 +1,82 @@
+"use client";
+
 import AuthBrandPanel from "@/components/auth-brand-panel";
 import AuthForm from "@/components/auth-form";
 import { Logo } from "@/components/logo";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { createClient } from "@/lib/supabase/client";
 import { FileText, TrendingUp, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useRef } from "react";
 
 export default function Register() {
+  const router = useRouter();
+  const supabase = createClient();
+  const emailRef = useRef("");
+  const nameRef = useRef("");
+
+  // handlers
+
+  // Registration form submit handler
+  const onSubmitDetails = async (data: { name?: string; email: string }) => {
+    const { email, name } = data;
+    emailRef.current = email;
+    nameRef.current = name ?? "";
+
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: true,
+        data: { full_name: name },
+      },
+    });
+
+    if (error) {
+      throw new Error(error.message);
+    }
+  };
+
+  // OTP Verification
+  const onVerifyCode = async (code: string) => {
+    let { error } = await supabase.auth.verifyOtp({
+      email: emailRef.current,
+      token: code,
+      type: "signup",
+    });
+    if (error) {
+      const retry = await supabase.auth.verifyOtp({
+        email: emailRef.current,
+        token: code,
+        type: "recovery",
+      });
+      error = retry.error;
+    }
+    if (error) throw new Error(error.message);
+    router.replace("/dashboard");
+    router.refresh();
+  };
+
+  // resend verification code
+  const onResendCode = async () => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: emailRef.current,
+      options: {
+        shouldCreateUser: true,
+        data: { full_name: nameRef.current },
+      },
+    });
+
+    if (error) throw new Error(error.message);
+  };
+
+  // OAuth handler
+  const onOAuth = async (provider: "google" | "github") => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) throw new Error(error.message);
+  };
+
   return (
     <main className="flex min-h-screen">
       <div className="hidden lg:block lg:w-1/3">
@@ -51,8 +123,14 @@ export default function Register() {
 
       <div className="flex flex-1 items-center justify-center">
         {/* Register form */}
-        <AuthForm mode="register" />
-        {/* <ThemeToggle /> */}
+        <AuthForm
+          mode="register"
+          switchHref="/login"
+          onSubmitDetails={onSubmitDetails}
+          onVerifyCode={onVerifyCode}
+          onResendCode={onResendCode}
+          onOAuth={onOAuth}
+        />
       </div>
     </main>
   );

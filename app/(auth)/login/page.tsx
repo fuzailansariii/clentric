@@ -1,10 +1,69 @@
+"use client";
 import AuthBrandPanel from "@/components/auth-brand-panel";
 import AuthForm from "@/components/auth-form";
 import { Logo } from "@/components/logo";
-import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { createClient } from "@/lib/supabase/client";
 import { FileText, TrendingUp, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useRef } from "react";
 
 export default function Login() {
+  const emailRef = useRef("");
+  const supabase = createClient();
+  const router = useRouter();
+
+  // email submit handler
+  const onSubmitEmail = async (data: { email: string }) => {
+    const { email } = data;
+    emailRef.current = email;
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: false },
+    });
+
+    if (error) {
+      if (error.message.toLowerCase().includes("signups not allowed")) {
+        throw new Error(
+          "No account found with that email. Try creating one instead.",
+        );
+      }
+      throw new Error(error.message);
+    }
+  };
+
+  // OTP Verification
+  const onVerifyCode = async (code: string) => {
+    const { error } = await supabase.auth.verifyOtp({
+      email: emailRef.current,
+      token: code,
+      type: "recovery",
+    });
+
+    if (error) throw new Error(error.message);
+    router.replace("/dashboard");
+    router.refresh();
+  };
+
+  // resend verification code
+  const onResendCode = async () => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: emailRef.current,
+      options: {
+        shouldCreateUser: false,
+      },
+    });
+    if (error) throw new Error(error.message);
+  };
+
+  // OAuth handler
+  const onOAuth = async (provider: "google" | "github") => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
+    if (error) throw new Error(error.message);
+  };
+
   return (
     <main className="flex min-h-screen">
       <div className="hidden lg:block lg:w-1/3">
@@ -50,9 +109,15 @@ export default function Login() {
       </div>
 
       <div className="flex flex-1 items-center justify-center">
-        {/* Register form */}
-        <AuthForm mode="login" />
-        {/* <ThemeToggle /> */}
+        {/* Login form */}
+        <AuthForm
+          mode="login"
+          switchHref="/register"
+          onSubmitDetails={onSubmitEmail}
+          onVerifyCode={onVerifyCode}
+          onResendCode={onResendCode}
+          onOAuth={onOAuth}
+        />
       </div>
     </main>
   );

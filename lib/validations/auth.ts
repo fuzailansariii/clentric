@@ -18,3 +18,5 @@ export const verificationCode = z
   .string()
   .length(6, "Invalid code")
   .regex(/^\d{6}$/, "Invalid code");
+
+export type AuthFormValues = z.infer<typeof registerSchema>; // { name: string; email: string }

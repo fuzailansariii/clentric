@@ -21,7 +21,7 @@ type TextareaFieldProps = BaseProp &
 type FieldProps = TextareaFieldProps | InputFieldProps;
 
 const baseStyles =
-  "w-full rounded-lg border  bg-white font-sans font-medium px-3 text-sm text-ink-900 placeholder:text-ink-400 focus-visible:border-ledger-600 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-border bg-input font-sans font-medium px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60";
 
 export const Field = forwardRef<
   HTMLInputElement | HTMLTextAreaElement,
@@ -30,7 +30,7 @@ export const Field = forwardRef<
   const fieldId = id ?? props.name;
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-0.5">
       {label && (
         <label
           htmlFor={fieldId}
