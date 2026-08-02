@@ -37,7 +37,5 @@ export const clients = pgTable(
       .defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
-  (table) => [
-    index("idx_clients_user_id").on(table.userId),
-  ],
+  (table) => [index("idx_clients_user_id").on(table.userId)],
 );
