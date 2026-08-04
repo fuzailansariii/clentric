@@ -1,3 +1,21 @@
+
+-- ============================================================
+-- ⚠️ NOTE (added after debugging, original SQL below unchanged):
+-- The handle_new_user() trigger defined in this file was pasted
+-- into the SQL Editor alongside the RLS policies below in one
+-- single transaction. One of those policy statements conflicted
+-- with an already-existing policy, causing the whole transaction
+-- to roll back — including the trigger creation, even though the
+-- editor didn't make that failure obvious. As a result, this
+-- trigger was NEVER actually live in the database.
+--
+-- The real, working version of this trigger now lives in
+-- migrations/0004_fix_handle_new_user_trigger.sql — that is the
+-- file that was actually run successfully against the database.
+-- Do not re-run just this section of this file expecting it to
+-- do anything different; refer to 0004 instead.
+-- ============================================================
+
 -- ============================================================
 -- 1. AUTO-CREATE public.users ROW ON SIGNUP
 -- ============================================================
@@ -8,7 +26,7 @@ begin
   values (
     new.id,
     new.email,
-    new.raw_user_meta_data->>'name'
+    coalesce(new.raw_user_meta_data->>'full_name', new.email)
   );
   return new;
 end;

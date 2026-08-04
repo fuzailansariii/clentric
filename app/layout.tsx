@@ -8,7 +8,6 @@ import { ThemeProvider } from "next-themes";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const robotoMono = Roboto_Mono({
   subsets: ["latin"],
-  weight: ["700"],
   variable: "--font-mono",
 });
 export const spaceGrotesk = Space_Grotesk({
@@ -39,7 +38,7 @@ export default function RootLayout({
         spaceGrotesk.variable,
       )}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"

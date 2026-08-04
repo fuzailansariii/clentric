@@ -4,6 +4,18 @@ import { createServerClient } from "@supabase/ssr";
 import { supabaseAnonKey, supabaseUrl } from "./lib/supabase/config";
 
 export async function proxy(request: NextRequest) {
+  const PROTECTED_PREFIXES = [
+    "/dashboard",
+    "/clients",
+    "/projects",
+    "/invoices",
+    "/proposals",
+  ];
+
+  const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix),
+  );
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -26,9 +38,10 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   //   protext everything under /dashboard - redirect to the /login if not signed in
-  if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
+  if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.searchParams.set("redirectTo", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
   return supabaseResponse;
