@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import SidebarFooter from "@/components/sidebar/sidebar-footer";
 import { logoutAction } from "../(auth)/action";
 import { getDashboardData } from "./queries";
+import { Toaster } from "@/components/ui/sonner";
 
 export default async function DashboardLayout({
   children,
@@ -28,7 +29,7 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider defaultCollapsed={collapsed}>
-      <div className="flex min-h-screen">
+      <div className="fixed inset-0 flex overflow-hidden">
         <Sidebar
           footer={
             <SidebarFooter
@@ -42,11 +43,12 @@ export default async function DashboardLayout({
             />
           }
         />
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col overflow-hidden">
           <MobileTopBar />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 overflow-y-auto">{children}</main>
         </div>
       </div>
+      <Toaster />
     </SidebarProvider>
   );
 }

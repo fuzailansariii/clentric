@@ -44,7 +44,7 @@ export default function Sidebar({ footer }: SidebarProps) {
       {/* ================= Desktop Sidebar ================= */}
       <aside
         className={cn(
-          "bg-sidebar hidden border-r transition-all duration-200 md:flex md:flex-col",
+          "bg-sidebar hidden h-screen border-r transition-all duration-200 md:flex md:flex-col",
           isCollapsed ? "w-16" : "w-64",
         )}
       >
