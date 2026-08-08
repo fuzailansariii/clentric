@@ -21,7 +21,7 @@ type TextareaFieldProps = BaseProp &
 type FieldProps = TextareaFieldProps | InputFieldProps;
 
 const baseStyles =
-  "w-full rounded-lg border border-border bg-input font-sans font-medium px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60";
+  "w-full rounded-lg border border-border font-sans bg-input/20 font-medium px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/20 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60";
 
 export const Field = forwardRef<
   HTMLInputElement | HTMLTextAreaElement,
@@ -34,7 +34,7 @@ export const Field = forwardRef<
       {label && (
         <label
           htmlFor={fieldId}
-          className="text-[13px] font-medium font-sans text-muted-foreground"
+          className="text-muted-foreground font-sans text-[13px] font-medium"
         >
           {label}
         </label>
@@ -57,7 +57,7 @@ export const Field = forwardRef<
           {...(props as InputHTMLAttributes<HTMLInputElement>)}
         />
       )}
-      {error && <span className="text-xs text-danger-600">{error}</span>}
+      {error && <span className="text-danger-600 text-xs">{error}</span>}
     </div>
   );
 });

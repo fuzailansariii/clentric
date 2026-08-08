@@ -8,15 +8,16 @@ export const clientStatusEnum = z.enum([
 ]);
 
 export const clientSchema = z.object({
-  name: z.string().min(1, "Name is required").max(100),
+  name: z.string().trim().min(1, "Name is required").max(100),
   email: z.email("Invalid email").optional().or(z.literal("")),
-  phone: z.string().max(30).optional(),
-  company: z.string().max(100).optional(),
-  country: z.string().max(60).optional(),
-  notes: z.string().max(2000).optional(),
+  phone: z.string().trim().max(30).optional(),
+  company: z.string().trim().max(100).optional(),
+  country: z.string().length(2, "Select a country").optional(),
+  notes: z.string().trim().max(2000).optional(),
   status: clientStatusEnum.default("active"),
 });
 
 export const clientIdSchema = z.uuid();
 
+export type ClientFormInput = z.input<typeof clientSchema>;
 export type ClientInput = z.infer<typeof clientSchema>;
