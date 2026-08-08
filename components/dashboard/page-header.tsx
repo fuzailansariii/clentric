@@ -10,7 +10,7 @@ import {
 
 type BreadcrumbItemType = {
   label: string;
-  href?: string; // omit on the current page — it shouldn't be a link
+  href?: string;
 };
 
 type PageHeaderProps = {
@@ -27,21 +27,10 @@ export default function PageHeader({
   breadcrumbs,
 }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col">
-          <h1 className="font-space text-xl font-medium md:text-2xl">
-            {title}
-          </h1>
-          <p className="text-secondary-foreground/80 font-space text-sm font-normal md:text-lg">
-            {description}
-          </p>
-        </div>
-        {actions && <div className="flex items-center gap-2">{actions}</div>}
-      </div>
+    <div className="flex flex-col gap-3 border-b pb-6">
       {breadcrumbs && breadcrumbs.length > 0 && (
         <Breadcrumb>
-          <BreadcrumbList>
+          <BreadcrumbList className="text-xs">
             {breadcrumbs.map((item, index) => {
               const isLast = index === breadcrumbs.length - 1;
               return (
@@ -65,6 +54,18 @@ export default function PageHeader({
           </BreadcrumbList>
         </Breadcrumb>
       )}
+
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="font-space text-xl font-medium md:text-2xl">
+            {title}
+          </h1>
+          <p className="text-muted-foreground text-sm">{description}</p>
+        </div>
+        {actions && (
+          <div className="flex shrink-0 items-center gap-2">{actions}</div>
+        )}
+      </div>
     </div>
   );
 }

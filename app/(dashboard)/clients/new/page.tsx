@@ -1,12 +1,10 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-
 import { ClientFormInput, clientSchema, clientStatusEnum } from "../schema";
-
 import { Field } from "@/components/ui/input";
 import { CustomButton } from "@/components/ui/custom-button";
 import { CountryCombobox } from "@/components/ui/country-combobox";
@@ -22,8 +20,15 @@ import { PhoneField, type PhoneFieldHandle } from "@/components/ui/phone-field";
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
 import FormSection from "@/components/dashboard/form-section";
+import { createClientAction } from "../actions";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { runActionWithToast } from "@/lib/run-action-with-toast";
 
 export default function NewClientPage() {
+  const [formError, setFormError] = useState<string | null>(null);
+  const router = useRouter();
+
   const {
     handleSubmit,
     register,
@@ -31,19 +36,28 @@ export default function NewClientPage() {
     control,
     watch,
     setValue,
+    reset,
   } = useForm<ClientFormInput>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
-      status: "lead",
+      status: "active",
     },
   });
 
   const countryValue = watch("country");
-
   const phoneFieldRef = useRef<PhoneFieldHandle>(null);
 
+  // form creation submit
   const onSubmit = handleSubmit(async (data: ClientFormInput) => {
-    console.log("Create client form data:", data);
+    setFormError(null);
+    await runActionWithToast(createClientAction(data), {
+      loading: "Creating Client...",
+      success: "Client Created",
+      onSuccess: ({ clientId }) => {
+        router.push(`/clients/${clientId}`);
+      },
+      onError: setFormError,
+    });
   });
 
   return (
@@ -122,11 +136,6 @@ export default function NewClientPage() {
                     />
                   )}
                 />
-                {errors.phone && (
-                  <p className="text-destructive text-sm">
-                    {errors.phone?.message}
-                  </p>
-                )}
               </div>
 
               <div>
@@ -195,17 +204,34 @@ export default function NewClientPage() {
             </div>
           </FormSection>
 
+          {formError && (
+            <div className="border-t px-6 py-3 sm:px-8">
+              <p className="text-destructive text-sm">{formError}</p>
+            </div>
+          )}
+
           {/* Footer */}
           <div className="bg-muted/30 flex flex-col-reverse gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-8">
-            <Link href="/clients">
+            {isSubmitting ? (
               <CustomButton
                 type="button"
-                variant="ghost"
+                variant="secondary"
+                disabled
                 className="w-full sm:w-auto"
               >
                 Cancel
               </CustomButton>
-            </Link>
+            ) : (
+              <Link href="/clients">
+                <CustomButton
+                  type="button"
+                  variant="secondary"
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </CustomButton>
+              </Link>
+            )}
 
             <CustomButton
               type="submit"
