@@ -3,18 +3,24 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseAnonKey, supabaseUrl } from "./lib/supabase/config";
 
-export async function proxy(request: NextRequest) {
-  const PROTECTED_PREFIXES = [
-    "/dashboard",
-    "/clients",
-    "/projects",
-    "/invoices",
-    "/proposals",
-  ];
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/clients",
+  "/projects",
+  "/invoices",
+  "/proposals",
+];
 
+const AUTH_ROUTES = ["/register", "/login"];
+
+export async function proxy(request: NextRequest) {
   const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) =>
     request.nextUrl.pathname.startsWith(prefix),
   );
+
+  const pathname = request.nextUrl.pathname;
+
+  const isAuthRoute = AUTH_ROUTES.includes(pathname);
 
   let supabaseResponse = NextResponse.next({ request });
 
@@ -44,6 +50,13 @@ export async function proxy(request: NextRequest) {
     url.searchParams.set("redirectTo", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
+
+  if (user && isAuthRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
   return supabaseResponse;
 }
 

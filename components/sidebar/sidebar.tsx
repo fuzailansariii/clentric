@@ -50,7 +50,9 @@ export default function Sidebar({ footer }: SidebarProps) {
       >
         <div className="flex h-14 w-full items-center justify-between border-b">
           {!isCollapsed && (
-            <span className="font-space text-lg font-semibold">Clentric</span>
+            <span className="font-space pl-5 text-lg font-semibold">
+              Clentric
+            </span>
           )}
           <CustomButton
             variant="ghost"
@@ -60,7 +62,7 @@ export default function Sidebar({ footer }: SidebarProps) {
             {isCollapsed ? (
               <PanelLeftOpen className="size-5" />
             ) : (
-              <PanelLeftClose className="size-5" />
+              <PanelLeftClose className="mr-2 size-5" />
             )}
           </CustomButton>
         </div>
