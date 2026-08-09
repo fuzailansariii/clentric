@@ -44,25 +44,31 @@ export default function Sidebar({ footer }: SidebarProps) {
       {/* ================= Desktop Sidebar ================= */}
       <aside
         className={cn(
-          "bg-sidebar hidden h-screen border-r transition-all duration-200 md:flex md:flex-col",
+          "bg-sidebar hidden h-screen transition-all duration-200 md:flex md:flex-col",
           isCollapsed ? "w-16" : "w-64",
         )}
       >
-        <div className="flex h-14 w-full items-center justify-between border-b">
+        <div
+          className={cn(
+            "flex h-14 w-full items-center border-b",
+            isCollapsed ? "justify-center px-2" : "justify-between px-2",
+          )}
+        >
           {!isCollapsed && (
-            <span className="font-space pl-5 text-lg font-semibold">
+            <span className="font-space pl-3 text-lg font-semibold">
               Clentric
             </span>
           )}
+
           <CustomButton
             variant="ghost"
-            className={cn(isCollapsed && "w-full")}
+            className="hover:bg-sidebar-accent/80 hover:text-foreground flex items-center"
             onClick={toggleCollapsed}
           >
             {isCollapsed ? (
               <PanelLeftOpen className="size-5" />
             ) : (
-              <PanelLeftClose className="mr-2 size-5" />
+              <PanelLeftClose className="size-5" />
             )}
           </CustomButton>
         </div>

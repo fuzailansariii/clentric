@@ -27,21 +27,13 @@ export function SidebarNavLink({
       onClick={onClick}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "relative flex items-center gap-3 rounded-lg px-3 py-2.5 font-sans text-sm font-medium",
-        isCollapsed && "justify-center px-0",
+        "text-sidebar-foreground relative flex items-center gap-3 rounded-lg px-3 py-2.5 font-sans text-sm",
+        isCollapsed && "sidebar-foreground justify-center px-0",
         isActive
-          ? "bg-sidebar-accent text-sidebar-primary"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent/50",
+          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+          : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
       )}
     >
-      {isActive && (
-        <span
-          className={cn(
-            "bg-primary absolute left-0 rounded-r-full",
-            isCollapsed ? "top-1.5 h-6 w-0.5" : "top-2 h-6 w-0.5",
-          )}
-        />
-      )}
       <Icon size={18} className="shrink-0" />
       {!isCollapsed && <span className="truncate">{item.label}</span>}
     </Link>

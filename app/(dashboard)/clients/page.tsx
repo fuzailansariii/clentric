@@ -1,9 +1,10 @@
+import React from "react";
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
 import { CustomButton } from "@/components/ui/custom-button";
 import { PlusIcon } from "lucide-react";
 import Link from "next/link";
-import React from "react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function ClientsPage() {
   return (
@@ -24,6 +25,7 @@ export default function ClientsPage() {
           { label: "Clients" },
         ]}
       />
+      <ThemeToggle />
     </DashboardContainer>
   );
 }
