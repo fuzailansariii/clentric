@@ -3,6 +3,7 @@ import { useState } from "react";
 import { ArrowUp, ChevronsUpDown } from "lucide-react";
 import { useSidebar } from "./sidebar-provider";
 import { useRouter } from "next/navigation";
+import { AvatarInitials } from "../ui/avatar-initials";
 
 type SidebarFooterProps = {
   user: { name: string; email: string; avatarUrl?: string };
@@ -11,11 +12,6 @@ type SidebarFooterProps = {
   onBillingClick?: () => void;
   onLogoutClick?: () => void;
 };
-
-function getInitials(name: string) {
-  const parts = name.trim().split(" ").filter(Boolean);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
-}
 
 export default function SidebarFooter({
   user,
@@ -38,26 +34,13 @@ export default function SidebarFooter({
 
   return (
     <div className="relative w-full border-t px-3 py-3">
-      {isCollapsed && (
-        <span
-          className={`mx-auto mb-2 block h-1.5 w-1.5 rounded-full ${
-            plan === "free" ? "bg-sidebar-foreground/40" : "bg-amber-500"
-          }`}
-          aria-hidden="true"
-        />
-      )}
-
       <div className="relative">
         <div
           className={`flex w-full items-center gap-2 rounded-md p-1 ${
             isCollapsed ? "justify-center" : ""
           }`}
         >
-          <div className="bg-secondary border-border flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border">
-            <span className="text-secondary-foreground font-mono text-sm font-extrabold">
-              {getInitials(user.name)}
-            </span>
-          </div>
+          <AvatarInitials name={user.name} />
 
           {!isCollapsed && (
             <>

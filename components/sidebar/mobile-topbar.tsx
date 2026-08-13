@@ -5,7 +5,7 @@ import { useSidebar } from "./sidebar-provider";
 export function MobileTopBar() {
   const { openMobile } = useSidebar();
   return (
-    <div className="flex h-14 items-center justify-between border-b bg-white px-4 md:hidden">
+    <div className="flex h-14 items-center justify-between border-b px-4 md:hidden">
       <button onClick={openMobile} aria-label="Open menu">
         <Menu size={20} />
       </button>

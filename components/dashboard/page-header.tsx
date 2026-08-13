@@ -27,7 +27,7 @@ export default function PageHeader({
   breadcrumbs,
 }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-3 border-b pb-6">
+    <div className="flex flex-col gap-2 border-b pb-3">
       {breadcrumbs && breadcrumbs.length > 0 && (
         <Breadcrumb>
           <BreadcrumbList className="text-xs">

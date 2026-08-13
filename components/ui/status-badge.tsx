@@ -1,26 +1,30 @@
 import { cn } from "@/lib/utils";
 
-type Status = "success" | "warning" | "danger" | "neutral";
+type Status = "info" | "success" | "warning" | "danger" | "neutral";
 
 const statusStyles: Record<Status, string> = {
-  success: "bg-success-100 text-success-600",
-  warning: "bg-warning-100 text-warning-600",
-  danger: "bg-danger-100 text-danger-600",
-  neutral: "bg-paper-100 text-ink-600",
+  info: "bg-primary/12 text-primary", // e.g. "Active"
+  success: "bg-success-600/12 text-success-600", // e.g. "New user"
+  warning: "bg-warning-600/12 text-warning-600", // e.g. "Frequent user"
+  danger: "bg-danger-600/12 text-danger-600", // e.g. "Overdue"
+  neutral: "bg-foreground/8 text-muted-foreground", // e.g. "Inactive"
 };
 
-export function Badge({
+export function StatusBadge({
   status,
   children,
+  className,
 }: {
   status: Status;
   children: React.ReactNode;
+  className?: string;
 }) {
   return (
     <span
       className={cn(
         "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
         statusStyles[status],
+        className,
       )}
     >
       {children}

@@ -45,7 +45,7 @@ export default async function DashboardLayout({
           }
         />
 
-        <VerticalScale />
+        <VerticalScale className="hidden md:block" />
         <div className="flex flex-1 flex-col overflow-hidden">
           <MobileTopBar />
           <main className="flex-1 overflow-y-auto">{children}</main>

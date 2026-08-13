@@ -1,0 +1,19 @@
+"use client";
+import { DataTable } from "@/components/data-table/data-table";
+import { clientColumns, type ClientRow } from "./client-columns";
+import { useRouter } from "next/navigation";
+import { renderClientMobileCard } from "@/components/data-table/data-table-mobile";
+
+export function ClientsTable({ data }: { data: ClientRow[] }) {
+  const router = useRouter();
+  return (
+    <DataTable
+      data={data}
+      columns={clientColumns}
+      renderMobileCard={renderClientMobileCard}
+      getRowId={(row) => row.id}
+      getRowAriaLabel={(row) => `View ${row.name}`}
+      onRowClick={(row) => router.push(`/clients/${row.id}`)}
+    />
+  );
+}

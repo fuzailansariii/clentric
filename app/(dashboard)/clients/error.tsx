@@ -1,8 +1,7 @@
 "use client";
 
-import { ErrorState } from "@/components/error-state";
-import { logClientError } from "@/lib/log-client-error";
 import { useEffect } from "react";
+import { CustomButton } from "@/components/ui/custom-button";
 
 export default function ClientsError({
   error,
@@ -12,14 +11,18 @@ export default function ClientsError({
   reset: () => void;
 }) {
   useEffect(() => {
-    logClientError("clients", error.message, error.digest);
+    console.error(error);
   }, [error]);
 
   return (
-    <ErrorState
-      title="Couldn't load your clients"
-      message="Something went wrong. Please try again."
-      onRetry={reset}
-    />
+    <div className="border-border flex min-h-40 flex-col items-center justify-center gap-3 rounded-xl border px-6 py-12 text-center">
+      <p className="text-sm font-medium">Couldn't load your clients.</p>
+      <p className="text-muted-foreground text-xs">
+        Something went wrong. Try again, or refresh the page.
+      </p>
+      <CustomButton variant="secondary" onClick={() => reset()}>
+        Try again
+      </CustomButton>
+    </div>
   );
 }
