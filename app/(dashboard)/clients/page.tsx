@@ -3,9 +3,21 @@ import PageHeader from "@/components/dashboard/page-header";
 import { CustomButton } from "@/components/ui/custom-button";
 import { PlusIcon } from "lucide-react";
 import Link from "next/link";
-import React from "react";
+import { getClients } from "./queries";
+import { ClientsTable } from "./clients-table";
+import { clientStatusConfig } from "./client-status";
+import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 
-export default function ClientsPage() {
+type ClientsPageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
+
+export default async function ClientsPage({ searchParams }: ClientsPageProps) {
+  const params = await searchParams;
+  const { clients, total, page, pageSize, totalPages } =
+    await getClients(params);
+
   return (
     <DashboardContainer>
       <PageHeader
@@ -24,6 +36,33 @@ export default function ClientsPage() {
           { label: "Clients" },
         ]}
       />
+
+      <div className="mt-6 flex flex-col gap-4">
+        <DataTableToolbar
+          searchPlaceholder="Search clients..."
+          filters={[
+            {
+              key: "status",
+              label: "All statuses",
+              options: Object.entries(clientStatusConfig).map(
+                ([value, config]) => ({
+                  value,
+                  label: config.label,
+                }),
+              ),
+            },
+          ]}
+        />
+
+        <ClientsTable data={clients} />
+
+        <DataTablePagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          totalPages={totalPages}
+        />
+      </div>
     </DashboardContainer>
   );
 }

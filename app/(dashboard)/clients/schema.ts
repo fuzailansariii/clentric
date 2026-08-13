@@ -1,11 +1,7 @@
 import { z } from "zod";
+import { clientStatusEnum as clientStatusPgEnum } from "@/src/db/schema/clients";
 
-export const clientStatusEnum = z.enum([
-  "lead",
-  "active",
-  "inactive",
-  "archived",
-]);
+export const clientStatusEnum = z.enum(clientStatusPgEnum.enumValues);
 
 export const clientSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100),
@@ -19,5 +15,13 @@ export const clientSchema = z.object({
 
 export const clientIdSchema = z.uuid();
 
+export const clientSearchParamsSchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  status: clientStatusEnum.optional().catch(undefined),
+  page: z.coerce.number().int().min(1).catch(1),
+  pageSize: z.coerce.number().int().max(100).catch(20),
+});
+
 export type ClientFormInput = z.input<typeof clientSchema>;
 export type ClientInput = z.infer<typeof clientSchema>;
+export type ClientSearchParams = z.input<typeof clientSearchParamsSchema>;

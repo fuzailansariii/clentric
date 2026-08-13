@@ -4,7 +4,7 @@ import { AppError, logError } from "@/lib/errors";
 import { clients, clientStatusEnum } from "@/src/db/schema/clients";
 import { and, count, desc, eq, ilike, isNull } from "drizzle-orm";
 import { db } from "@/src/db";
-import { clientIdSchema } from "./schema";
+import { clientIdSchema, clientSearchParamsSchema } from "./schema";
 
 type GetClientsParams = {
   search?: string;
@@ -14,18 +14,14 @@ type GetClientsParams = {
 };
 
 // Get all clients
-export async function getClients({
-  search,
-  status,
-  page = 1,
-  pageSize = 20,
-}: GetClientsParams) {
+export async function getClients(rawParams: unknown) {
   const user = await requireUser();
 
-  const safePage = Math.max(1, page);
-  const safePageSize = Math.min(100, Math.max(1, pageSize));
+  const { page, pageSize, search, status } = clientSearchParamsSchema.parse(
+    rawParams ?? {},
+  );
 
-  const offset = (safePage - 1) * safePageSize;
+  const offset = (page - 1) * pageSize;
 
   const conditions = [eq(clients.userId, user.id), isNull(clients.deletedAt)];
   if (status) conditions.push(eq(clients.status, status));
@@ -38,7 +34,7 @@ export async function getClients({
         .from(clients)
         .where(and(...conditions))
         .orderBy(desc(clients.createdAt))
-        .limit(safePageSize)
+        .limit(pageSize)
         .offset(offset),
       db
         .select({ value: count() })
@@ -49,9 +45,9 @@ export async function getClients({
     return {
       clients: rows,
       total,
-      page: safePage,
-      pageSize: safePageSize,
-      totalPages: Math.ceil(total / safePageSize),
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
     };
   } catch (error) {
     logError("getClients", error);

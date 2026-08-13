@@ -24,6 +24,8 @@ import { createClientAction } from "../actions";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
+import { FaLongArrowAltRight } from "react-icons/fa";
+import { ArrowRight } from "lucide-react";
 
 export default function NewClientPage() {
   const [formError, setFormError] = useState<string | null>(null);
@@ -63,8 +65,8 @@ export default function NewClientPage() {
   return (
     <DashboardContainer>
       <PageHeader
-        title="Create Client"
-        description="Add a client to your workspace."
+        title="Add a new client"
+        description="This becomes a permanent record - client, projects and invoices all roll up to it."
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Clients", href: "/clients" },
@@ -242,6 +244,12 @@ export default function NewClientPage() {
             </CustomButton>
           </div>
         </div>
+        <p className="text-muted-foreground mt-2 flex items-center gap-2 px-2 font-mono text-[8px] font-light sm:px-0 sm:text-xs">
+          <ArrowRight size={12} />
+          <span>
+            client records use soft deletes - nothing is lost, only archived
+          </span>
+        </p>
       </form>
     </DashboardContainer>
   );

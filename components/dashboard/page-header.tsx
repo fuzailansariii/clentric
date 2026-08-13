@@ -27,7 +27,7 @@ export default function PageHeader({
   breadcrumbs,
 }: PageHeaderProps) {
   return (
-    <div className="flex flex-col gap-3 border-b pb-6">
+    <div className="flex flex-col gap-2 border-b pb-3">
       {breadcrumbs && breadcrumbs.length > 0 && (
         <Breadcrumb>
           <BreadcrumbList className="text-xs">
@@ -38,13 +38,15 @@ export default function PageHeader({
                   key={`${item.label}-${index}`}
                   className="flex items-center gap-0.5"
                 >
-                  <BreadcrumbItem>
+                  <BreadcrumbItem className="font-mono text-xs">
                     {item.href && !isLast ? (
-                      <BreadcrumbLink asChild>
+                      <BreadcrumbLink asChild className="text-foreground/70">
                         <Link href={item.href}>{item.label}</Link>
                       </BreadcrumbLink>
                     ) : (
-                      <BreadcrumbPage>{item.label}</BreadcrumbPage>
+                      <BreadcrumbPage className="text-secondary-foreground">
+                        {item.label}
+                      </BreadcrumbPage>
                     )}
                   </BreadcrumbItem>
                   {!isLast && <BreadcrumbSeparator />}

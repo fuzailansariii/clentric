@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
-import { ChevronsUpDown } from "lucide-react";
+import { ArrowUp, ChevronsUpDown } from "lucide-react";
 import { useSidebar } from "./sidebar-provider";
 import { useRouter } from "next/navigation";
+import { AvatarInitials } from "../ui/avatar-initials";
 
 type SidebarFooterProps = {
   user: { name: string; email: string; avatarUrl?: string };
@@ -11,11 +12,6 @@ type SidebarFooterProps = {
   onBillingClick?: () => void;
   onLogoutClick?: () => void;
 };
-
-function getInitials(name: string) {
-  const parts = name.trim().split(" ").filter(Boolean);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
-}
 
 export default function SidebarFooter({
   user,
@@ -34,63 +30,53 @@ export default function SidebarFooter({
   };
 
   const planLabel =
-    plan === "free" ? "Free" : plan === "pro" ? "Pro" : "Agency";
+    plan === "free" ? "Free plan" : plan === "pro" ? "Pro plan" : "Agency plan";
 
   return (
     <div className="relative w-full border-t px-3 py-3">
-      {!isCollapsed && plan === "free" && (
-        <div className="mb-2 flex items-center gap-3 font-sans">
-          <span className="text-sidebar-foreground/70 rounded-md border px-2 py-0.5 text-[10px]">
-            {planLabel}
-          </span>
-          <button
-            onClick={handleUpgradeClick}
-            className="text-primary text-xs font-medium hover:underline"
-          >
-            Upgrade
-          </button>
-        </div>
-      )}
-
-      {isCollapsed && (
-        <span
-          className={`mx-auto mb-2 block h-1.5 w-1.5 rounded-full ${
-            plan === "free" ? "bg-sidebar-foreground/40" : "bg-primary"
-          }`}
-          aria-hidden="true"
-        />
-      )}
-
       <div className="relative">
-        <button
-          onClick={() => setMenuOpen((prev) => !prev)}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-          className={`hover:bg-sidebar-accent/50 flex w-full items-center gap-2 rounded-md p-1 ${
+        <div
+          className={`flex w-full items-center gap-2 rounded-md p-1 ${
             isCollapsed ? "justify-center" : ""
           }`}
         >
-          <div className="bg-accent flex h-9 w-9 shrink-0 items-center justify-center rounded-full">
-            <span className="text-primary font-sans text-xs font-medium">
-              {getInitials(user.name)}
-            </span>
-          </div>
+          <AvatarInitials name={user.name} />
 
           {!isCollapsed && (
             <>
-              <div className="flex min-w-0 flex-1 flex-col justify-center text-left">
+              <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 text-left">
                 <span className="truncate font-sans text-sm">{user.name}</span>
-                <span className="text-muted-foreground truncate font-sans text-[11px]">
-                  {user.email}
-                </span>
+
+                {plan === "free" && (
+                  <div className="flex items-center gap-2 font-sans">
+                    <span className="text-muted-foreground px-2 py-0.5 text-[10px]">
+                      {planLabel}
+                    </span>
+                    <button
+                      onClick={handleUpgradeClick}
+                      className="flex cursor-pointer items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-600 hover:bg-amber-500/15 dark:text-amber-500"
+                    >
+                      <ArrowUp size={12} />
+                      <span>Pro</span>
+                    </button>
+                  </div>
+                )}
               </div>
-              <ChevronsUpDown
-                size={14}
-                className="text-muted-foreground shrink-0"
-              />
+              <button
+                type="button"
+                onClick={() => setMenuOpen((prev) => !prev)}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className="hover:bg-sidebar-accent/80 cursor-pointer rounded-xl p-3"
+              >
+                <ChevronsUpDown
+                  size={14}
+                  className="text-muted-foreground shrink-0"
+                />
+              </button>
             </>
           )}
-        </button>
+        </div>
 
         {menuOpen && !isCollapsed && (
           <div
