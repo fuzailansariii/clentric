@@ -2,7 +2,7 @@ import { formatPhone } from "@/lib/format-phone";
 import { StatusBadge } from "../ui/status-badge";
 import { AvatarInitials } from "../ui/avatar-initials";
 import { ClientRow } from "@/app/(dashboard)/clients/client-columns";
-import { clientStatusConfig } from "@/app/(dashboard)/clients/client-status";
+import { clientStatusConfig } from "@/app/(dashboard)/clients/client-status-config";
 
 export function renderClientMobileCard(row: ClientRow) {
   const config = clientStatusConfig[row.status];

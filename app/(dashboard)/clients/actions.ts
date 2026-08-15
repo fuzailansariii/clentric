@@ -59,13 +59,22 @@ export async function updateClientAction(
       throw new AppError("VALIDATION_ERROR", "Invalid client ID.");
     }
 
+    // if there is no change in update
+    const normalized = normalize(parsedInput.data);
+    const hasChange = Object.values(normalized).some(
+      (value) => value !== undefined,
+    );
+    if (!hasChange) {
+      return { success: false, error: "No changes to save" };
+    }
+
     // get user
     const user = await requireUser();
 
     // DB call
     const updatedClient = await db
       .update(clients)
-      .set({ ...normalize(parsedInput.data), updatedAt: new Date() })
+      .set({ ...normalized, updatedAt: new Date() })
       .where(
         and(
           eq(clients.id, parsedClientId.data),
@@ -123,6 +132,7 @@ export async function deleteClientAction(
     }
 
     revalidatePath("/clients");
+    revalidatePath(`/clients/${clientId}`);
     return { success: true };
   } catch (error) {
     logError("deleteClientAction", error);
