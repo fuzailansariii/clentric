@@ -14,10 +14,17 @@ import { usePagination } from "@/hooks/use-pagination";
 import { ProjectFiltersBar } from "../../projects/project-filters-bar";
 import { filterProjects } from "./project-filters";
 import { projectColumn } from "../../projects/projects-columns";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 
-export function ProjectsPanel({ projects }: { projects: ProjectRow[] }) {
+export function ProjectsPanel({
+  projects,
+  className,
+}: {
+  projects: ProjectRow[];
+  className?: string;
+}) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<ProjectStatus | "all">("all");
 
@@ -35,7 +42,7 @@ export function ProjectsPanel({ projects }: { projects: ProjectRow[] }) {
   );
 
   return (
-    <div className="border-border rounded-xl border">
+    <div className={cn("border-border rounded-xl border", className)}>
       <StatsCards
         items={[
           {
@@ -53,7 +60,7 @@ export function ProjectsPanel({ projects }: { projects: ProjectRow[] }) {
         ]}
       />
 
-      <div className="border-border flex items-center justify-between border-b px-5 py-3.5">
+      <div className="border-border flex items-center justify-between border-b px-5 py-1">
         <ProjectFiltersBar
           search={search}
           onSearchChange={(value) => {
@@ -79,6 +86,7 @@ export function ProjectsPanel({ projects }: { projects: ProjectRow[] }) {
         emptyMessage={
           isFiltering ? "No projects match your filters." : "No projects yet."
         }
+        className="border-none"
       />
 
       {filtered.length > 0 && (

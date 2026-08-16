@@ -27,18 +27,18 @@ export function ProjectFiltersBar({
   );
 
   return (
-    <div className="flex items-center gap-2 px-5 py-3.5">
+    <div className="flex items-center gap-2 py-3.5">
       <SearchInput
         value={search}
         onChange={onSearchChange}
         placeholder="Search projects..."
-        className="max-w-xs flex-1"
+        className="bg-paper-50 max-w-xs flex-1"
       />
       <FilterSelect
         value={status}
         onChange={onStatusChange}
         options={statusOptions}
-        allLabel="All statuses"
+        allLabel="All"
         ariaLabel="Filter by status"
       />
     </div>

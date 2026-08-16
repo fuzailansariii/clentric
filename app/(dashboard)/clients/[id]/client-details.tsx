@@ -11,6 +11,10 @@ import { useState } from "react";
 import { TabButton } from "@/components/ui/tab-button";
 import { ProjectsPanel } from "./projects-panel";
 import { InvoicesPanel } from "./invoices-panel";
+import { DeleteDialog } from "@/components/delete-dialog";
+import { deleteClientAction } from "../actions";
+import { useRouter } from "next/navigation";
+import { runActionWithToast } from "@/lib/run-action-with-toast";
 
 export function ClientDetail({
   client,
@@ -22,6 +26,9 @@ export function ClientDetail({
   const [activeSection, setActiveSection] = useState<"projects" | "invoices">(
     "projects",
   );
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+
+  const router = useRouter();
 
   const config = clientStatusConfig[client.status];
 
@@ -68,6 +75,7 @@ export function ClientDetail({
             <CustomButton
               variant="destructive"
               className="flex items-center gap-1.5"
+              onClick={() => setIsDeleteOpen(true)}
             >
               <TrashIcon className="h-3.5 w-3.5" />
               Delete
@@ -121,12 +129,11 @@ export function ClientDetail({
           </span>
         </div>
       </div>
-
       <div className="border-border rounded-xl border">
         <div
           role="tablist"
           aria-label="Client sections"
-          className="border-border flex items-center gap-1 border-b px-6"
+          className="border-border flex items-center gap-1 px-6"
         >
           <TabButton
             id="project-tab"
@@ -143,20 +150,37 @@ export function ClientDetail({
             onClick={() => setActiveSection("invoices")}
           />
         </div>
+        <div
+          id="client-section-panel"
+          role="tabpanel"
+          aria-labelledby={
+            activeSection === "projects" ? "project-tab" : "invoices-tab"
+          }
+          className="border-t"
+        >
+          {activeSection === "projects" ? (
+            <ProjectsPanel projects={projects} className={"border-none"} />
+          ) : (
+            <InvoicesPanel className="border-none" />
+          )}
+        </div>
       </div>
-      <div
-        id="client-section-panel"
-        role="tabpanel"
-        aria-labelledby={
-          activeSection === "projects" ? "project-tab" : "invoices-tab"
-        }
-      >
-        {activeSection === "projects" ? (
-          <ProjectsPanel projects={projects} />
-        ) : (
-          <InvoicesPanel />
-        )}
-      </div>
+      <DeleteDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        onDelete={async () => {
+          await runActionWithToast(deleteClientAction(client.id), {
+            loading: "Deleting Client",
+            success: "Client deleted",
+            onSuccess: () => router.push("/clients"),
+            onError: (error) => {
+              throw error;
+            },
+          });
+        }}
+        title="Delete Client"
+        description={`Are you sure you want to delete "${client.name}"? This can't be undone.`}
+      />
     </div>
   );
 }

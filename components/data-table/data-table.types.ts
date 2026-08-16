@@ -16,4 +16,5 @@ export type DataTableProps<T> = {
   getRowAriaLabel?: (row: T) => string;
   renderMobileCard?: (row: T) => ReactNode;
   emptyMessage?: ReactNode;
+  className?: string;
 };
