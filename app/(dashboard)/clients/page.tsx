@@ -5,7 +5,7 @@ import { PlusIcon } from "lucide-react";
 import Link from "next/link";
 import { getClients } from "./queries";
 import { ClientsTable } from "./clients-table";
-import { clientStatusConfig } from "./client-status";
+import { clientStatusConfig } from "./client-status-config";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 

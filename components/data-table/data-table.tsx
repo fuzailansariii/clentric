@@ -48,12 +48,18 @@ export function DataTable<T>({
   renderMobileCard,
   getRowAriaLabel,
   emptyMessage = "No records yet.",
+  className,
 }: DataTableProps<T>) {
   const hasMobileCards = Boolean(renderMobileCard);
 
   if (data.length === 0) {
     return (
-      <div className="border-border overflow-hidden rounded-xl border">
+      <div
+        className={cn(
+          "border-border overflow-hidden rounded-xl border",
+          className,
+        )}
+      >
         <div className="flex min-h-40 items-center justify-center px-6 py-12">
           <p className="text-muted-foreground text-sm">{emptyMessage}</p>
         </div>
@@ -69,7 +75,12 @@ export function DataTable<T>({
       <div
         className={cn("w-full", hasMobileCards ? "hidden sm:block" : "block")}
       >
-        <div className="border-border w-full overflow-hidden rounded-xl border">
+        <div
+          className={cn(
+            "border-border w-full overflow-hidden rounded-xl border",
+            className,
+          )}
+        >
           <table className="w-full border-collapse text-[13.5px]">
             <thead>
               <tr>
