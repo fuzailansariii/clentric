@@ -1,5 +1,5 @@
+import type { ProjectRow } from "@/src/db/schema/projects";
 import { ProjectStatus } from "../../projects/project-status-config";
-import type { ProjectRow } from "../client-columns";
 
 export function filterProjects(
   projects: ProjectRow[],

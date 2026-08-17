@@ -1,5 +1,4 @@
-import { ProjectRow } from "../clients/client-columns";
-
+import type { ProjectRow } from "@/src/db/schema/projects";
 export type ProjectStats = {
   total: number;
   active: number;

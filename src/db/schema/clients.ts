@@ -39,3 +39,5 @@ export const clients = pgTable(
   },
   (table) => [index("idx_clients_user_id").on(table.userId)],
 );
+
+export type ClientRow = typeof clients.$inferSelect;
