@@ -10,7 +10,7 @@ export const clientSchema = z.object({
   company: z.string().trim().max(100).optional(),
   country: z.string().length(2, "Select a country").optional(),
   notes: z.string().trim().max(2000).optional(),
-  status: clientStatusEnum.default("active"),
+  status: clientStatusEnum,
 });
 
 export const clientIdSchema = z.uuid();
@@ -22,6 +22,5 @@ export const clientSearchParamsSchema = z.object({
   pageSize: z.coerce.number().int().max(100).catch(20),
 });
 
-export type ClientFormInput = z.input<typeof clientSchema>;
 export type ClientInput = z.infer<typeof clientSchema>;
 export type ClientSearchParams = z.input<typeof clientSearchParamsSchema>;

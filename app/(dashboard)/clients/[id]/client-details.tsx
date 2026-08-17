@@ -5,16 +5,31 @@ import { CustomButton } from "@/components/ui/custom-button";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDate, formatRelativeDate } from "@/lib/format-date";
 import { clientStatusConfig } from "../client-status-config";
-import type { ClientRow, ProjectRow } from "../client-columns";
-import { PencilIcon, TrashIcon } from "lucide-react";
-import { useState } from "react";
+import { Check, PencilIcon, RefreshCw, TrashIcon, X } from "lucide-react";
+import { useRef, useState } from "react";
 import { TabButton } from "@/components/ui/tab-button";
 import { ProjectsPanel } from "./projects-panel";
 import { InvoicesPanel } from "./invoices-panel";
 import { DeleteDialog } from "@/components/delete-dialog";
-import { deleteClientAction } from "../actions";
+import { deleteClientAction, updateClientAction } from "../actions";
 import { useRouter } from "next/navigation";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
+import { Controller, useForm } from "react-hook-form";
+import { ClientInput, clientSchema } from "../schema";
+import { zodResolver } from "@hookform/resolvers/zod";
+import type { ClientRow } from "@/src/db/schema/clients";
+import type { ProjectRow } from "@/src/db/schema/projects";
+import { toClientFormsDefault } from "@/lib/client-form-defaults";
+import { DataField } from "@/components/field";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PhoneField, PhoneFieldHandle } from "@/components/ui/phone-field";
+import { CountryCombobox } from "@/components/ui/country-combobox";
 
 export function ClientDetail({
   client,
@@ -27,14 +42,53 @@ export function ClientDetail({
     "projects",
   );
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const router = useRouter();
-
   const config = clientStatusConfig[client.status];
+
+  const {
+    handleSubmit,
+    register,
+    control,
+    setValue,
+    formState: { isSubmitting, errors },
+    reset,
+    watch,
+  } = useForm<ClientInput>({
+    resolver: zodResolver(clientSchema),
+    defaultValues: toClientFormsDefault(client),
+  });
+
+  const phoneFieldRef = useRef<PhoneFieldHandle>(null);
+  const countryValue = watch("country");
+
+  const handleEditClick = () => {
+    reset(toClientFormsDefault(client));
+    setIsEditing(true);
+  };
+
+  const handleCancelClick = () => {
+    reset(toClientFormsDefault(client));
+    setIsEditing(false);
+  };
+
+  const onSubmit = handleSubmit(async (data: ClientInput) => {
+    setFormError(null);
+    await runActionWithToast(updateClientAction(client.id, data), {
+      loading: "Updating client...",
+      success: "Client updated.",
+      onSuccess: () => {
+        setIsEditing(false);
+      },
+      onError: setFormError,
+    });
+  });
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="border-border rounded-xl border">
+      <form onSubmit={onSubmit} className="border-border rounded-xl border">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5">
           <div className="flex items-center gap-3">
@@ -45,16 +99,56 @@ export function ClientDetail({
               size="lg"
             />
             <div>
-              <h2 className="font-mono font-medium tracking-tight">
-                {client.name}
-              </h2>
+              {isEditing ? (
+                <div className="flex flex-col gap-1">
+                  <input
+                    {...register("name")}
+                    className="border-input bg-input/20 focus-visible:border-ring focus-visible:ring-ring/20 rounded-lg border px-2 py-1 font-mono text-base font-medium tracking-tight focus-visible:ring-2 focus-visible:outline-none"
+                  />
+                  {errors.name && (
+                    <span className="text-danger-600 text-xs">
+                      {errors.name.message}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <h2 className="font-mono font-medium tracking-tight">
+                  {client.name}
+                </h2>
+              )}
               <div className="mt-0.5 flex items-center gap-2">
-                <StatusBadge
-                  status={config.variant}
-                  className={config.dim ? "opacity-60" : undefined}
-                >
-                  {config.label}
-                </StatusBadge>
+                {isEditing ? (
+                  <Controller
+                    control={control}
+                    name="status"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger className="h-7 w-auto text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(clientStatusConfig).map(
+                            ([value, cfg]) => (
+                              <SelectItem key={value} value={value}>
+                                {cfg.label}
+                              </SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                ) : (
+                  <StatusBadge
+                    status={config.variant}
+                    className={config.dim ? "opacity-60" : undefined}
+                  >
+                    {config.label}
+                  </StatusBadge>
+                )}
                 {client.company && (
                   <span className="text-muted-foreground text-sm">
                     {client.company}
@@ -64,22 +158,51 @@ export function ClientDetail({
             </div>
           </div>
 
+          {/* action buttons */}
           <div className="flex items-center gap-2">
-            <CustomButton
-              variant="secondary"
-              className="flex items-center gap-1.5"
-            >
-              <PencilIcon className="h-3.5 w-3.5" />
-              Edit
-            </CustomButton>
-            <CustomButton
-              variant="destructive"
-              className="flex items-center gap-1.5"
-              onClick={() => setIsDeleteOpen(true)}
-            >
-              <TrashIcon className="h-3.5 w-3.5" />
-              Delete
-            </CustomButton>
+            {isEditing ? (
+              <>
+                <CustomButton
+                  type="button"
+                  variant="secondary"
+                  className="flex items-center gap-1.5"
+                  onClick={handleCancelClick}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Cancel
+                </CustomButton>
+                <CustomButton
+                  type="submit"
+                  variant="primary"
+                  className="flex items-center gap-1.5"
+                  disabled={isSubmitting}
+                >
+                  <Check className="h-3.5 w-3.5" />
+                  {isSubmitting ? "Saving..." : "Save"}
+                </CustomButton>
+              </>
+            ) : (
+              <>
+                <CustomButton
+                  type="button"
+                  variant="secondary"
+                  className="flex items-center gap-1.5"
+                  onClick={handleEditClick}
+                >
+                  <PencilIcon className="h-3.5 w-3.5" />
+                  Edit
+                </CustomButton>
+                <CustomButton
+                  type="button"
+                  variant="destructive"
+                  className="flex items-center gap-1.5"
+                  onClick={() => setIsDeleteOpen(true)}
+                >
+                  <TrashIcon className="h-3.5 w-3.5" />
+                  Delete
+                </CustomButton>
+              </>
+            )}
           </div>
         </div>
 
@@ -87,32 +210,101 @@ export function ClientDetail({
 
         {/* Fields */}
         <dl className="grid grid-cols-2 gap-6 px-6 py-5 sm:grid-cols-4">
-          <Field
+          <DataField
             label="Email"
+            editing={isEditing}
             value={client.email}
-            href={client.email ? `mailto:${client.email}` : undefined}
+            href={
+              !isEditing && client.email ? `mailto:${client.email}` : undefined
+            }
+            registration={register("email")}
+            error={errors.email?.message}
+            type="email"
           />
-          <Field
-            label="Phone"
-            value={client.phone ? formatPhone(client.phone) : null}
-            href={client.phone ? `tel:${client.phone}` : undefined}
+
+          <div>
+            {isEditing ? (
+              <Controller
+                control={control}
+                name="phone"
+                render={({ field }) => (
+                  <PhoneField
+                    ref={phoneFieldRef}
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.phone?.message}
+                    defaultCountryValue={client.country ?? undefined}
+                    syncCountryValue={countryValue}
+                    onDialCountryChange={(isoValue) =>
+                      setValue("country", isoValue, { shouldValidate: true })
+                    }
+                  />
+                )}
+              />
+            ) : (
+              <DataField
+                label="Phone"
+                value={client.phone ? formatPhone(client.phone) : null}
+                href={client.phone ? `tel:${client.phone}` : undefined}
+              />
+            )}
+          </div>
+
+          <DataField
+            label="Company"
+            editing={isEditing}
+            value={client.company}
+            registration={register("company")}
+            error={errors.company?.message}
+            type="text"
           />
-          <Field label="Company" value={client.company} />
-          <Field label="Country" value={client.country} />
+
+          <div>
+            {isEditing ? (
+              <>
+                <Controller
+                  control={control}
+                  name="country"
+                  render={({ field }) => (
+                    <CountryCombobox
+                      value={field.value}
+                      onChange={(value) => {
+                        phoneFieldRef.current?.resetOverride();
+                        field.onChange(value);
+                      }}
+                    />
+                  )}
+                />
+                {errors.country && (
+                  <p className="text-destructive text-sm">
+                    {errors.country.message}
+                  </p>
+                )}
+              </>
+            ) : (
+              <DataField label="Country" value={client.country} />
+            )}
+          </div>
         </dl>
+
+        {formError && (
+          <div className="border-t px-6 py-3 sm:px-8">
+            <p className="text-destructive text-sm">{formError}</p>
+          </div>
+        )}
 
         {(client.notes || true) && (
           <>
             <div className="border-border border-t" />
             <div className="px-6 py-5">
-              <dt className="text-muted-foreground font-mono text-[10.5px] font-medium tracking-[0.06em] uppercase">
-                Notes
-              </dt>
-              <dd className="mt-2 text-sm whitespace-pre-wrap">
-                {client.notes || (
-                  <span className="text-muted-foreground">No notes yet.</span>
-                )}
-              </dd>
+              <DataField
+                label="Notes"
+                editing={isEditing}
+                value={client.notes}
+                registration={register("notes")}
+                error={errors.notes?.message}
+                type="textarea"
+              />
             </div>
           </>
         )}
@@ -128,7 +320,7 @@ export function ClientDetail({
             {formatDate(client.updatedAt)})
           </span>
         </div>
-      </div>
+      </form>
       <div className="border-border rounded-xl border">
         <div
           role="tablist"
@@ -181,35 +373,6 @@ export function ClientDetail({
         title="Delete Client"
         description={`Are you sure you want to delete "${client.name}"? This can't be undone.`}
       />
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  href,
-}: {
-  label: string;
-  value: string | null | undefined;
-  href?: string;
-}) {
-  return (
-    <div>
-      <dt className="text-muted-foreground font-mono text-[10.5px] font-medium tracking-[0.06em] uppercase">
-        {label}
-      </dt>
-      <dd className="mt-1 text-sm">
-        {!value ? (
-          <span className="text-muted-foreground">—</span>
-        ) : href ? (
-          <a href={href} className="text-primary hover:underline">
-            {value}
-          </a>
-        ) : (
-          value
-        )}
-      </dd>
     </div>
   );
 }

@@ -1,10 +1,10 @@
 import type { Column } from "@/components/data-table/data-table.types";
-import type { ProjectRow } from "../clients/client-columns";
 import { formatDate } from "@/lib/format-date";
 import { projectStatusConfig } from "./project-status-config";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format-currency";
 import { MoreVerticalIcon } from "lucide-react";
+import type { ProjectRow } from "@/src/db/schema/projects";
 
 export const projectColumn: Column<ProjectRow>[] = [
   {

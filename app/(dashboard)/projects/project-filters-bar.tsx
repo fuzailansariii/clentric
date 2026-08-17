@@ -32,7 +32,7 @@ export function ProjectFiltersBar({
         value={search}
         onChange={onSearchChange}
         placeholder="Search projects..."
-        className="bg-paper-50 max-w-xs flex-1"
+        className="max-w-xs flex-1"
       />
       <FilterSelect
         value={status}

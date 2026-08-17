@@ -89,26 +89,25 @@ export const PhoneField = forwardRef<PhoneFieldHandle, PhoneFieldProps>(
             {label}
           </label>
         )}
-        <div className="flex gap-2">
+        <div
+          className={cn(
+            "border-border bg-input/20 focus-within:border-ring focus-within:ring-ring/20 flex h-10 items-center rounded-lg border focus-within:ring-2",
+            error && "border-danger-600",
+          )}
+        >
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
-              <CustomButton
+              <button
                 type="button"
-                variant="secondary"
                 role="combobox"
                 aria-expanded={open}
-                className="h-10 w-24 shrink-0 justify-between font-normal"
+                className="flex h-full shrink-0 items-center gap-1 px-3 text-sm font-medium focus-visible:outline-none"
               >
-                <span className="flex items-center gap-1">
-                  <span className="text-sm leading-none">
-                    {dialCountry.code}
-                  </span>
-                  <span>{dialCountry.callingCode}</span>
-                </span>
-                <ChevronsDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
-              </CustomButton>
+                <span className="text-sm leading-none">{dialCountry.code}</span>
+                <span>{dialCountry.callingCode}</span>
+                <ChevronsDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" />
+              </button>
             </PopoverTrigger>
-
             <PopoverContent className="w-64 p-0">
               <Command>
                 <CommandInput
@@ -158,6 +157,8 @@ export const PhoneField = forwardRef<PhoneFieldHandle, PhoneFieldProps>(
             </PopoverContent>
           </Popover>
 
+          <div className="bg-border h-5 w-px shrink-0" />
+
           <input
             type="tel"
             inputMode="tel"
@@ -165,7 +166,7 @@ export const PhoneField = forwardRef<PhoneFieldHandle, PhoneFieldProps>(
             onChange={(e) => emitChange(dialCountry, e.target.value)}
             placeholder="9123456789"
             aria-invalid={!!error}
-            className="border-border bg-input/20 text-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 h-10 w-full rounded-lg border px-3 font-sans text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
+            className="text-foreground placeholder:text-muted-foreground h-full w-full border-none bg-transparent px-3 font-sans text-sm font-medium focus-visible:outline-none"
           />
         </div>
         {error && <span className="text-danger-600 text-xs">{error}</span>}

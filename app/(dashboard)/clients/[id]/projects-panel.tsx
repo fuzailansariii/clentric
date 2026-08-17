@@ -1,12 +1,10 @@
 "use client";
 import { useState, useMemo } from "react";
-import type { ProjectRow } from "../client-columns";
 import { DataTable } from "@/components/data-table/data-table";
 import { StatsCards } from "@/components/ui/stats-cards";
 import { Pagination } from "@/components/ui/pagination";
 import { CustomButton } from "@/components/ui/custom-button";
 import { PlusIcon } from "lucide-react";
-
 import { formatCurrency } from "@/lib/format-currency";
 import { ProjectStatus } from "../../projects/project-status-config";
 import { computeProjectStats } from "../../projects/project-stats";
@@ -15,7 +13,7 @@ import { ProjectFiltersBar } from "../../projects/project-filters-bar";
 import { filterProjects } from "./project-filters";
 import { projectColumn } from "../../projects/projects-columns";
 import { cn } from "@/lib/utils";
-
+import type { ProjectRow } from "@/src/db/schema/projects";
 const PAGE_SIZE = 10;
 
 export function ProjectsPanel({

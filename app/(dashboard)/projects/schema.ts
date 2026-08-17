@@ -31,3 +31,4 @@ export const projectClientIdSchema = z.uuid();
 
 export type ProjectFormInput = z.input<typeof projectSchema>;
 export type ProjectInput = z.infer<typeof projectSchema>;
+

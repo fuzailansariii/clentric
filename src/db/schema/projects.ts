@@ -46,3 +46,5 @@ export const projects = pgTable(
     index("idx_project_client_id").on(table.clientId),
   ],
 );
+
+export type ProjectRow = typeof projects.$inferSelect;

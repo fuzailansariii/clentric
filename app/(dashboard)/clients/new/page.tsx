@@ -4,7 +4,7 @@ import React, { useRef, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
-import { ClientFormInput, clientSchema, clientStatusEnum } from "../schema";
+import { ClientInput, clientSchema, clientStatusEnum } from "../schema";
 import { Field } from "@/components/ui/input";
 import { CustomButton } from "@/components/ui/custom-button";
 import { CountryCombobox } from "@/components/ui/country-combobox";
@@ -16,15 +16,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { PhoneField, type PhoneFieldHandle } from "@/components/ui/phone-field";
-
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
 import FormSection from "@/components/dashboard/form-section";
 import { createClientAction } from "../actions";
-import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
-import { FaLongArrowAltRight } from "react-icons/fa";
 import { ArrowRight } from "lucide-react";
 
 export default function NewClientPage() {
@@ -39,7 +36,7 @@ export default function NewClientPage() {
     watch,
     setValue,
     reset,
-  } = useForm<ClientFormInput>({
+  } = useForm<ClientInput>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
       status: "active",
@@ -50,7 +47,7 @@ export default function NewClientPage() {
   const phoneFieldRef = useRef<PhoneFieldHandle>(null);
 
   // form creation submit
-  const onSubmit = handleSubmit(async (data: ClientFormInput) => {
+  const onSubmit = handleSubmit(async (data: ClientInput) => {
     setFormError(null);
     await runActionWithToast(createClientAction(data), {
       loading: "Creating Client...",
