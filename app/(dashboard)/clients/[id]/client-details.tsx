@@ -30,13 +30,14 @@ import {
 } from "@/components/ui/select";
 import { PhoneField, PhoneFieldHandle } from "@/components/ui/phone-field";
 import { CountryCombobox } from "@/components/ui/country-combobox";
+import { ProjectListItem } from "../../projects/queries";
 
 export function ClientDetail({
   client,
   projects,
 }: {
   client: ClientRow;
-  projects: ProjectRow[];
+  projects: ProjectListItem[];
 }) {
   const [activeSection, setActiveSection] = useState<"projects" | "invoices">(
     "projects",

@@ -5,8 +5,9 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format-currency";
 import { MoreVerticalIcon } from "lucide-react";
 import type { ProjectRow } from "@/src/db/schema/projects";
+import { ProjectListItem } from "./queries";
 
-export const projectColumn: Column<ProjectRow>[] = [
+export const projectColumns: Column<ProjectListItem>[] = [
   {
     header: "Projects",
     accessorKey: "title",

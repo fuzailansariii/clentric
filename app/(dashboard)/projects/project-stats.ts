@@ -1,4 +1,5 @@
 import type { ProjectRow } from "@/src/db/schema/projects";
+import { ProjectListItem } from "./queries";
 export type ProjectStats = {
   total: number;
   active: number;
@@ -6,7 +7,7 @@ export type ProjectStats = {
   totalBilledCents: number;
 };
 
-export function computeProjectStats(projects: ProjectRow[]): ProjectStats {
+export function computeProjectStats(projects: ProjectListItem[]): ProjectStats {
   let active = 0;
   let completed = 0;
   let totalBilledCents = 0;

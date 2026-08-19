@@ -1,11 +1,10 @@
-import type { ClientRow, clients } from "@/src/db/schema/clients";
+import type { ClientRow } from "@/src/db/schema/clients";
 import { AvatarInitials } from "@/components/ui/avatar-initials";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { clientStatusConfig } from "./client-status-config";
 import type { Column } from "@/components/data-table/data-table.types";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDate } from "@/lib/format-date";
-import { projects } from "@/src/db/schema/projects";
 
 export const clientColumns: Column<ClientRow>[] = [
   {
