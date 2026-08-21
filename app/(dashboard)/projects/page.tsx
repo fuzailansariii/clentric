@@ -8,6 +8,7 @@ import React from "react";
 import { projectStatusConfig } from "./project-status-config";
 import { getAllProjects } from "./queries";
 import ProjectTable from "./projects-table";
+import { getClientOptions } from "../clients/queries";
 
 type ProjectPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

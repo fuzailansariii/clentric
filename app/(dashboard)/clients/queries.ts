@@ -85,3 +85,28 @@ export async function getClientById(clientId: string) {
     throw new AppError("FETCH_FAILED", "Could not load client");
   }
 }
+
+// Get client options for project creation (client picker)
+export async function getClientOptions() {
+  try {
+    const user = await requireUser();
+
+    const rows = await db
+      .select({
+        id: clients.id,
+        name: clients.name,
+        company: clients.company,
+      })
+      .from(clients)
+      .where(and(eq(clients.userId, user.id), isNull(clients.deletedAt)))
+      .orderBy(clients.name);
+
+    return rows;
+  } catch (error) {
+    logError("getClientOptions", error);
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError("FETCH_FAILED", "Could not load clients");
+  }
+}

@@ -6,6 +6,7 @@ export const projectStatusEnum = z.enum(projectStatusPgEnum.enumValues);
 export const projectSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(150),
   description: z.string().trim().max(2000).optional(),
+  clientId: z.uuid(),
   budget: z
     .string()
     .trim()
@@ -23,7 +24,7 @@ export const projectSchema = z.object({
       "Invalid deadline",
     )
     .optional(),
-  status: projectStatusEnum.default("not_started"),
+  status: projectStatusEnum,
 });
 
 export const projectIdSchema = z.uuid();
@@ -31,4 +32,3 @@ export const projectClientIdSchema = z.uuid();
 
 export type ProjectFormInput = z.input<typeof projectSchema>;
 export type ProjectInput = z.infer<typeof projectSchema>;
-

@@ -1,9 +1,6 @@
+"use server";
 import { AppError, logError } from "@/lib/errors";
-import {
-  projectClientIdSchema,
-  projectIdSchema,
-  projectSchema,
-} from "./schema";
+import { projectIdSchema, projectSchema } from "./schema";
 import { requireUser } from "@/lib/current-user";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
@@ -18,15 +15,9 @@ type ActionResult<T = void> =
 
 // Create Project Action
 export async function createProjectAction(
-  clientId: string,
   input: unknown,
 ): Promise<ActionResult<{ projectId: string }>> {
   try {
-    const parsedClientId = projectClientIdSchema.safeParse(clientId);
-    if (!parsedClientId.success) {
-      throw new AppError("VALIDATION_ERROR", "Invalid Client ID");
-    }
-
     const parsedInput = projectSchema.safeParse(input);
     if (!parsedInput.success) {
       return {
@@ -37,37 +28,43 @@ export async function createProjectAction(
 
     // check if the client already exist
     const user = await requireUser();
-    const [client] = await db
-      .select({ id: clients.id })
-      .from(clients)
-      .where(
-        and(
-          eq(clients.id, parsedClientId.data),
-          eq(clients.userId, user.id),
-          isNull(clients.deletedAt),
-        ),
-      )
-      .limit(1);
+    const { clientId } = parsedInput.data;
 
-    if (!client) {
-      throw new AppError("NOT_FOUND", "Client not found");
-    }
+    const created = await db.transaction(async (tx) => {
+      const [client] = await tx
+        .select({ id: clients.id })
+        .from(clients)
+        .where(
+          and(
+            eq(clients.id, clientId),
+            eq(clients.userId, user.id),
+            isNull(clients.deletedAt),
+          ),
+        )
+        .limit(1)
+        .for("update");
 
-    // create project.
-    const [created] = await db
-      .insert(projects)
-      .values({
-        ...normalize(parsedInput.data),
-        userId: user.id,
-        clientId: parsedClientId.data,
-      })
-      .returning({ id: projects.id });
+      if (!client) {
+        throw new AppError("NOT_FOUND", "Client not found");
+      }
+
+      const [row] = await tx
+        .insert(projects)
+        .values({
+          ...normalize(parsedInput.data),
+          userId: user.id,
+        })
+        .returning({ id: projects.id });
+
+      return row;
+    });
 
     if (!created) {
       throw new AppError("INSERT_FAILED", "Project was not created.");
     }
 
-    revalidatePath(`/clients/${parsedClientId.data}`);
+    revalidatePath(`/clients/${clientId}`);
+    revalidatePath(`/projects`);
 
     return {
       success: true,
@@ -88,7 +85,6 @@ export async function createProjectAction(
 }
 
 // Update Project Action
-
 export async function updateProjectAction(
   projectId: string,
   input: unknown,
@@ -100,7 +96,25 @@ export async function updateProjectAction(
       throw new AppError("VALIDATION_ERROR", "Invalid project ID.");
     }
 
-    const parsedInput = projectSchema.partial().safeParse(input);
+    // Reject non-object input outright instead of silently coercing it.
+    if (typeof input !== "object" || input === null || Array.isArray(input)) {
+      return {
+        success: false,
+        error: "Invalid update payload.",
+      };
+    }
+
+    // clientId is immutable after creation — strip it before validation
+    // so it's silently ignored rather than accepted and applied.
+    const { clientId: _clientId, ...updatableInput } = input as Record<
+      string,
+      unknown
+    >;
+
+    const parsedInput = projectSchema
+      .omit({ clientId: true })
+      .partial()
+      .safeParse(updatableInput);
 
     if (!parsedInput.success) {
       return {
@@ -123,7 +137,6 @@ export async function updateProjectAction(
 
     const user = await requireUser();
 
-    // update project
     const [updated] = await db
       .update(projects)
       .set({ ...normalized, updatedAt: new Date() })
@@ -141,6 +154,8 @@ export async function updateProjectAction(
     }
 
     revalidatePath(`/clients/${updated.clientId}`);
+    revalidatePath(`/projects`);
+    revalidatePath(`/projects/${updated.id}`);
     return { success: true };
   } catch (error) {
     logError("updateProjectAction", error);
@@ -172,7 +187,7 @@ export async function deleteProjectAction(
       .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(
         and(
-          eq(projects.id, projectId),
+          eq(projects.id, parsedProjectId.data),
           eq(projects.userId, user.id),
           isNull(projects.deletedAt),
         ),
@@ -187,7 +202,8 @@ export async function deleteProjectAction(
     }
 
     revalidatePath(`/clients/${deleted.clientId}`);
-
+    revalidatePath(`/projects`);
+    revalidatePath(`/projects/${deleted.id}`);
     return { success: true };
   } catch (error) {
     logError("deleteProjectAction", error);
