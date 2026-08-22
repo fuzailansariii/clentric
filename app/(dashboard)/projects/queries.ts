@@ -1,10 +1,9 @@
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
-import { projectClientIdSchema } from "./schema";
+import { projectClientIdSchema, projectSearchParamsSchema } from "./schema";
 import { db } from "@/src/db";
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, count, desc, eq, ilike, isNull, sql } from "drizzle-orm";
 import { projects } from "@/src/db/schema/projects";
-import type { ProjectRow } from "@/src/db/schema/projects";
 import { clients } from "@/src/db/schema/clients";
 import { milestones } from "@/src/db/schema/milestones";
 
@@ -22,56 +21,80 @@ export type ProjectListItem = {
   progress: number; // 0–100
 };
 
-export async function getAllProjects(): Promise<ProjectListItem[]> {
+export async function getAllProjects(rawParam: unknown) {
   try {
     const user = await requireUser();
+    const { page, pageSize, search, status } = projectSearchParamsSchema.parse(
+      rawParam ?? {},
+    );
 
-    const rows = await db
-      .select({
-        id: projects.id,
-        title: projects.title,
-        status: projects.status,
-        budget: projects.budget,
-        deadline: projects.deadline,
-        createdAt: projects.createdAt,
-        clientId: projects.clientId,
-        clientName: clients.name,
-        totalMilestones:
-          sql<number>`cast(count(${milestones.id}) as int)`.mapWith(Number),
-        completedMilestones:
-          sql<number>`cast(count(case when ${milestones.status} = 'completed' then 1 end) as int)`.mapWith(
-            Number,
-          ),
-      })
-      .from(projects)
-      .leftJoin(clients, eq(projects.clientId, clients.id))
-      .leftJoin(milestones, eq(milestones.projectId, projects.id))
-      .where(and(eq(projects.userId, user.id), isNull(projects.deletedAt)))
-      .groupBy(
-        projects.id,
-        projects.title,
-        projects.status,
-        projects.budget,
-        projects.deadline,
-        projects.createdAt,
-        projects.clientId,
-        clients.name,
-      )
-      .orderBy(desc(projects.createdAt));
+    const offset = (page - 1) * pageSize;
 
-    // milestones calculation
-    return rows.map((row) => {
+    const conditions = [
+      eq(projects.userId, user.id),
+      isNull(projects.deletedAt),
+    ];
+
+    if (status) conditions.push(eq(projects.status, status));
+    if (search) conditions.push(ilike(projects.title, `%${search}%`));
+
+    const [rows, [{ value: total }]] = await Promise.all([
+      db
+        .select({
+          id: projects.id,
+          title: projects.title,
+          status: projects.status,
+          budget: projects.budget,
+          deadline: projects.deadline,
+          createdAt: projects.createdAt,
+          clientId: projects.clientId,
+          clientName: clients.name,
+          totalMilestones:
+            sql<number>`cast(count(${milestones.id}) as int)`.mapWith(Number),
+          completedMilestones:
+            sql<number>`cast(count(case when ${milestones.status} = 'completed' then 1 end) as int)`.mapWith(
+              Number,
+            ),
+        })
+        .from(projects)
+        .leftJoin(clients, eq(projects.clientId, clients.id))
+        .leftJoin(milestones, eq(milestones.projectId, projects.id))
+        .where(and(...conditions))
+        .groupBy(
+          projects.id,
+          projects.title,
+          projects.status,
+          projects.budget,
+          projects.deadline,
+          projects.createdAt,
+          projects.clientId,
+          clients.name,
+        )
+        .orderBy(desc(projects.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+      db
+        .select({ value: count() })
+        .from(projects)
+        .where(and(...conditions)),
+    ]);
+
+    const items = rows.map((row) => {
       const total = row.totalMilestones ?? 0;
       const completed = row.completedMilestones ?? 0;
-      const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
-
       return {
         ...row,
-        totalMilestones: total,
-        completedMilestones: completed,
-        progress,
+        progress: total === 0 ? 0 : Math.round((completed / total) * 100),
       };
     });
+
+    return {
+      projects: items,
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
   } catch (error) {
     logError("getAllProjects", error);
     if (error instanceof AppError) {

@@ -15,7 +15,7 @@ export default function ProjectTable({ data }: { data: ProjectListItem[] }) {
       columns={projectColumns}
       renderMobileCard={renderProjectMobileCard}
       getRowId={(row) => row.id}
-      getRowAriaLabel={(row) => `View${row.title}`}
+      getRowAriaLabel={(row) => `View ${row.title}`}
       onRowClick={(row) => router.push(`/projects/${row.id}`)}
     />
   );

@@ -8,7 +8,7 @@ import React from "react";
 import { projectStatusConfig } from "./project-status-config";
 import { getAllProjects } from "./queries";
 import ProjectTable from "./projects-table";
-import { getClientOptions } from "../clients/queries";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 
 type ProjectPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -17,7 +17,8 @@ type ProjectPageProps = {
 export default async function Projects({ searchParams }: ProjectPageProps) {
   const params = await searchParams;
 
-  const projects = await getAllProjects();
+  const { projects, total, page, pageSize, totalPages } =
+    await getAllProjects(params);
 
   return (
     <DashboardContainer>
@@ -56,6 +57,13 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
         />
 
         <ProjectTable data={projects} />
+
+        <DataTablePagination
+          page={page}
+          pageSize={pageSize}
+          total={total}
+          totalPages={totalPages}
+        />
       </div>
     </DashboardContainer>
   );

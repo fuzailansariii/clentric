@@ -14,6 +14,8 @@ import { ClientCombobox, ClientOption } from "@/components/client-combobox";
 import { CustomButton } from "@/components/ui/custom-button";
 import { cn } from "@/lib/utils";
 import { ProjectStatus, projectStatusConfig } from "../project-status-config";
+import { DeadlinePicker } from "@/components/deadline-picker";
+import { NO_CHANGE_MESSAGE } from "@/lib/error-message";
 
 export default function NewProjectsForm({
   clients,
@@ -26,12 +28,13 @@ export default function NewProjectsForm({
   const {
     handleSubmit,
     register,
-    formState: { errors, isValid, isSubmitting },
+    formState: { errors, isSubmitting },
     control,
   } = useForm<ProjectInput>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
       status: "not_started",
+      clientId: "",
     },
   });
 
@@ -44,7 +47,7 @@ export default function NewProjectsForm({
         router.push(`/projects/${projectId}`);
       },
       onError: (message) => {
-        if (message === "No changes to save") return;
+        if (message === NO_CHANGE_MESSAGE) return;
         setFormError(message);
       },
     });
@@ -114,11 +117,16 @@ export default function NewProjectsForm({
                 prefix="$"
                 error={errors.budget?.message}
               />
-              <Field
-                {...register("deadline")}
-                label="Deadline"
-                placeholder="YYYY-MM-DD"
-                error={errors.deadline?.message}
+              <Controller
+                control={control}
+                name="deadline"
+                render={({ field }) => (
+                  <DeadlinePicker
+                    value={field.value}
+                    onChange={field.onChange}
+                    error={errors.deadline?.message}
+                  />
+                )}
               />
             </div>
           </FormSection>
@@ -138,7 +146,7 @@ export default function NewProjectsForm({
                   <label className="text-muted-foreground text-[13px] font-medium">
                     Status
                   </label>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                     {(Object.keys(projectStatusConfig) as ProjectStatus[]).map(
                       (status) => {
                         const config = projectStatusConfig[status];
@@ -179,6 +187,9 @@ export default function NewProjectsForm({
           </FormSection>
         </div>
 
+        {formError && (
+          <p className="text-danger-600 mt-4 px-6 text-sm">{formError}</p>
+        )}
         <div className="mt-8 flex justify-end gap-3 px-6 pb-6">
           <CustomButton
             type="button"

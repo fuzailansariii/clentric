@@ -1,9 +1,9 @@
 "use client";
-
+import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
 import { SearchIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 type FilterConfig = {
   key: string;
@@ -26,33 +26,45 @@ export function DataTableToolbar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // Keep a ref to the latest searchParams so effects can read it
+  // without needing it in their dependency array (avoids feedback loops).
+  const searchParamsRef = useRef(searchParams);
+  useEffect(() => {
+    searchParamsRef.current = searchParams;
+  }, [searchParams]);
+
   const [searchValue, setSearchValue] = useState(
     searchParams.get("search") ?? "",
   );
+  const debouncedSearch = useDebouncedValue(searchValue, 350);
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParams.toString());
+      const params = new URLSearchParams(searchParamsRef.current.toString());
       for (const [key, value] of Object.entries(updates)) {
         if (value) params.set(key, value);
         else params.delete(key);
       }
       params.set("page", "1");
-      router.push(`${pathname}?${params.toString()}`);
+      router.replace(`${pathname}?${params.toString()}`);
     },
-    [pathname, router, searchParams],
+    [pathname, router],
   );
 
+  // Sync local input state when the URL changes from elsewhere
   useEffect(() => {
-    const currentSearch = searchParams.get("search") ?? "";
-    if (searchValue === currentSearch) return; // skip on mount / no-op change
+    setSearchValue(searchParams.get("search") ?? "");
+  }, [searchParams]);
 
-    const handle = setTimeout(() => {
-      updateParams({ search: searchValue || null });
-    }, 350);
+  // Push the debounced value to the URL — only reacts to the debounced
+  // value changing, not to searchParams (which would cause a loop).
+  useEffect(() => {
+    const currentSearch = searchParamsRef.current.get("search") ?? "";
+    if (debouncedSearch === currentSearch) return;
 
-    return () => clearTimeout(handle);
-  }, [searchValue]);
+    updateParams({ search: debouncedSearch || null });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debouncedSearch]);
 
   return (
     <div className={cn("flex flex-wrap items-center gap-2.5", className)}>
@@ -69,7 +81,7 @@ export function DataTableToolbar({
       {filters.map((filter) => (
         <select
           key={filter.key}
-          defaultValue={searchParams.get(filter.key) ?? ""}
+          value={searchParams.get(filter.key) ?? ""}
           onChange={(event) =>
             updateParams({ [filter.key]: event.target.value || null })
           }

@@ -6,13 +6,6 @@ import { and, count, desc, eq, ilike, isNull } from "drizzle-orm";
 import { db } from "@/src/db";
 import { clientIdSchema, clientSearchParamsSchema } from "./schema";
 
-type GetClientsParams = {
-  search?: string;
-  status?: (typeof clientStatusEnum.enumValues)[number];
-  page?: number;
-  pageSize?: number;
-};
-
 // Get all clients
 export async function getClients(rawParams: unknown) {
   const user = await requireUser();
