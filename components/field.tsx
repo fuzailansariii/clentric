@@ -8,7 +8,11 @@ type DataFieldProps = {
   editing?: boolean;
   href?: string;
   value?: string | null;
-  registration?: UseFormRegisterReturn;
+  registration?: UseFormRegisterReturn & {
+    onKeyDown?: React.KeyboardEventHandler<
+      HTMLInputElement | HTMLTextAreaElement
+    >;
+  };
   error?: string;
   type?: "text" | "email" | "tel" | "textarea";
 };

@@ -1,7 +1,7 @@
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
 import { CustomButton } from "@/components/ui/custom-button";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { getClients } from "./queries";
 import { ClientsTable } from "./clients-table";
@@ -19,25 +19,32 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
     await getClients(params);
 
   return (
-    <DashboardContainer>
+    <>
       <PageHeader
         title="Clients"
-        description="Manage your clients"
-        actions={
-          <CustomButton variant="primary">
-            <Link href={"/clients/new"} className="flex items-center gap-2">
-              <PlusIcon className="h-4 w-4" />
-              Add Client
-            </Link>
-          </CustomButton>
+        subtitle="Manage your clients"
+        icon={<UsersIcon className="h-5 w-5" />}
+        badge={
+          <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px] font-medium">
+            {clients.length}
+          </span>
         }
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Clients" },
         ]}
+        actions={
+          <CustomButton variant="primary">
+            <Link href="/clients/new" className="flex items-center gap-2">
+              <PlusIcon className="h-4 w-4" />
+              <span>Add Client</span>
+            </Link>
+          </CustomButton>
+        }
       />
 
-      <div className="mt-6 flex flex-col gap-4">
+      <DashboardContainer>
+        <div className="flex flex-col gap-4">
         <DataTableToolbar
           searchPlaceholder="Search clients..."
           filters={[
@@ -62,7 +69,8 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
           total={total}
           totalPages={totalPages}
         />
-      </div>
-    </DashboardContainer>
+        </div>
+      </DashboardContainer>
+    </>
   );
 }

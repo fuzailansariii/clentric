@@ -43,5 +43,10 @@ export const projectSearchParamsSchema = z.object({
 export const projectIdSchema = z.uuid();
 export const projectClientIdSchema = z.uuid();
 
+export const editableProjectsSchema = projectSchema
+  .omit({ clientId: true })
+  .partial();
+
 export type ProjectFormInput = z.input<typeof projectSchema>;
 export type ProjectInput = z.infer<typeof projectSchema>;
+export type EditableProjectInput = z.infer<typeof editableProjectsSchema>;

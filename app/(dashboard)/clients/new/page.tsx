@@ -60,10 +60,11 @@ export default function NewClientPage() {
   });
 
   return (
-    <DashboardContainer>
+    <>
       <PageHeader
         title="Add a new client"
-        description="This becomes a permanent record - client, projects and invoices all roll up to it."
+        subtitle="This becomes a permanent record — client, projects and invoices all roll up to it."
+        backHref="/clients"
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Clients", href: "/clients" },
@@ -71,7 +72,8 @@ export default function NewClientPage() {
         ]}
       />
 
-      <form onSubmit={onSubmit} className="mx-auto mt-8 max-w-4xl pb-12">
+      <DashboardContainer>
+        <form onSubmit={onSubmit} className="mx-auto max-w-4xl pb-12">
         <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
           {/* Basic information */}
           <FormSection
@@ -247,7 +249,8 @@ export default function NewClientPage() {
             client records use soft deletes - nothing is lost, only archived
           </span>
         </p>
-      </form>
-    </DashboardContainer>
+        </form>
+      </DashboardContainer>
+    </>
   );
 }

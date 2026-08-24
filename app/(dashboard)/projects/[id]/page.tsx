@@ -1,12 +1,29 @@
-import React from "react";
+import { notFound } from "next/navigation";
+import { getProjectById } from "../queries";
+import { ProjectDetail } from "../project-details";
 
 type ProjectDetailProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function ProjectDetail({ params }: ProjectDetailProps) {
+export default async function ProjectPage({
+  params,
+  searchParams,
+}: ProjectDetailProps) {
   const { id } = await params;
-  console.log("ProjectId: ", id);
+  const query = await searchParams;
 
-  return <div>ProjectDetail</div>;
+  const project = await getProjectById(id);
+
+  if (!project) {
+    notFound();
+  }
+
+  return (
+    <ProjectDetail
+      project={project}
+      initialEdit={query.edit === "true"}
+    />
+  );
 }

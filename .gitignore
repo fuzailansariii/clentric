@@ -33,6 +33,12 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+
+# project details
+/docs/
+PROJECT.md
+table-row-actions.md
+
 # vercel
 .vercel
 

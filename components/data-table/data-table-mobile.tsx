@@ -1,8 +1,11 @@
+"use client";
+
 import { formatPhone } from "@/lib/format-phone";
 import { StatusBadge } from "../ui/status-badge";
 import { AvatarInitials } from "../ui/avatar-initials";
 import { clientStatusConfig } from "@/app/(dashboard)/clients/client-status-config";
 import type { ClientRow } from "@/src/db/schema/clients";
+import { ClientRowActions } from "@/app/(dashboard)/clients/client-row-actions";
 
 export function renderClientMobileCard(row: ClientRow) {
   const config = clientStatusConfig[row.status];
@@ -25,7 +28,7 @@ export function renderClientMobileCard(row: ClientRow) {
       </div>
 
       {/* Bottom */}
-      <div className="pl-10. flex items-center justify-between">
+      <div className="flex items-center justify-between pl-10">
         {row.phone ? (
           <span className="text-muted-foreground font-mono text-xs">
             {formatPhone(row.phone)}
@@ -34,12 +37,16 @@ export function renderClientMobileCard(row: ClientRow) {
           <span className="text-muted-foreground font-mono text-xs">—</span>
         )}
 
-        <StatusBadge
-          status={config.variant}
-          className={config.dim ? "opacity-60" : undefined}
-        >
-          {config.label}
-        </StatusBadge>
+        <div className="flex items-center gap-2">
+          <StatusBadge
+            status={config.variant}
+            className={config.dim ? "opacity-60" : undefined}
+          >
+            {config.label}
+          </StatusBadge>
+
+          <ClientRowActions client={row} />
+        </div>
       </div>
     </div>
   );

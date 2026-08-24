@@ -54,10 +54,11 @@ export default function NewProjectsForm({
   });
 
   return (
-    <DashboardContainer>
+    <>
       <PageHeader
         title="New Project"
-        description="Add a project and link it to a client to start tracking progress, milestones, and budget."
+        subtitle="Add a project and link it to a client to start tracking progress, milestones, and budget."
+        backHref="/projects"
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Projects", href: "/projects" },
@@ -65,7 +66,8 @@ export default function NewProjectsForm({
         ]}
       />
 
-      <form onSubmit={onSubmit} className="mx-auto mt-8 max-w-4xl pb-12">
+      <DashboardContainer>
+        <form onSubmit={onSubmit} className="mx-auto max-w-4xl pb-12">
         <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
           {/* Project Info */}
           <FormSection
@@ -202,7 +204,8 @@ export default function NewProjectsForm({
             {isSubmitting ? "Creating..." : "Create Project"}
           </CustomButton>
         </div>
-      </form>
-    </DashboardContainer>
+        </form>
+      </DashboardContainer>
+    </>
   );
 }

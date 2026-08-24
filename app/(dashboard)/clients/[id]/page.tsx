@@ -1,17 +1,19 @@
-import DashboardContainer from "@/components/dashboard/container";
 import { getClientById } from "../queries";
-import PageHeader from "@/components/dashboard/page-header";
 import { ClientDetail } from "./client-details";
 import { notFound } from "next/navigation";
 import { getProjectsByClientId } from "../../projects/queries";
 
 type ClientPageProps = {
   params: Promise<{ id: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
-export default async function ClientPage({ params }: ClientPageProps) {
+export default async function ClientPage({
+  params,
+  searchParams,
+}: ClientPageProps) {
   const { id } = await params;
-  //   const client = await getClientById(id);
+  const query = await searchParams;
   const [client, projects] = await Promise.all([
     getClientById(id),
     getProjectsByClientId(id),
@@ -20,19 +22,10 @@ export default async function ClientPage({ params }: ClientPageProps) {
   if (!client) notFound();
 
   return (
-    <DashboardContainer>
-      <PageHeader
-        title={client.name}
-        description="Client details"
-        breadcrumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Clients", href: "/clients" },
-          { label: client.name },
-        ]}
-      />
-      <div className="mt-6">
-        <ClientDetail client={client} projects={projects} />
-      </div>
-    </DashboardContainer>
+    <ClientDetail
+      client={client}
+      projects={projects}
+      initialEdit={query.edit === "true"}
+    />
   );
 }
