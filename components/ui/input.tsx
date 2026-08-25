@@ -10,6 +10,7 @@ type BaseProp = {
   label?: string;
   error?: string;
   className?: string;
+  prefix?: string;
 };
 
 type InputFieldProps = BaseProp &
@@ -26,7 +27,7 @@ const baseStyles =
 export const Field = forwardRef<
   HTMLInputElement | HTMLTextAreaElement,
   FieldProps
->(({ label, error, className = "", multiline, id, ...props }, ref) => {
+>(({ label, error, prefix, className = "", multiline, id, ...props }, ref) => {
   const fieldId = id ?? props.name;
 
   return (
@@ -49,13 +50,20 @@ export const Field = forwardRef<
           {...(props as TextareaHTMLAttributes<HTMLTextAreaElement>)}
         />
       ) : (
-        <input
-          ref={ref as Ref<HTMLInputElement>}
-          id={fieldId}
-          className={cn(baseStyles, "h-10", className)}
-          aria-invalid={!!error}
-          {...(props as InputHTMLAttributes<HTMLInputElement>)}
-        />
+        <div className="relative">
+          {prefix && (
+            <span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 text-sm">
+              {prefix}
+            </span>
+          )}
+          <input
+            ref={ref as Ref<HTMLInputElement>}
+            id={fieldId}
+            className={cn(baseStyles, "h-10", prefix && "pl-7", className)}
+            aria-invalid={!!error}
+            {...(props as InputHTMLAttributes<HTMLInputElement>)}
+          />
+        </div>
       )}
       {error && <span className="text-danger-600 text-xs">{error}</span>}
     </div>

@@ -6,7 +6,7 @@ import { formatPhone } from "@/lib/format-phone";
 import { formatDate, formatRelativeDate } from "@/lib/format-date";
 import { clientStatusConfig } from "../client-status-config";
 import { Check, PencilIcon, RefreshCw, TrashIcon, X } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TabButton } from "@/components/ui/tab-button";
 import { ProjectsPanel } from "./projects-panel";
 import { InvoicesPanel } from "./invoices-panel";
@@ -18,7 +18,6 @@ import { Controller, useForm } from "react-hook-form";
 import { ClientInput, clientSchema } from "../schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ClientRow } from "@/src/db/schema/clients";
-import type { ProjectRow } from "@/src/db/schema/projects";
 import { toClientFormsDefault } from "@/lib/client-form-defaults";
 import { DataField } from "@/components/field";
 import {
@@ -30,19 +29,24 @@ import {
 } from "@/components/ui/select";
 import { PhoneField, PhoneFieldHandle } from "@/components/ui/phone-field";
 import { CountryCombobox } from "@/components/ui/country-combobox";
+import { ProjectListItem } from "../../projects/queries";
+import PageHeader from "@/components/dashboard/page-header";
+import DashboardContainer from "@/components/dashboard/container";
 
 export function ClientDetail({
   client,
   projects,
+  initialEdit = false,
 }: {
   client: ClientRow;
-  projects: ProjectRow[];
+  projects: ProjectListItem[];
+  initialEdit?: boolean;
 }) {
   const [activeSection, setActiveSection] = useState<"projects" | "invoices">(
     "projects",
   );
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(initialEdit);
   const [formError, setFormError] = useState<string | null>(null);
 
   const router = useRouter();
@@ -72,7 +76,17 @@ export function ClientDetail({
   const handleCancelClick = () => {
     reset(toClientFormsDefault(client));
     setIsEditing(false);
+    router.replace(`/clients/${client.id}`);
   };
+
+  useEffect(() => {
+    if (!initialEdit) {
+      return;
+    }
+
+    reset(toClientFormsDefault(client));
+    setIsEditing(true);
+  }, [initialEdit, client, reset]);
 
   const onSubmit = handleSubmit(async (data: ClientInput) => {
     setFormError(null);
@@ -81,13 +95,75 @@ export function ClientDetail({
       success: "Client updated.",
       onSuccess: () => {
         setIsEditing(false);
+        router.replace(`/clients/${client.id}`);
       },
       onError: setFormError,
     });
   });
 
   return (
-    <div className="flex flex-col gap-5">
+    <>
+      <PageHeader
+        title={client.name}
+        subtitle="Client details"
+        badge={
+          <StatusBadge
+            status={config.variant}
+            className={config.dim ? "opacity-60" : undefined}
+          >
+            {config.label}
+          </StatusBadge>
+        }
+        backHref="/clients"
+        breadcrumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Clients", href: "/clients" },
+          { label: client.name },
+        ]}
+        actions={
+          isEditing ? (
+            <>
+              <CustomButton
+                type="button"
+                variant="secondary"
+                onClick={handleCancelClick}
+                className="flex items-center gap-1"
+              >
+                <X className="h-3.5 w-3.5" /> Cancel
+              </CustomButton>
+              <CustomButton
+                type="button"
+                variant="primary"
+                onClick={onSubmit}
+                disabled={isSubmitting}
+                className="flex items-center gap-1"
+              >
+                <Check className="h-3.5 w-3.5" />
+                {isSubmitting ? "Saving..." : "Save"}
+              </CustomButton>
+            </>
+          ) : (
+            <>
+              <CustomButton
+                variant="secondary"
+                onClick={() => setIsDeleteOpen(true)}
+                className="flex items-center gap-1"
+              >
+                <TrashIcon className="h-3.5 w-3.5" /> Delete
+              </CustomButton>
+              <CustomButton
+                variant="primary"
+                onClick={handleEditClick}
+                className="flex items-center gap-1"
+              >
+                <PencilIcon className="h-3.5 w-3.5" /> Edit
+              </CustomButton>
+            </>
+          )
+        }
+      />
+      <DashboardContainer>
+        <div className="flex flex-col gap-5">
       <form onSubmit={onSubmit} className="border-border rounded-xl border">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5">
@@ -156,53 +232,6 @@ export function ClientDetail({
                 )}
               </div>
             </div>
-          </div>
-
-          {/* action buttons */}
-          <div className="flex items-center gap-2">
-            {isEditing ? (
-              <>
-                <CustomButton
-                  type="button"
-                  variant="secondary"
-                  className="flex items-center gap-1.5"
-                  onClick={handleCancelClick}
-                >
-                  <X className="h-3.5 w-3.5" />
-                  Cancel
-                </CustomButton>
-                <CustomButton
-                  type="submit"
-                  variant="primary"
-                  className="flex items-center gap-1.5"
-                  disabled={isSubmitting}
-                >
-                  <Check className="h-3.5 w-3.5" />
-                  {isSubmitting ? "Saving..." : "Save"}
-                </CustomButton>
-              </>
-            ) : (
-              <>
-                <CustomButton
-                  type="button"
-                  variant="secondary"
-                  className="flex items-center gap-1.5"
-                  onClick={handleEditClick}
-                >
-                  <PencilIcon className="h-3.5 w-3.5" />
-                  Edit
-                </CustomButton>
-                <CustomButton
-                  type="button"
-                  variant="destructive"
-                  className="flex items-center gap-1.5"
-                  onClick={() => setIsDeleteOpen(true)}
-                >
-                  <TrashIcon className="h-3.5 w-3.5" />
-                  Delete
-                </CustomButton>
-              </>
-            )}
           </div>
         </div>
 
@@ -373,6 +402,8 @@ export function ClientDetail({
         title="Delete Client"
         description={`Are you sure you want to delete "${client.name}"? This can't be undone.`}
       />
-    </div>
+        </div>
+      </DashboardContainer>
+    </>
   );
 }

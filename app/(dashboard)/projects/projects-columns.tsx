@@ -1,27 +1,47 @@
 import type { Column } from "@/components/data-table/data-table.types";
+import { ProjectRowActions } from "./project-row-actions";
 import { formatDate } from "@/lib/format-date";
 import { projectStatusConfig } from "./project-status-config";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format-currency";
-import { MoreVerticalIcon } from "lucide-react";
-import type { ProjectRow } from "@/src/db/schema/projects";
+import { ProjectListItem } from "./queries";
+import { AvatarInitials } from "@/components/ui/avatar-initials";
 
-export const projectColumn: Column<ProjectRow>[] = [
+export const projectColumns: Column<ProjectListItem>[] = [
   {
     header: "Projects",
-    accessorKey: "title",
+    className: "min-w-[9rem] max-w-[14rem]",
     cell: (row) => (
-      <div>
-        <div className="font-medium">{row.title}</div>
-        <div className="text-muted-foreground text-xs">
+      <div className="min-w-0">
+        <div className="truncate font-medium">{row.title}</div>
+        <div className="text-muted-foreground truncate text-xs">
           Started {formatDate(row.createdAt)}
         </div>
       </div>
     ),
   },
   {
+    header: "Client",
+    hideBelow: "md",
+    className: "min-w-[7rem] max-w-[11rem]",
+    cell: (row) => (
+      <div className="flex min-w-0 items-center gap-1.5">
+        {row.clientName && (
+          <AvatarInitials
+            name={row.clientName}
+            shape="square"
+            variant="colored"
+            size="sm"
+            className="shrink-0"
+          />
+        )}
+        <span className="truncate">{row.clientName ?? "—"}</span>
+      </div>
+    ),
+  },
+  {
     header: "Status",
-    accessorKey: "status",
+    className: "w-[1%] whitespace-nowrap",
     cell: (row) => {
       const config = projectStatusConfig[row.status];
       return (
@@ -37,26 +57,20 @@ export const projectColumn: Column<ProjectRow>[] = [
   {
     header: "Budget",
     accessorKey: "budget",
+    hideBelow: "lg",
+    className: "whitespace-nowrap",
     cell: (row) => formatCurrency(row.budget),
-    hideBelow: "sm",
   },
   {
     header: "Deadline",
     accessorKey: "deadline",
+    hideBelow: "xl",
+    className: "whitespace-nowrap",
     cell: (row) => (row.deadline ? formatDate(row.deadline) : "—"),
-    hideBelow: "md",
   },
   {
     header: "Actions",
-    className: "text-right",
-    cell: () => (
-      <button
-        type="button"
-        aria-label="Project actions"
-        className="text-muted-foreground hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors"
-      >
-        <MoreVerticalIcon className="h-4 w-4" />
-      </button>
-    ),
+    className: "w-[1%] whitespace-nowrap text-right",
+    cell: (row) => <ProjectRowActions project={row} />,
   },
 ];

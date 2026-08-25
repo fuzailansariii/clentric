@@ -11,16 +11,17 @@ import { computeProjectStats } from "../../projects/project-stats";
 import { usePagination } from "@/hooks/use-pagination";
 import { ProjectFiltersBar } from "../../projects/project-filters-bar";
 import { filterProjects } from "./project-filters";
-import { projectColumn } from "../../projects/projects-columns";
+import { projectColumns } from "../../projects/projects-columns";
 import { cn } from "@/lib/utils";
-import type { ProjectRow } from "@/src/db/schema/projects";
+import type { ProjectListItem } from "../../projects/queries";
+
 const PAGE_SIZE = 10;
 
 export function ProjectsPanel({
   projects,
   className,
 }: {
-  projects: ProjectRow[];
+  projects: ProjectListItem[];
   className?: string;
 }) {
   const [search, setSearch] = useState("");
@@ -78,7 +79,7 @@ export function ProjectsPanel({
       </div>
 
       <DataTable
-        columns={projectColumn}
+        columns={projectColumns}
         data={paginatedItems}
         getRowId={(row) => row.id}
         emptyMessage={

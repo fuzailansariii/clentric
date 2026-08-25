@@ -56,7 +56,7 @@ export function DataTable<T>({
     return (
       <div
         className={cn(
-          "border-border overflow-hidden rounded-xl border",
+          "border-border min-w-0 overflow-hidden rounded-xl border",
           className,
         )}
       >
@@ -89,7 +89,7 @@ export function DataTable<T>({
                     key={index}
                     scope="col"
                     className={cn(
-                      "text-muted-foreground/70",
+                      "text-muted-foreground/70 bg-paper-50 dark:bg-ink-900",
                       "border-border border-b",
                       "px-5 py-3",
                       "text-left",

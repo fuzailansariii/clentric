@@ -1,28 +1,31 @@
-import type { ClientRow, clients } from "@/src/db/schema/clients";
+import type { ClientRow } from "@/src/db/schema/clients";
 import { AvatarInitials } from "@/components/ui/avatar-initials";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { clientStatusConfig } from "./client-status-config";
 import type { Column } from "@/components/data-table/data-table.types";
+import { ClientRowActions } from "./client-row-actions";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDate } from "@/lib/format-date";
-import { projects } from "@/src/db/schema/projects";
 
 export const clientColumns: Column<ClientRow>[] = [
   {
     header: "Profile",
-    className: "w-[34%] md:w-[32%] lg:w-[30%]",
+    className: "min-w-[9rem] max-w-[14rem]",
 
     cell: (row) => (
       <div className="flex min-w-0 items-center gap-2.5">
-        <AvatarInitials name={row.name} variant="colored" shape="circle" />
+        <AvatarInitials
+          name={row.name}
+          variant="colored"
+          shape="circle"
+          className="shrink-0"
+        />
 
-        <div className="meta min-w-0">
-          <div className="truncate font-medium whitespace-nowrap">
-            {row.name}
-          </div>
+        <div className="min-w-0">
+          <div className="truncate font-medium">{row.name}</div>
 
           {row.email && (
-            <div className="text-muted-foreground max-w-42.5 truncate text-xs whitespace-nowrap">
+            <div className="text-muted-foreground truncate text-xs">
               {row.email}
             </div>
           )}
@@ -33,30 +36,30 @@ export const clientColumns: Column<ClientRow>[] = [
 
   {
     header: "Company",
-    className: "w-[21%] text-muted-foreground",
-    accessorKey: "company",
+    hideBelow: "md",
+    className: "max-w-[10rem] text-muted-foreground",
+    cell: (row) => (
+      <span className="block truncate">{row.company ?? "—"}</span>
+    ),
   },
 
   {
     header: "Phone",
-    className: "w-[22%] text-muted-foreground",
-    cell: (row) => (
-      <span className="whitespace-nowrap">{formatPhone(row.phone)}</span>
-    ),
+    hideBelow: "sm",
+    className: "text-muted-foreground whitespace-nowrap",
+    cell: (row) => formatPhone(row.phone),
   },
 
   {
     header: "Created",
-    hideBelow: "lg",
-    className: "w-[14%] text-muted-foreground",
-    cell: (row) => (
-      <span className="whitespace-nowrap">{formatDate(row.createdAt)}</span>
-    ),
+    hideBelow: "xl",
+    className: "text-muted-foreground whitespace-nowrap",
+    cell: (row) => formatDate(row.createdAt),
   },
 
   {
     header: "Status",
-    className: "w-[13%]",
+    className: "w-[1%] whitespace-nowrap",
     cell: (row) => {
       const config = clientStatusConfig[row.status];
       return (
@@ -68,5 +71,11 @@ export const clientColumns: Column<ClientRow>[] = [
         </StatusBadge>
       );
     },
+  },
+
+  {
+    header: "Actions",
+    className: "w-[1%] whitespace-nowrap text-right",
+    cell: (row) => <ClientRowActions client={row} />,
   },
 ];
