@@ -11,12 +11,14 @@ import { cn } from "@/lib/utils";
 import { useState } from "react";
 
 type DeadlinePickerProps = {
+  label?: string;
   value: string | undefined;
   onChange: (value: string) => void;
   error?: string;
 };
 
 export function DeadlinePicker({
+  label,
   onChange,
   value,
   error,
@@ -26,9 +28,11 @@ export function DeadlinePicker({
 
   return (
     <div className="flex flex-col gap-0.5">
-      <label className="text-muted-foreground font-sans text-[13px] font-medium">
-        Deadline
-      </label>
+      {label && (
+        <label className="text-muted-foreground font-sans text-[13px] font-medium">
+          Deadline
+        </label>
+      )}
       <Popover>
         <PopoverTrigger asChild>
           <button

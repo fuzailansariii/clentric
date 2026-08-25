@@ -70,30 +70,35 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
               },
             ]}
           />
-          <DataTableToolbar
-            searchPlaceholder="Search Projects..."
-            filters={[
-              {
-                key: "status",
-                label: "All Status",
-                options: Object.entries(projectStatusConfig).map(
-                  ([value, config]) => ({
-                    value,
-                    label: config.label,
-                  }),
-                ),
-              },
-            ]}
-          />
+          <div className="border-border flex flex-col rounded-xl border">
+            <DataTableToolbar
+              className="p-3"
+              searchPlaceholder="Search projects..."
+              filters={[
+                {
+                  key: "status",
+                  label: "Status",
+                  options: Object.entries(projectStatusConfig).map(
+                    ([value, config]) => ({
+                      label: config.label,
+                      value,
+                      dotColor: config.dotColor,
+                    }),
+                  ),
+                },
+              ]}
+            />
 
-          <ProjectTable data={projects} />
+            <ProjectTable data={projects} />
 
-          <DataTablePagination
-            page={page}
-            pageSize={pageSize}
-            total={total}
-            totalPages={totalPages}
-          />
+            <DataTablePagination
+              className="border-none"
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              totalPages={totalPages}
+            />
+          </div>
         </div>
       </DashboardContainer>
     </>

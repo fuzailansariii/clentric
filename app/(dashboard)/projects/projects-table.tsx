@@ -12,6 +12,7 @@ export default function ProjectTable({ data }: { data: ProjectListItem[] }) {
   return (
     <>
       <DataTable
+        className="rounded-none border-x-0"
         data={data}
         columns={projectColumns}
         renderMobileCard={renderProjectMobileCard}

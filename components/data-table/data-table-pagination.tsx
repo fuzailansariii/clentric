@@ -9,6 +9,7 @@ type DataTablePaginationProps = {
   pageSize: number;
   total: number;
   totalPages: number;
+  className?: string;
 };
 
 export function DataTablePagination({
@@ -16,6 +17,7 @@ export function DataTablePagination({
   pageSize,
   total,
   totalPages,
+  className,
 }: DataTablePaginationProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -33,7 +35,12 @@ export function DataTablePagination({
   const end = Math.min(page * pageSize, total);
 
   return (
-    <div className="border-border bg-card flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-1.5">
+    <div
+      className={cn(
+        "border-border bg-card flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-1.5",
+        className,
+      )}
+    >
       <p className="text-muted-foreground text-xs">
         Showing{" "}
         <span className="text-foreground font-medium">

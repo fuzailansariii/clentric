@@ -1,10 +1,11 @@
 "use client";
+
 import { AvatarInitials } from "@/components/ui/avatar-initials";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { CustomButton } from "@/components/ui/custom-button";
 import { formatDate, formatRelativeDate } from "@/lib/format-date";
 import { formatCurrency } from "@/lib/format-currency";
-import { Check, PencilIcon, Plus, TrashIcon, X } from "lucide-react";
+import { Check, Folder, PencilIcon, TrashIcon, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TabButton } from "@/components/ui/tab-button";
 import { DeleteDialog } from "@/components/delete-dialog";
@@ -12,7 +13,6 @@ import { useRouter } from "next/navigation";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { DataField } from "@/components/field";
 import {
   Select,
   SelectContent,
@@ -27,6 +27,8 @@ import { projectStatusConfig } from "./project-status-config";
 import { deleteProjectAction, updateProjectAction } from "./actions";
 import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
+import { cn } from "@/lib/utils";
+import { Field } from "@/components/ui/input";
 
 export function toProjectFormDefaults(
   project: ProjectListItem,
@@ -79,10 +81,7 @@ export function ProjectDetail({
   };
 
   useEffect(() => {
-    if (!initialEdit) {
-      return;
-    }
-
+    if (!initialEdit) return;
     reset(toProjectFormDefaults(project));
     setIsEditing(true);
   }, [initialEdit, project, reset]);
@@ -103,12 +102,13 @@ export function ProjectDetail({
 
   return (
     <>
+      {/* ========== PAGE HEADER ========== */}
       <PageHeader
         title={project.title}
         badge={
           <StatusBadge status={config.variant}>{config.label}</StatusBadge>
         }
-        subtitle={`${project.clientName ?? "No Project"} · Created ${formatDate(project.createdAt)}`}
+        subtitle={`${project.clientName ?? "No Client"} · Created ${formatDate(project.createdAt)}`}
         backHref="/projects"
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
@@ -157,164 +157,233 @@ export function ProjectDetail({
           )
         }
       />
+
       <DashboardContainer>
-        <form onSubmit={onSubmit} className="border-border rounded-xl border">
-          {/* Header */}
-          <div className="flex items-center justify-between px-6 py-5">
-            <div className="flex items-center gap-3">
-              <AvatarInitials
-                name={project.clientName ?? project.title}
-                variant="neutral"
-                shape="square"
-                size="lg"
-              />
-              <div>
+        <form onSubmit={onSubmit} className="space-y-4">
+          {/* ========== MAIN CARD ========== */}
+          <div
+            className={cn(
+              "overflow-hidden rounded-xl border",
+              isEditing
+                ? "border-blue-200 bg-blue-50/50 dark:border-blue-900/40 dark:bg-blue-950/20"
+                : "border-border bg-background",
+            )}
+          >
+            {/* Title area */}
+            <div className="flex items-start gap-3 px-5 pt-5 pb-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/40">
+                <Folder className="h-5 w-5" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <p className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase">
+                  Project Title
+                </p>
+
                 {isEditing ? (
-                  <div className="flex flex-col gap-1">
+                  <div>
                     <input
                       {...register("title")}
-                      className="border-input bg-input/20 focus-visible:border-ring focus-visible:ring-ring/20 rounded-lg border px-2 py-1 font-mono text-base font-medium tracking-tight focus-visible:ring-2 focus-visible:outline-none"
+                      className="border-input bg-background focus-visible:ring-ring w-full max-w-lg rounded-lg border px-3 py-1.5 text-base font-semibold outline-none focus-visible:ring-2"
                     />
                     {errors.title && (
-                      <span className="text-danger-600 text-xs">
+                      <p className="text-destructive mt-1 text-xs">
                         {errors.title.message}
-                      </span>
+                      </p>
                     )}
                   </div>
                 ) : (
-                  <h2 className="font-mono font-medium tracking-tight">
+                  <h2 className="text-lg font-semibold tracking-tight">
                     {project.title}
                   </h2>
                 )}
-                <div className="mt-0.5 flex items-center gap-2">
-                  {isEditing ? (
-                    <Controller
-                      control={control}
-                      name="status"
-                      render={({ field }) => (
-                        <Select
-                          value={field.value}
-                          onValueChange={field.onChange}
-                        >
-                          <SelectTrigger className="h-7 w-auto text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(projectStatusConfig).map(
-                              ([value, cfg]) => (
-                                <SelectItem key={value} value={value}>
-                                  {cfg.label}
-                                </SelectItem>
-                              ),
-                            )}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  ) : (
-                    <StatusBadge status={config.variant}>
-                      {config.label}
-                    </StatusBadge>
+              </div>
+            </div>
+
+            {/* Edit form row (only when editing) */}
+            {isEditing && (
+              <div className="flex flex-wrap items-end gap-3 border-t border-blue-100/80 px-5 py-4 dark:border-blue-900/30">
+                <div className="space-y-1">
+                  <label className="text-muted-foreground text-[11px] font-medium uppercase">
+                    Status
+                  </label>
+                  <Controller
+                    control={control}
+                    name="status"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger className="bg-background h-9 w-37">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(projectStatusConfig).map(
+                            ([value, cfg]) => (
+                              <SelectItem key={value} value={value}>
+                                {cfg.label}
+                              </SelectItem>
+                            ),
+                          )}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-muted-foreground text-[11px] font-medium uppercase">
+                    Budget
+                  </label>
+                  <Field
+                    {...register("budget")}
+                    placeholder="0.00"
+                    prefix="$"
+                    error={errors.budget?.message}
+                  />
+                  {errors.budget && (
+                    <p className="text-destructive text-xs">
+                      {errors.budget.message}
+                    </p>
                   )}
-                  {project.clientName && (
-                    <span className="text-muted-foreground text-sm">
-                      {project.clientName}
-                    </span>
-                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-muted-foreground text-[11px] font-medium uppercase">
+                    Deadline
+                  </label>
+                  <Controller
+                    control={control}
+                    name="deadline"
+                    render={({ field }) => (
+                      <DeadlinePicker
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={errors.deadline?.message}
+                      />
+                    )}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Metrics (always visible, single source of truth) */}
+            <div className="bg-border grid grid-cols-2 gap-px border-t sm:grid-cols-4">
+              <div className="bg-background px-5 py-4">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+                  Budget
+                </p>
+                <p className="mt-1 text-lg font-semibold">
+                  {formatCurrency(project.budget)}
+                </p>
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  Fixed price
+                </p>
+              </div>
+
+              <div className="bg-background px-5 py-4">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+                  Deadline
+                </p>
+                <p className="mt-1 text-lg font-semibold text-amber-600">
+                  {project.deadline ? formatDate(project.deadline) : "—"}
+                </p>
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  {project.deadline ? "Upcoming" : "No deadline"}
+                </p>
+              </div>
+
+              <div className="bg-background px-5 py-4">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+                  Progress
+                </p>
+                <p className="mt-1 text-lg font-semibold text-blue-600">
+                  {project.progress}%
+                </p>
+                <p className="text-muted-foreground mt-0.5 text-xs">
+                  of project complete
+                </p>
+              </div>
+
+              <div className="bg-background px-5 py-4">
+                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
+                  Client
+                </p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <AvatarInitials
+                    name={project.clientName ?? "?"}
+                    size="sm"
+                    shape="circle"
+                  />
+                  <p className="text-sm font-medium">
+                    {project.clientName ?? "—"}
+                  </p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="border-border border-t" />
+          {formError && <p className="text-destructive text-sm">{formError}</p>}
 
-          {/* Fields */}
-          <dl className="grid grid-cols-2 gap-6 px-6 py-5 sm:grid-cols-4">
-            <div>
+          {/* ========== DESCRIPTION + META ========== */}
+          <div className="grid gap-4 lg:grid-cols-2">
+            {/* Description */}
+            <div className="border-border bg-background rounded-xl border p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="text-sm font-medium">Description</h3>
+              </div>
+
               {isEditing ? (
-                <div className="flex flex-col gap-0.5">
-                  <label className="text-muted-foreground font-sans text-[13px] font-medium">
-                    Budget
-                  </label>
-                  <div className="relative">
-                    <span className="text-muted-foreground absolute top-1/2 left-3 -translate-y-1/2 text-sm">
-                      $
-                    </span>
-                    <input
-                      {...register("budget")}
-                      className="border-input bg-input/20 focus-visible:border-ring focus-visible:ring-ring/20 h-10 w-full rounded-lg border pr-3 pl-7 text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-                    />
-                  </div>
-                  {errors.budget && (
-                    <span className="text-danger-600 text-xs">
-                      {errors.budget.message}
-                    </span>
+                <div>
+                  <textarea
+                    {...register("description")}
+                    rows={5}
+                    className="border-input bg-background focus-visible:ring-ring w-full resize-none rounded-lg border px-3 py-2 text-sm outline-none focus-visible:ring-2"
+                  />
+                  {errors.description && (
+                    <p className="text-destructive mt-1 text-xs">
+                      {errors.description.message}
+                    </p>
                   )}
                 </div>
               ) : (
-                <DataField
-                  label="Budget"
-                  value={formatCurrency(project.budget)}
-                />
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  {project.description || "No description provided."}
+                </p>
               )}
             </div>
 
-            <div>
-              {isEditing ? (
-                <Controller
-                  control={control}
-                  name="deadline"
-                  render={({ field }) => (
-                    <DeadlinePicker
-                      value={field.value}
-                      onChange={field.onChange}
-                      error={errors.deadline?.message}
-                    />
-                  )}
-                />
-              ) : (
-                <DataField
-                  label="Deadline"
-                  value={project.deadline ? formatDate(project.deadline) : null}
-                />
-              )}
+            {/* Only meta that is NOT in the metrics row */}
+            <div className="border-border bg-background rounded-xl border p-5">
+              <h3 className="mb-4 text-sm font-medium">Project details</h3>
+
+              <dl className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <dt className="text-muted-foreground text-xs uppercase">
+                    Created
+                  </dt>
+                  <dd className="mt-1 font-medium">
+                    {formatDate(project.createdAt)}
+                  </dd>
+                </div>
+                {/* <div>
+                  <dt className="text-muted-foreground text-xs uppercase">
+                    Last updated
+                  </dt>
+                  <dd className="mt-1 font-medium">
+                    {formatRelativeDate(project.updatedAt)}
+                  </dd>
+                </div> */}
+              </dl>
             </div>
-
-            <DataField label="Progress" value={`${project.progress}%`} />
-
-            <DataField label="Client" value={project.clientName} />
-          </dl>
-
-          {formError && (
-            <div className="border-t px-6 py-3 sm:px-8">
-              <p className="text-destructive text-sm">{formError}</p>
-            </div>
-          )}
-
-          <div className="border-border border-t" />
-          <div className="px-6 py-5">
-            <DataField
-              label="Description"
-              editing={isEditing}
-              value={project.description}
-              registration={register("description")}
-              error={errors.description?.message}
-              type="textarea"
-            />
-          </div>
-
-          <div className="border-border border-t" />
-
-          {/* Footer */}
-          <div className="text-muted-foreground flex items-center gap-3 px-6 py-3.5 text-xs">
-            <span>Created {formatDate(project.createdAt)}</span>
           </div>
         </form>
 
+        {/* Milestones (unchanged) */}
         <div className="border-border rounded-xl border">
           <div
             role="tablist"
-            aria-label="Project sections"
             className="border-border flex items-center gap-1 px-6"
           >
             <TabButton
@@ -325,13 +394,8 @@ export function ProjectDetail({
               onClick={() => setActiveSection("milestones")}
             />
           </div>
-          <div
-            id="project-section-panel"
-            role="tabpanel"
-            aria-labelledby="milestones-tab"
-            className="border-t"
-          >
-            {/* <MilestonesPanel projectId={project.id} className="border-none" /> */}
+          <div role="tabpanel" className="border-t">
+            {/* <MilestonesPanel /> */}
           </div>
         </div>
 

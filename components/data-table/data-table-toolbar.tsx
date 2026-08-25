@@ -1,14 +1,22 @@
 "use client";
+
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
 import { SearchIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+type FilterOption = {
+  label: string;
+  value: string;
+  /** Tailwind class for the status dot, e.g. "bg-blue-500" */
+  dotColor?: string;
+};
+
 type FilterConfig = {
   key: string;
   label: string;
-  options: { label: string; value: string }[];
+  options: FilterOption[];
 };
 
 type DataTableToolbarProps = {
@@ -26,8 +34,6 @@ export function DataTableToolbar({
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // Keep a ref to the latest searchParams so effects can read it
-  // without needing it in their dependency array (avoids feedback loops).
   const searchParamsRef = useRef(searchParams);
   useEffect(() => {
     searchParamsRef.current = searchParams;
@@ -51,50 +57,92 @@ export function DataTableToolbar({
     [pathname, router],
   );
 
-  // Sync local input state when the URL changes from elsewhere
   useEffect(() => {
     setSearchValue(searchParams.get("search") ?? "");
   }, [searchParams]);
 
-  // Push the debounced value to the URL — only reacts to the debounced
-  // value changing, not to searchParams (which would cause a loop).
   useEffect(() => {
     const currentSearch = searchParamsRef.current.get("search") ?? "";
     if (debouncedSearch === currentSearch) return;
-
     updateParams({ search: debouncedSearch || null });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debouncedSearch]);
 
   return (
-    <div className={cn("flex flex-wrap items-center gap-2.5", className)}>
-      <div className="relative">
-        <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-3.5 w-3.5 -translate-y-1/2" />
+    <div
+      className={cn(
+        "flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3",
+        className,
+      )}
+    >
+      {/* Search */}
+      <div className="relative w-full sm:w-64">
+        <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
         <input
           value={searchValue}
-          onChange={(event) => setSearchValue(event.target.value)}
+          onChange={(e) => setSearchValue(e.target.value)}
           placeholder={searchPlaceholder}
-          className="border-border bg-background h-9 w-56 rounded-lg border pr-3 pl-8 text-sm outline-none focus-visible:ring-1"
+          className="border-border/60 bg-muted/50 placeholder:text-muted-foreground focus:border-border focus:bg-background focus-visible:ring-ring h-9 w-full rounded-lg border pr-3 pl-9 text-sm transition-colors outline-none focus-visible:ring-1"
         />
       </div>
 
-      {filters.map((filter) => (
-        <select
-          key={filter.key}
-          value={searchParams.get(filter.key) ?? ""}
-          onChange={(event) =>
-            updateParams({ [filter.key]: event.target.value || null })
-          }
-          className="border-border bg-background h-9 rounded-lg border px-3 text-sm outline-none focus-visible:ring-1"
-        >
-          <option value="">{filter.label}</option>
-          {filter.options.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </select>
-      ))}
+      {/* Status pills - your grid style */}
+      {filters.map((filter) => {
+        const currentValue = searchParams.get(filter.key) ?? "";
+
+        return (
+          <div
+            key={filter.key}
+            className="grid grid-cols-3 items-center gap-1.5 sm:grid-cols-5"
+          >
+            {/* All */}
+            <button
+              type="button"
+              onClick={() => updateParams({ [filter.key]: null })}
+              className={cn(
+                "h-8 rounded-lg px-3 text-xs font-medium transition-colors sm:text-sm",
+                !currentValue
+                  ? "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              All
+            </button>
+
+            {filter.options.map((option) => {
+              const isActive = currentValue === option.value;
+
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() =>
+                    updateParams({
+                      [filter.key]: isActive ? null : option.value,
+                    })
+                  }
+                  className={cn(
+                    "flex h-8 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors sm:text-sm",
+                    isActive
+                      ? "border-transparent bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
+                      : "border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground",
+                  )}
+                >
+                  {option.dotColor && (
+                    <span
+                      className={cn(
+                        "h-1.5 w-1.5 shrink-0 rounded-full",
+                        option.dotColor,
+                      )}
+                    />
+                  )}
+                  <span className="truncate">{option.label}</span>
+                </button>
+              );
+            })}
+          </div>
+        );
+      })}
     </div>
   );
 }
