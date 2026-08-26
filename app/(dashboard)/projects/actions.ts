@@ -8,10 +8,14 @@ import { and, eq, isNull } from "drizzle-orm";
 import { projects } from "@/src/db/schema/projects";
 import { normalize } from "@/lib/normalizeOptionalFields";
 import { revalidatePath } from "next/cache";
+import { milestoneIdSchema, milestoneSchema } from "./milestoneSchema";
+import { milestones } from "@/src/db/schema/milestones";
 
 type ActionResult<T = void> =
   | (T extends void ? { success: true } : { success: true; data: T })
   | { success: false; error: string };
+
+// PROJECT ACTIONS ---------------
 
 // Create Project Action
 export async function createProjectAction(
@@ -213,6 +217,201 @@ export async function deleteProjectAction(
         error instanceof AppError
           ? error.message
           : "Could not delete project. Please try again.",
+    };
+  }
+}
+
+// MILESTONE ACTIONS ---------------
+
+// Milestone ownership check
+async function requireMilestoneOwnership(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  milestoneId: string,
+  userId: string,
+) {
+  const [ownership] = await tx
+    .select({ projectId: milestones.projectId })
+    .from(milestones)
+    .innerJoin(projects, eq(milestones.projectId, projects.id))
+    .where(
+      and(
+        eq(milestones.id, milestoneId),
+        eq(projects.userId, userId),
+        isNull(projects.deletedAt),
+      ),
+    );
+
+  if (!ownership) {
+    throw new AppError("NOT_FOUND", "Milestone not found");
+  }
+
+  return ownership;
+}
+
+// create milestone
+export async function createMilestoneAction(
+  projectId: string,
+  input: unknown,
+): Promise<ActionResult<{ milestoneId: string }>> {
+  try {
+    const parsedProjectId = projectIdSchema.safeParse(projectId);
+    if (!parsedProjectId.success) {
+      throw new AppError("VALIDATION_ERROR", "Invalid project ID.");
+    }
+
+    const parsedInput = milestoneSchema.safeParse(input);
+    if (!parsedInput.success) {
+      return {
+        success: false,
+        error: parsedInput.error.issues[0].message,
+      };
+    }
+
+    const user = await requireUser();
+
+    const created = await db.transaction(async (tx) => {
+      const [project] = await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(
+          and(
+            eq(projects.userId, user.id),
+            eq(projects.id, parsedProjectId.data),
+            isNull(projects.deletedAt),
+          ),
+        )
+        .for("update");
+
+      if (!project) {
+        throw new AppError("NOT_FOUND", "Project not found");
+      }
+
+      const [row] = await tx
+        .insert(milestones)
+        .values({
+          ...normalize(parsedInput.data),
+          projectId: parsedProjectId.data,
+        })
+        .returning({ id: milestones.id });
+
+      if (!row) {
+        throw new AppError("INSERT_FAILED", "Failed to create milestone.");
+      }
+
+      return row;
+    });
+
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${projectId}`);
+
+    return {
+      success: true,
+      data: { milestoneId: created.id },
+    };
+  } catch (error) {
+    logError("createMilestoneAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof AppError
+          ? error.message
+          : "Could not create milestone. Please try again.",
+    };
+  }
+}
+
+// toggle milestone
+export async function toggleMilestoneAction(
+  milestoneId: string,
+  completed: boolean,
+): Promise<ActionResult> {
+  try {
+    const parsedMilestoneId = milestoneIdSchema.safeParse(milestoneId);
+    if (!parsedMilestoneId.success) {
+      throw new AppError("VALIDATION_ERROR", "Invalid milestone ID.");
+    }
+
+    const user = await requireUser();
+
+    const updated = await db.transaction(async (tx) => {
+      const { projectId } = await requireMilestoneOwnership(
+        tx,
+        parsedMilestoneId.data,
+        user.id,
+      );
+
+      const [row] = await tx
+        .update(milestones)
+        .set({
+          status: completed ? "completed" : "pending",
+          updatedAt: new Date(),
+        })
+        .where(eq(milestones.id, parsedMilestoneId.data))
+        .returning({ id: milestones.id });
+
+      if (!row) {
+        throw new AppError("UPDATE_FAILED", "Failed to update milestone.");
+      }
+      return { projectId };
+    });
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${updated.projectId}`);
+    return { success: true };
+  } catch (error) {
+    logError("toggleMilestoneAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof AppError
+          ? error.message
+          : "Could not update milestone. Please try again.",
+    };
+  }
+}
+
+// delete milestone
+export async function deleteMilestoneAction(
+  milestoneId: string,
+): Promise<ActionResult> {
+  try {
+    const parsedMilestoneId = milestoneIdSchema.safeParse(milestoneId);
+    if (!parsedMilestoneId.success) {
+      throw new AppError("VALIDATION_ERROR", "Invalid milestone ID.");
+    }
+
+    const user = await requireUser();
+
+    const deleted = await db.transaction(async (tx) => {
+      const { projectId } = await requireMilestoneOwnership(
+        tx,
+        parsedMilestoneId.data,
+        user.id,
+      );
+
+      const [row] = await tx
+        .delete(milestones)
+        .where(eq(milestones.id, parsedMilestoneId.data))
+        .returning({ id: milestones.id });
+
+      if (!row) {
+        throw new AppError("DELETE_FAILED", "Failed to delete milestone.");
+      }
+
+      return {
+        projectId,
+      };
+    });
+    revalidatePath("/projects");
+    revalidatePath(`/projects/${deleted.projectId}`);
+    return { success: true };
+  } catch (error) {
+    logError("deleteMilestoneAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof AppError
+          ? error.message
+          : "Could not delete milestone. Please try again.",
     };
   }
 }

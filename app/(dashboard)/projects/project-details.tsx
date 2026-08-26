@@ -29,6 +29,7 @@ import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 import { cn } from "@/lib/utils";
 import { Field } from "@/components/ui/input";
+import MilestonesPanel, { MilestoneListItem } from "./milestones-panel";
 
 export function toProjectFormDefaults(
   project: ProjectListItem,
@@ -44,13 +45,16 @@ export function toProjectFormDefaults(
 
 export function ProjectDetail({
   project,
+  initialMilestones,
   initialEdit = false,
 }: {
   project: ProjectListItem;
+  initialMilestones: MilestoneListItem[];
   initialEdit?: boolean;
 }) {
-  const [activeSection, setActiveSection] =
-    useState<"milestones">("milestones");
+  const [activeSection, setActiveSection] = useState<
+    "milestones" | "activities"
+  >("milestones");
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(initialEdit);
   const [formError, setFormError] = useState<string | null>(null);
@@ -380,8 +384,8 @@ export function ProjectDetail({
           </div>
         </form>
 
-        {/* Milestones (unchanged) */}
-        <div className="border-border rounded-xl border">
+        {/* Milestones & Activities */}
+        <div className="border-border mt-4 rounded-xl border">
           <div
             role="tablist"
             className="border-border flex items-center gap-1 px-6"
@@ -393,9 +397,22 @@ export function ProjectDetail({
               isActive={activeSection === "milestones"}
               onClick={() => setActiveSection("milestones")}
             />
+            <TabButton
+              id="tablist"
+              label="Activities"
+              isActive={activeSection === "activities"}
+              onClick={() => setActiveSection("activities")}
+            />
           </div>
           <div role="tabpanel" className="border-t">
-            {/* <MilestonesPanel /> */}
+            {activeSection === "milestones" ? (
+              <MilestonesPanel
+                initialMilestones={initialMilestones}
+                projectId={project.id}
+              />
+            ) : (
+              activeSection === "activities" && <h2>Activities</h2>
+            )}
           </div>
         </div>
 
