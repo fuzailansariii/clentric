@@ -19,6 +19,7 @@ export type ProjectListItem = {
   budget: string;
   deadline: string | null;
   createdAt: Date;
+  updatedAt: Date;
   clientId: string;
   clientName: string | null;
   totalMilestones: number;
@@ -53,6 +54,7 @@ export async function getAllProjects(rawParam: unknown) {
           budget: projects.budget,
           deadline: projects.deadline,
           createdAt: projects.createdAt,
+          updatedAt: projects.updatedAt,
           clientId: projects.clientId,
           clientName: clients.name,
           totalMilestones:
@@ -74,6 +76,7 @@ export async function getAllProjects(rawParam: unknown) {
           projects.budget,
           projects.deadline,
           projects.createdAt,
+          projects.updatedAt,
           projects.clientId,
           clients.name,
         )
@@ -131,6 +134,7 @@ export async function getProjectById(
         budget: projects.budget,
         deadline: projects.deadline,
         createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
         clientId: projects.clientId,
         clientName: clients.name,
         totalMilestones:
@@ -158,6 +162,7 @@ export async function getProjectById(
         projects.budget,
         projects.deadline,
         projects.createdAt,
+        projects.updatedAt,
         projects.clientId,
         clients.name,
       )
@@ -199,6 +204,7 @@ export async function getProjectsByClientId(
         budget: projects.budget,
         deadline: projects.deadline,
         createdAt: projects.createdAt,
+        updatedAt: projects.updatedAt,
         clientId: projects.clientId,
         clientName: clients.name,
         totalMilestones: sql<number>`count(${milestones.id})`.mapWith(Number),
@@ -224,6 +230,7 @@ export async function getProjectsByClientId(
         projects.budget,
         projects.deadline,
         projects.createdAt,
+        projects.updatedAt,
         projects.clientId,
         clients.name,
       )

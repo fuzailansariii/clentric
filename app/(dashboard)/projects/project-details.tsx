@@ -30,6 +30,7 @@ import DashboardContainer from "@/components/dashboard/container";
 import { cn } from "@/lib/utils";
 import { Field } from "@/components/ui/input";
 import MilestonesPanel, { MilestoneListItem } from "./milestones-panel";
+import ProgressBar from "@/components/ui/progress-bar";
 
 export function toProjectFormDefaults(
   project: ProjectListItem,
@@ -58,6 +59,7 @@ export function ProjectDetail({
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(initialEdit);
   const [formError, setFormError] = useState<string | null>(null);
+  const [liveProgress, setLiveProgress] = useState(project.progress);
 
   const router = useRouter();
   const config = projectStatusConfig[project.status];
@@ -303,8 +305,9 @@ export function ProjectDetail({
                   Progress
                 </p>
                 <p className="mt-1 text-lg font-semibold text-blue-600">
-                  {project.progress}%
+                  {liveProgress}%
                 </p>
+                <ProgressBar value={liveProgress} className="mt-2" />
                 <p className="text-muted-foreground mt-0.5 text-xs">
                   of project complete
                 </p>
@@ -371,14 +374,14 @@ export function ProjectDetail({
                     {formatDate(project.createdAt)}
                   </dd>
                 </div>
-                {/* <div>
+                <div>
                   <dt className="text-muted-foreground text-xs uppercase">
                     Last updated
                   </dt>
                   <dd className="mt-1 font-medium">
                     {formatRelativeDate(project.updatedAt)}
                   </dd>
-                </div> */}
+                </div>
               </dl>
             </div>
           </div>
@@ -409,6 +412,7 @@ export function ProjectDetail({
               <MilestonesPanel
                 initialMilestones={initialMilestones}
                 projectId={project.id}
+                onProgressChange={setLiveProgress}
               />
             ) : (
               activeSection === "activities" && <h2>Activities</h2>

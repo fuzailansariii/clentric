@@ -5,7 +5,6 @@ import { projectColumns } from "./projects-columns";
 import { useRouter } from "next/navigation";
 import { renderProjectMobileCard } from "./render-client-mobile-card";
 import { ProjectListItem } from "./queries";
-import { StatsCards } from "@/components/ui/stats-cards";
 
 export default function ProjectTable({ data }: { data: ProjectListItem[] }) {
   const router = useRouter();
