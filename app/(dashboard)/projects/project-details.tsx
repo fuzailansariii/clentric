@@ -29,6 +29,8 @@ import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 import { cn } from "@/lib/utils";
 import { Field } from "@/components/ui/input";
+import MilestonesPanel, { MilestoneListItem } from "./milestones-panel";
+import ProgressBar from "@/components/ui/progress-bar";
 
 export function toProjectFormDefaults(
   project: ProjectListItem,
@@ -44,16 +46,20 @@ export function toProjectFormDefaults(
 
 export function ProjectDetail({
   project,
+  initialMilestones,
   initialEdit = false,
 }: {
   project: ProjectListItem;
+  initialMilestones: MilestoneListItem[];
   initialEdit?: boolean;
 }) {
-  const [activeSection, setActiveSection] =
-    useState<"milestones">("milestones");
+  const [activeSection, setActiveSection] = useState<
+    "milestones" | "activities"
+  >("milestones");
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(initialEdit);
   const [formError, setFormError] = useState<string | null>(null);
+  const [liveProgress, setLiveProgress] = useState(project.progress);
 
   const router = useRouter();
   const config = projectStatusConfig[project.status];
@@ -299,8 +305,9 @@ export function ProjectDetail({
                   Progress
                 </p>
                 <p className="mt-1 text-lg font-semibold text-blue-600">
-                  {project.progress}%
+                  {liveProgress}%
                 </p>
+                <ProgressBar value={liveProgress} className="mt-2" />
                 <p className="text-muted-foreground mt-0.5 text-xs">
                   of project complete
                 </p>
@@ -367,21 +374,21 @@ export function ProjectDetail({
                     {formatDate(project.createdAt)}
                   </dd>
                 </div>
-                {/* <div>
+                <div>
                   <dt className="text-muted-foreground text-xs uppercase">
                     Last updated
                   </dt>
                   <dd className="mt-1 font-medium">
                     {formatRelativeDate(project.updatedAt)}
                   </dd>
-                </div> */}
+                </div>
               </dl>
             </div>
           </div>
         </form>
 
-        {/* Milestones (unchanged) */}
-        <div className="border-border rounded-xl border">
+        {/* Milestones & Activities */}
+        <div className="border-border mt-4 rounded-xl border">
           <div
             role="tablist"
             className="border-border flex items-center gap-1 px-6"
@@ -393,9 +400,23 @@ export function ProjectDetail({
               isActive={activeSection === "milestones"}
               onClick={() => setActiveSection("milestones")}
             />
+            <TabButton
+              id="tablist"
+              label="Activities"
+              isActive={activeSection === "activities"}
+              onClick={() => setActiveSection("activities")}
+            />
           </div>
           <div role="tabpanel" className="border-t">
-            {/* <MilestonesPanel /> */}
+            {activeSection === "milestones" ? (
+              <MilestonesPanel
+                initialMilestones={initialMilestones}
+                projectId={project.id}
+                onProgressChange={setLiveProgress}
+              />
+            ) : (
+              activeSection === "activities" && <h2>Activities</h2>
+            )}
           </div>
         </div>
 

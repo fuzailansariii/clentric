@@ -24,7 +24,7 @@ export default function Login() {
     if (error) {
       if (error.message.toLowerCase().includes("signups not allowed")) {
         throw new Error(
-          "No account found with that email. Try creating one instead.",
+          "No account found with this email. Try creating one instead.",
         );
       }
       throw new Error(error.message);
