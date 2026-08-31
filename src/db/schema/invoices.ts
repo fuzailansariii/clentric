@@ -8,6 +8,7 @@ import {
   date,
   index,
   unique,
+  integer,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
 import { clients } from "./clients";
@@ -17,7 +18,6 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
   "draft",
   "sent",
   "paid",
-  "overdue",
 ]);
 
 export const invoices = pgTable(
@@ -33,7 +33,7 @@ export const invoices = pgTable(
     projectId: uuid("project_id").references(() => projects.id, {
       onDelete: "set null",
     }),
-    invoiceNumber: text("invoice_number").notNull(),
+    invoiceNumber: integer("invoice_number").notNull(),
     subTotal: decimal("sub_total", { precision: 12, scale: 2 }).notNull(),
     taxAmount: decimal("tax_amount", { precision: 12, scale: 2 })
       .notNull()
@@ -44,6 +44,11 @@ export const invoices = pgTable(
     dueDate: date("due_date"),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paymentDetails: text("payment_details"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    lastReminderSentAt: timestamp("last_reminder_sent_at", {
+      withTimezone: true,
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
