@@ -18,6 +18,7 @@ export const invoiceStatusEnum = pgEnum("invoice_status", [
   "draft",
   "sent",
   "paid",
+  "overdue",
 ]);
 
 export const invoices = pgTable(
@@ -39,9 +40,12 @@ export const invoices = pgTable(
       .notNull()
       .default("0"),
     total: decimal("total", { precision: 12, scale: 2 }).notNull(),
-    taxRate: decimal("tax_rate", { precision: 5, scale: 2 }),
+    taxRate: decimal("tax_rate", { precision: 5, scale: 2 })
+      .notNull()
+      .default("0"),
+    issueDate: date("issue_date").notNull(),
     status: invoiceStatusEnum("status").notNull().default("draft"),
-    dueDate: date("due_date"),
+    dueDate: date("due_date").notNull(),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paymentDetails: text("payment_details"),
     sentAt: timestamp("sent_at", { withTimezone: true }),

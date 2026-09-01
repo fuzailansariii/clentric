@@ -1,0 +1,31 @@
+import { z } from "zod";
+import { clientIdSchema } from "../clients/schema";
+import { projectIdSchema } from "../projects/schema";
+
+export const invoiceLineSchema = z.object({
+  description: z.string().min(1, "Item Description is required"),
+  quantity: z.coerce.number().positive("Quantity must be greater than 0"),
+  rate: z.coerce.number().positive("Rate must be a positive number"),
+});
+
+export const invoiceObjectSchema = z.object({
+  clientId: clientIdSchema,
+  projectId: projectIdSchema.optional(),
+  issueDate: z.coerce.date(),
+  dueDate: z.coerce.date(),
+  taxRate: z.coerce
+    .number()
+    .min(0, "Tax rate cannot be negative")
+    .max(100, "Tax rate cannot be exceed 100"),
+  lineItems: z
+    .array(invoiceLineSchema)
+    .min(1, "At least one line item is required"),
+});
+
+export const invoiceSchema = invoiceObjectSchema.refine(
+  (data) => data.dueDate >= data.issueDate,
+  {
+    error: "Due date must be on or after issue date",
+    path: ["dueDate"],
+  },
+);

@@ -8,10 +8,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { projects } from "@/src/db/schema/projects";
 import { normalize } from "@/lib/normalizeOptionalFields";
 import { revalidatePath } from "next/cache";
-
-type ActionResult<T = void> =
-  | (T extends void ? { success: true } : { success: true; data: T })
-  | { success: false; error: string };
+import { ActionResult } from "@/lib/action-result";
 
 // Create Project Action
 export async function createProjectAction(

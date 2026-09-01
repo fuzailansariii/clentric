@@ -7,10 +7,7 @@ import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
 import { and, eq, isNull } from "drizzle-orm";
 import { normalize } from "@/lib/normalizeOptionalFields";
-
-type ActionResult<T = void> =
-  | (T extends void ? { success: true } : { success: true; data: T })
-  | { success: false; error: string };
+import { ActionResult } from "@/lib/action-result";
 
 // create client
 export async function createClientAction(
