@@ -16,7 +16,10 @@ export async function getNextInvoiceNumber(tx: Transaction, userId: string) {
     .returning({ lastNumber: invoiceCounters.lastNumber });
 
   if (!row) {
-    throw new AppError("GENERATE_FAILED", "Failed to generate invoice number");
+    throw new AppError(
+      "GENERATION_FAILED",
+      "Failed to generate invoice number",
+    );
   }
 
   return row.lastNumber;

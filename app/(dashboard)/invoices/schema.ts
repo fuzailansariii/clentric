@@ -8,6 +8,8 @@ export const invoiceLineSchema = z.object({
   rate: z.coerce.number().positive("Rate must be a positive number"),
 });
 
+export const invoiceIdSchema = z.uuid();
+
 export const invoiceObjectSchema = z.object({
   clientId: clientIdSchema,
   projectId: projectIdSchema.optional(),

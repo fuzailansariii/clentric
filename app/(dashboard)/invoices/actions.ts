@@ -79,7 +79,10 @@ export async function createInvoiceAction(
         }
       }
 
+      // generate invoice number
       const invoiceNumber = await getNextInvoiceNumber(tx, user.id);
+
+      // create invoice
       const [created] = await tx
         .insert(invoices)
         .values({
@@ -100,6 +103,7 @@ export async function createInvoiceAction(
         throw new AppError("INSERT_FAILED", "Failed to create invoice");
       }
 
+      // insert invoice items
       await tx.insert(invoiceItems).values(
         itemsWithAmounts.map((item, idx) => ({
           invoiceId: created.invoiceId,
