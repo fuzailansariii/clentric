@@ -1,4 +1,5 @@
 "use client";
+
 import {
   dateToFormValue,
   formatDate,
@@ -10,19 +11,21 @@ import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 
-type DeadlinePickerProps = {
+type DatePickerFieldProps = {
   label?: string;
   value: string | undefined;
   onChange: (value: string) => void;
   error?: string;
+  disablePast?: boolean;
 };
 
-export function DeadlinePicker({
+export function DatePickerField({
   label,
   onChange,
   value,
   error,
-}: DeadlinePickerProps) {
+  disablePast = false,
+}: DatePickerFieldProps) {
   const selectedDate = formValueToDate(value);
   const [month, setMonth] = useState<Date | undefined>(selectedDate);
 
@@ -30,9 +33,10 @@ export function DeadlinePicker({
     <div className="flex flex-col gap-0.5">
       {label && (
         <label className="text-muted-foreground font-sans text-[13px] font-medium">
-          Deadline
+          {label}
         </label>
       )}
+
       <Popover>
         <PopoverTrigger asChild>
           <button
@@ -45,9 +49,11 @@ export function DeadlinePicker({
             )}
           >
             {selectedDate ? formatDate(selectedDate) : "Pick a date"}
+
             <CalendarIcon className="h-4 w-4 opacity-50" />
           </button>
         </PopoverTrigger>
+
         <PopoverContent className="w-auto" align="start">
           <Calendar
             mode="single"
@@ -55,8 +61,10 @@ export function DeadlinePicker({
             month={month ?? selectedDate ?? new Date()}
             onMonthChange={setMonth}
             onSelect={(date) => onChange(dateToFormValue(date))}
-            disabled={(date) =>
-              date < new Date(new Date().setHours(0, 0, 0, 0))
+            disabled={
+              disablePast
+                ? (date) => date < new Date(new Date().setHours(0, 0, 0, 0))
+                : undefined
             }
             autoFocus
             classNames={{
@@ -67,6 +75,7 @@ export function DeadlinePicker({
           />
         </PopoverContent>
       </Popover>
+
       {error && <span className="text-danger-600 text-xs">{error}</span>}
     </div>
   );

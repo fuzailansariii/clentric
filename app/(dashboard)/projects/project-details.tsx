@@ -20,7 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DeadlinePicker } from "@/components/deadline-picker";
+import { DatePickerField } from "@/components/date-picker-field";
 import { ProjectListItem } from "./queries";
 import { EditableProjectInput, editableProjectsSchema } from "./schema";
 import { projectStatusConfig } from "./project-status-config";
@@ -257,7 +257,7 @@ export function ProjectDetail({
                     control={control}
                     name="deadline"
                     render={({ field }) => (
-                      <DeadlinePicker
+                      <DatePickerField
                         value={field.value}
                         onChange={field.onChange}
                         error={errors.deadline?.message}

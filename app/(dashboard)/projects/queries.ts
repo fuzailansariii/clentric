@@ -26,6 +26,7 @@ export type ProjectListItem = {
   progress: number; // 0–100
 };
 
+// get all projects
 export async function getAllProjects(rawParam: unknown) {
   try {
     const user = await requireUser();
@@ -111,6 +112,7 @@ export async function getAllProjects(rawParam: unknown) {
   }
 }
 
+// get projects by projectId
 export async function getProjectById(
   projectId: string,
 ): Promise<ProjectListItem | null> {
@@ -179,6 +181,7 @@ export async function getProjectById(
   }
 }
 
+// get projects by clientId
 export async function getProjectsByClientId(
   clientId: string,
 ): Promise<ProjectListItem[]> {
@@ -249,6 +252,28 @@ export async function getProjectsByClientId(
   }
 }
 
+// get projects options to create invoice(project picker)
+export async function getProjectOptionsByUserId() {
+  try {
+    const user = await requireUser();
+    const rows = await db
+      .select({
+        id: projects.id,
+        title: projects.title,
+        clientId: projects.clientId,
+      })
+      .from(projects)
+      .where(and(eq(projects.userId, user.id), isNull(projects.deletedAt)))
+      .orderBy(desc(projects.createdAt));
+    return rows;
+  } catch (error) {
+    logError("getProjectOptionsByUserId", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load projects.");
+  }
+}
+
+// get milestones by projectId
 export async function getMilestonesByProjectId(projectId: string) {
   try {
     const parsed = projectIdSchema.safeParse(projectId);

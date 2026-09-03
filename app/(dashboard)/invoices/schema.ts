@@ -9,12 +9,13 @@ export const invoiceLineSchema = z.object({
 });
 
 export const invoiceIdSchema = z.uuid();
+const invoiceDateSchema = z.iso.date();
 
 export const invoiceObjectSchema = z.object({
   clientId: clientIdSchema,
   projectId: projectIdSchema.optional(),
-  issueDate: z.coerce.date(),
-  dueDate: z.coerce.date(),
+  issueDate: invoiceDateSchema,
+  dueDate: invoiceDateSchema,
   taxRate: z.coerce
     .number()
     .min(0, "Tax rate cannot be negative")
@@ -31,3 +32,6 @@ export const invoiceSchema = invoiceObjectSchema.refine(
     path: ["dueDate"],
   },
 );
+
+export type InvoiceFormInput = z.input<typeof invoiceSchema>;
+export type InvoiceFormOutput = z.output<typeof invoiceSchema>;

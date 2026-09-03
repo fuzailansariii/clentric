@@ -8,7 +8,6 @@ import { db } from "@/src/db";
 import { getNextInvoiceNumber } from "@/lib/get-next-invoice-number";
 import { invoices } from "@/src/db/schema/invoices";
 import { revalidatePath } from "next/cache";
-import { dateToFormValue } from "@/lib/format-date";
 import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { clients } from "@/src/db/schema/clients";
 import { and, eq } from "drizzle-orm";
@@ -89,8 +88,8 @@ export async function createInvoiceAction(
           userId: user.id,
           clientId: parsed.data.clientId,
           projectId: parsed.data.projectId,
-          issueDate: dateToFormValue(parsed.data.issueDate),
-          dueDate: dateToFormValue(parsed.data.dueDate),
+          issueDate: parsed.data.issueDate,
+          dueDate: parsed.data.dueDate,
           taxRate: parsed.data.taxRate.toFixed(2),
           invoiceNumber,
           taxAmount: taxAmount.toFixed(2),

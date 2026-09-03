@@ -13,6 +13,7 @@ CREATE TABLE "users" (
 	"avatar" text,
 	"profession" text,
 	"plan" "subscription_plan" DEFAULT 'free' NOT NULL,
+	"onboarding_completed" boolean DEFAULT false NOT NULL,
 	"timezone" text DEFAULT 'UTC',
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -64,15 +65,19 @@ CREATE TABLE "invoices" (
 	"user_id" uuid NOT NULL,
 	"client_id" uuid NOT NULL,
 	"project_id" uuid,
-	"invoice_number" text NOT NULL,
+	"invoice_number" integer NOT NULL,
 	"sub_total" numeric(12, 2) NOT NULL,
 	"tax_amount" numeric(12, 2) DEFAULT '0' NOT NULL,
 	"total" numeric(12, 2) NOT NULL,
-	"tax_rate" numeric(5, 2),
+	"tax_rate" numeric(5, 2) DEFAULT '0' NOT NULL,
+	"issue_date" date NOT NULL,
 	"status" "invoice_status" DEFAULT 'draft' NOT NULL,
-	"due_date" date,
+	"due_date" date NOT NULL,
 	"paid_at" timestamp with time zone,
 	"payment_details" text,
+	"sent_at" timestamp with time zone,
+	"deleted_at" timestamp with time zone,
+	"last_reminder_sent_at" timestamp with time zone,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "uq_user_invoice_number" UNIQUE("user_id","invoice_number")
@@ -176,6 +181,11 @@ CREATE TABLE "webhook_events" (
 	CONSTRAINT "webhook_events_event_id_unique" UNIQUE("event_id")
 );
 --> statement-breakpoint
+CREATE TABLE "invoice_counters" (
+	"user_id" uuid PRIMARY KEY NOT NULL,
+	"last_number" integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_id_users_id_fk" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clients" ADD CONSTRAINT "clients_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -193,6 +203,7 @@ ALTER TABLE "activity_logs" ADD CONSTRAINT "activity_logs_user_id_users_id_fk" F
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "team_members" ADD CONSTRAINT "team_members_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "invoice_counters" ADD CONSTRAINT "invoice_counters_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "idx_clients_user_id" ON "clients" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "idx_projects_user_id" ON "projects" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "idx_project_client_id" ON "projects" USING btree ("client_id");--> statement-breakpoint
