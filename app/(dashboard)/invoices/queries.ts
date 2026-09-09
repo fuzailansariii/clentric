@@ -6,12 +6,31 @@ import { invoices } from "@/src/db/schema/invoices";
 import { and, asc, desc, eq, ilike, isNull, lt, sql } from "drizzle-orm";
 import { invoiceIdSchema } from "./schema";
 import { invoiceItems } from "@/src/db/schema/invoice-items";
+import { clientIdSchema } from "../clients/schema";
+import { InvoiceStatus } from "./invoice-status-config";
+import {
+  getDisplayStatus,
+  InvoiceDisplayStatus,
+} from "@/lib/get-invoice-display-status";
+import { projects } from "@/src/db/schema/projects";
 
 export type InvoiceListFilters = {
   page: number;
   pageSize: number;
   statusFilter?: "draft" | "sent" | "paid" | "overdue";
   search?: string;
+};
+
+export type InvoiceListItem = {
+  id: string;
+  invoiceNumber: number;
+  clientName: string | null;
+  projectTitle: string | null; // from the linked project, for the description line
+  total: string; // decimal(12,2) comes back as string from drizzle
+  status: InvoiceDisplayStatus;
+  issueDate: string; // drizzle `date` returns "yyyy-mm-dd" string
+  dueDate: string;
+  createdAt: string | Date;
 };
 
 export async function getInvoicesByUserId(filters: InvoiceListFilters) {
@@ -122,5 +141,50 @@ export async function getInvoiceById(invoiceId: string) {
       error:
         error instanceof AppError ? error.message : "Could not fetch Invoice",
     };
+  }
+}
+
+export async function getInvoicesByClientId(clientId: string) {
+  try {
+    const parsed = clientIdSchema.safeParse(clientId);
+
+    if (!parsed.success) {
+      throw new AppError("VALIDATION_ERROR", "Invalid Client ID.");
+    }
+
+    const user = await requireUser();
+
+    const rows = await db
+      .select({
+        id: invoices.id,
+        invoiceNumber: invoices.invoiceNumber,
+        clientName: clients.name,
+        projectTitle: projects.title,
+        total: invoices.total,
+        status: invoices.status,
+        issueDate: invoices.issueDate,
+        dueDate: invoices.dueDate,
+        createdAt: invoices.createdAt,
+      })
+      .from(invoices)
+      .innerJoin(clients, eq(invoices.clientId, clients.id))
+      .leftJoin(projects, eq(invoices.projectId, projects.id))
+      .where(
+        and(
+          eq(invoices.userId, user.id),
+          eq(invoices.clientId, parsed.data),
+          isNull(invoices.deletedAt),
+        ),
+      )
+      .orderBy(desc(invoices.createdAt));
+
+    return rows.map((invoice) => ({
+      ...invoice,
+      status: getDisplayStatus(invoice),
+    }));
+  } catch (error) {
+    logError("getInvoicesByClientId", error);
+
+    return [];
   }
 }

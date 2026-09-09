@@ -1,4 +1,3 @@
-import type { ProjectRow } from "@/src/db/schema/projects";
 import { ProjectListItem } from "./queries";
 export type ProjectStats = {
   total: number;

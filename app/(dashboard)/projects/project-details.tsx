@@ -159,7 +159,7 @@ export function ProjectDetail({
       />
 
       <DashboardContainer>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="mb-4 space-y-4">
           {/* ========== MAIN CARD ========== */}
           <div
             className={cn(
@@ -367,14 +367,6 @@ export function ProjectDetail({
                     {formatDate(project.createdAt)}
                   </dd>
                 </div>
-                {/* <div>
-                  <dt className="text-muted-foreground text-xs uppercase">
-                    Last updated
-                  </dt>
-                  <dd className="mt-1 font-medium">
-                    {formatRelativeDate(project.updatedAt)}
-                  </dd>
-                </div> */}
               </dl>
             </div>
           </div>

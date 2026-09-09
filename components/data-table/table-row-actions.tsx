@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type MouseEvent } from "react";
+import { ReactNode, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
 import { PencilIcon, SquareArrowOutUpRight, TrashIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -28,6 +28,11 @@ export type TableRowActionsProps = {
   showView?: boolean;
   showDelete?: boolean;
   className?: string;
+  customAction?: {
+    label: string;
+    icon: ReactNode;
+    onClick: (event: MouseEvent) => void;
+  };
 };
 
 const actionButtonClassName =
@@ -46,6 +51,7 @@ export function TableRowActions({
   showView = true,
   showDelete = true,
   className,
+  customAction,
 }: TableRowActionsProps) {
   const router = useRouter();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -68,6 +74,11 @@ export function TableRowActions({
   const handleViewDetails = (event: MouseEvent) => {
     stopPropagation(event);
     router.push(detailHref);
+  };
+
+  const handleCustomAction = (event: MouseEvent) => {
+    stopPropagation(event);
+    customAction?.onClick(event);
   };
 
   const handleDeleteClick = (event: MouseEvent) => {
@@ -101,7 +112,7 @@ export function TableRowActions({
     }
   };
 
-  const hasActions = showEdit || showView || showDelete;
+  const hasActions = showEdit || showView || showDelete || customAction;
 
   if (!hasActions) {
     return null;
@@ -121,6 +132,17 @@ export function TableRowActions({
             onClick={handleEdit}
           >
             <PencilIcon className="h-4 w-4" />
+          </button>
+        )}
+
+        {customAction && (
+          <button
+            type="button"
+            aria-label={customAction.label}
+            className={actionButtonClassName}
+            onClick={handleCustomAction}
+          >
+            {customAction.icon}
           </button>
         )}
 

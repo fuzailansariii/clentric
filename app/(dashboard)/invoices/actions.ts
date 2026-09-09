@@ -12,6 +12,9 @@ import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { clients } from "@/src/db/schema/clients";
 import { and, eq } from "drizzle-orm";
 import { projects } from "@/src/db/schema/projects";
+import { clientIdSchema } from "../clients/schema";
+import { getInvoicesByClientId } from "./queries";
+import { getDisplayStatus } from "@/lib/get-invoice-display-status";
 
 export async function createInvoiceAction(
   input: unknown,
@@ -134,6 +137,170 @@ export async function createInvoiceAction(
         error instanceof AppError
           ? error.message
           : "Could not create invoice. Try again.",
+    };
+  }
+}
+
+export async function sendInvoiceAction(
+  invoiceId: string,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+
+    const [invoice] = await db
+      .select({ id: invoices.id, status: invoices.status })
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, user.id)))
+      .limit(1);
+
+    if (!invoice) {
+      throw new AppError("NOT_FOUND", "Invoice not found");
+    }
+
+    if (invoice.status === "paid") {
+      throw new AppError("BAD_REQUEST", "Invoice is already paid");
+    }
+
+    await db
+      .update(invoices)
+      .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })
+      .where(eq(invoices.id, invoiceId));
+
+    revalidatePath("/invoices");
+
+    return { success: true };
+  } catch (error) {
+    logError("sendInvoiceAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof AppError
+          ? error.message
+          : "Could not send invoice. Try again.",
+    };
+  }
+}
+
+export async function sendReminderAction(
+  invoiceId: string,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+
+    const [invoice] = await db
+      .select({
+        id: invoices.id,
+        status: invoices.status,
+        dueDate: invoices.dueDate,
+      })
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, user.id)))
+      .limit(1);
+
+    if (!invoice) {
+      throw new AppError("NOT_FOUND", "Invoice not found");
+    }
+
+    const displayStatus = getDisplayStatus(invoice);
+
+    if (displayStatus === "draft" || displayStatus === "paid") {
+      throw new AppError(
+        "BAD_REQUEST",
+        "Reminders can only be sent for unpaid invoices",
+      );
+    }
+
+    await db
+      .update(invoices)
+      .set({ lastReminderSentAt: new Date(), updatedAt: new Date() })
+      .where(eq(invoices.id, invoiceId));
+
+    // TODO: send the actual email here
+
+    revalidatePath("/invoices");
+
+    return { success: true };
+  } catch (error) {
+    logError("sendReminderAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof AppError
+          ? error.message
+          : "Could not send reminder. Try again.",
+    };
+  }
+}
+
+export async function markInvoicePaidAction(
+  invoiceId: string,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+
+    const [invoice] = await db
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, user.id)))
+      .limit(1);
+
+    if (!invoice) {
+      throw new AppError("NOT_FOUND", "Invoice not found");
+    }
+
+    await db
+      .update(invoices)
+      .set({ status: "paid", paidAt: new Date(), updatedAt: new Date() })
+      .where(eq(invoices.id, invoiceId));
+
+    revalidatePath("/invoices");
+
+    return { success: true };
+  } catch (error) {
+    logError("markInvoicePaidAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof AppError
+          ? error.message
+          : "Could not mark invoice as paid. Try again.",
+    };
+  }
+}
+
+export async function deleteInvoiceAction(
+  invoiceId: string,
+): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+
+    const [invoice] = await db
+      .select({ id: invoices.id })
+      .from(invoices)
+      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, user.id)))
+      .limit(1);
+
+    if (!invoice) {
+      throw new AppError("NOT_FOUND", "Invoice not found");
+    }
+
+    // Soft delete — your schema has `deletedAt`
+    await db
+      .update(invoices)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(invoices.id, invoiceId));
+
+    revalidatePath("/invoices");
+
+    return { success: true };
+  } catch (error) {
+    logError("deleteInvoiceAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof AppError
+          ? error.message
+          : "Could not delete invoice. Try again.",
     };
   }
 }

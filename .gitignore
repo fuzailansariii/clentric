@@ -38,6 +38,7 @@ yarn-error.log*
 /docs/
 PROJECT.md
 table-row-actions.md
+REPO_ASSESSMENT.md
 
 # vercel
 .vercel
