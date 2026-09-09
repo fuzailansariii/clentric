@@ -12,7 +12,7 @@ export const invoiceIdSchema = z.uuid();
 const invoiceDateSchema = z.iso.date();
 
 export const invoiceObjectSchema = z.object({
-  clientId: clientIdSchema,
+  clientId: z.string().trim().min(1, "Client is required").pipe(clientIdSchema),
   projectId: projectIdSchema.optional(),
   issueDate: invoiceDateSchema,
   dueDate: invoiceDateSchema,

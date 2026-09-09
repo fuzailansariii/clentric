@@ -31,7 +31,7 @@ export default function InvoicePreview({
   isSubmitting,
 }: InvoicePreviewProps) {
   return (
-    <div className="max-w-sm">
+    <div className="w-full min-w-0">
       <div className="border-border items-center rounded-lg border">
         <h2 className="mb flex w-full items-center gap-3 border-b p-4">
           <Eye className="h-4 w-4" />

@@ -22,6 +22,11 @@ import { Plus } from "lucide-react";
 import { calculateInvoiceTotals } from "@/lib/calculate-invoice-totals";
 import LineItems from "./line-items";
 import InvoicePreview from "@/components/preview/invoice-preview";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { CustomButton } from "@/components/ui/custom-button";
+import { cn } from "@/lib/utils";
+import DetailedInvoiceForm from "./new/detailed-invoice-form";
+import QuickInvoiceForm from "./new/quick-invoice-form";
 
 type InvoiceBuilderProps = {
   clients: ClientOption[];
@@ -32,9 +37,13 @@ export default function InvoiceBuilder({
   clients,
   projects,
 }: InvoiceBuilderProps) {
+  const [mode, setMode] = useState<"quick" | "detailed">("quick");
+  const [showQuickConfirm, setShowQuickConfirm] = useState(false);
   const [formError, setFormError] = useState("");
+
   const router = useRouter();
 
+  // form to create invoice
   const form = useForm<InvoiceFormInput, any, InvoiceFormOutput>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
@@ -73,15 +82,40 @@ export default function InvoiceBuilder({
     (project) => project.clientId === selectedClientId,
   );
 
+  // to check if there is more than one item in the lineItems.
+  const hasMeaningfulExtraLineItems = (): boolean => {
+    if (watchedLineItems.length <= 1) return false;
+    const extraItems = watchedLineItems.slice(1);
+    return extraItems.some(
+      (item) => item.description !== "" || Number(item.rate) > 0,
+    );
+  };
+
+  function collapseToSingleLineItem() {
+    const firstItem = watchedLineItems[0];
+    replace([{ ...firstItem, quantity: 1 }]);
+  }
+
+  const handleQuickClick = () => {
+    if (mode === "quick") return;
+    if (hasMeaningfulExtraLineItems()) {
+      setShowQuickConfirm(true);
+    } else {
+      setMode("quick");
+    }
+  };
+
   const selectedClient = clients.find((c) => c.id === selectedClientId);
   const selectedProjectId = useWatch({ control, name: "projectId" });
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const watchedDueDate = useWatch({ control, name: "dueDate" });
 
-  const { fields, append, remove } = useFieldArray({
+  const fieldArray = useFieldArray({
     control: form.control,
     name: "lineItems",
   });
+
+  const { fields, append, remove, replace } = fieldArray;
 
   const handleClientChange = (
     onChange: (value: string) => void,
@@ -99,6 +133,7 @@ export default function InvoiceBuilder({
     watchedTaxRate,
   );
 
+  // form submit handler
   const onSubmit = handleSubmit(async (data: InvoiceFormOutput) => {
     await runActionWithToast(createInvoiceAction(data), {
       loading: "Creating invoice.",
@@ -129,134 +164,94 @@ export default function InvoiceBuilder({
             {formError}
           </div>
         )}
-        <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-          {/* Invoice details form */}
-          <form onSubmit={onSubmit} className="pb-12">
-            <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
-              <FormSection
-                title="Who's this invoice for?"
-                step="01 Client & Project"
-                description="Choose the client being billed, and optionally link it to a project."
-              >
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <Controller
-                    control={control}
-                    name="clientId"
-                    render={({ field }) => (
-                      <ClientCombobox
-                        clients={clients}
-                        value={field.value}
-                        onChange={(value) =>
-                          handleClientChange(field.onChange, value)
-                        }
-                        error={errors.clientId?.message}
-                      />
-                    )}
-                  />
-                  <Controller
-                    control={control}
-                    name="projectId"
-                    render={({ field }) => (
-                      <ProjectCombobox
-                        projects={filteredProjects}
-                        value={field.value ?? ""}
-                        onChange={field.onChange}
-                        error={errors.projectId?.message}
-                      />
-                    )}
-                  />
-                </div>
-              </FormSection>
-              <FormSection
-                title="Invoice details"
-                step="02 Dates & Tax"
-                description="Set when this invoice is issued, when it's due, and any applicable tax rate."
-              >
-                <div className="grid gap-5 sm:grid-cols-2">
-                  <Controller
-                    control={control}
-                    name="issueDate"
-                    render={({ field }) => (
-                      <DatePickerField
-                        label="Issue Date"
-                        value={field.value}
-                        onChange={field.onChange}
-                        error={errors.issueDate?.message}
-                      />
-                    )}
-                  />
+        <div className="mb-6 flex w-full justify-end">
+          <div className="border-border bg-secondary flex w-full items-center rounded-lg border p-1 sm:w-auto">
+            <button
+              type="button"
+              onClick={handleQuickClick}
+              className={cn(
+                "relative flex-1 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 sm:flex-none sm:px-5",
+                mode === "quick"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Quick
+            </button>
 
-                  <Controller
-                    control={control}
-                    name="dueDate"
-                    render={({ field }) => (
-                      <DatePickerField
-                        label="Due Date"
-                        onChange={field.onChange}
-                        value={field.value}
-                        error={errors.dueDate?.message}
-                        disablePast
-                      />
-                    )}
-                  />
-                  <Field
-                    {...register("taxRate")}
-                    label="Tax Rate"
-                    placeholder="0"
-                    suffix="%"
-                    error={errors.taxRate?.message}
-                  />
-                </div>
-              </FormSection>
-
-              <FormSection
-                title="What are you billing for?"
-                step="03 Line Items"
-                description="Add the services or products included in this invoice."
-              >
-                <div className="space-y-4">
-                  <LineItems
-                    fields={fields}
-                    register={register}
-                    errors={errors}
-                    watchedLineItems={watchedLineItems}
-                    remove={remove}
-                  />
-
-                  {/* Add item */}
-                  <button
-                    type="button"
-                    onClick={() =>
-                      append({
-                        description: "",
-                        quantity: 1,
-                        rate: 0,
-                      })
-                    }
-                    className="text-primary hover:text-primary/80 inline-flex items-center gap-2 text-sm font-medium"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add line item
-                  </button>
-                </div>
-              </FormSection>
-            </div>
-          </form>
-
-          {/* Invoice Preview */}
-          <InvoicePreview
-            projectName={selectedProject?.title}
-            clientName={selectedClient?.name}
-            dueDate={watchedDueDate}
-            subTotal={subtotal}
-            taxRate={taxRate}
-            taxAmount={taxAmount}
-            total={total}
-            onSubmit={onSubmit}
-            onCancel={() => router.push("/invoices")}
-            isSubmitting={isSubmitting}
-          />
+            <button
+              type="button"
+              onClick={() => setMode("detailed")}
+              className={cn(
+                "relative flex-1 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 sm:flex-none sm:px-5",
+                mode === "detailed"
+                  ? "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              Detailed
+            </button>
+          </div>
         </div>
+
+        <div className="@container">
+          <div className="grid gap-8 @[900px]:grid-cols-[minmax(0,1fr)_360px]">
+            {/* Invoice details form */}
+            {mode === "quick" ? (
+              <QuickInvoiceForm
+                control={control}
+                register={register}
+                errors={errors}
+                clients={clients}
+                onSubmit={onSubmit}
+                filteredProjects={filteredProjects}
+                onClientChange={handleClientChange}
+              />
+            ) : (
+              <DetailedInvoiceForm
+                control={control}
+                register={register}
+                errors={errors}
+                clients={clients}
+                filteredProjects={filteredProjects}
+                fields={fields}
+                watchedLineItems={watchedLineItems}
+                append={append}
+                remove={remove}
+                onClientChange={handleClientChange}
+                onSubmit={onSubmit}
+              />
+            )}
+
+            {/* Invoice Preview */}
+            <div className="sticky top-6 self-start">
+              <InvoicePreview
+                projectName={selectedProject?.title}
+                clientName={selectedClient?.name}
+                dueDate={watchedDueDate}
+                subTotal={subtotal}
+                taxRate={taxRate}
+                taxAmount={taxAmount}
+                total={total}
+                onSubmit={onSubmit}
+                onCancel={() => router.push("/invoices")}
+                isSubmitting={isSubmitting}
+              />
+            </div>
+          </div>
+        </div>
+        <ConfirmDialog
+          open={showQuickConfirm}
+          onOpenChange={setShowQuickConfirm}
+          title="Switch to Quick mode?"
+          description="This will keep only your first line item and remove the rest. This can't be undone."
+          confirmLabel="Switch to Quick"
+          variant="destructive"
+          onConfirm={() => {
+            collapseToSingleLineItem();
+            setMode("quick");
+          }}
+        />
       </DashboardContainer>
     </>
   );

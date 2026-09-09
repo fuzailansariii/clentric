@@ -30,7 +30,7 @@ export function DatePickerField({
   const [month, setMonth] = useState<Date | undefined>(selectedDate);
 
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-1">
       {label && (
         <label className="text-muted-foreground font-sans text-[13px] font-medium">
           {label}
@@ -43,7 +43,7 @@ export function DatePickerField({
             type="button"
             aria-invalid={!!error}
             className={cn(
-              "border-border bg-input/20 flex h-10 w-full items-center justify-between rounded-lg border px-3 text-sm font-medium",
+              "border-border bg-input/20 flex h-11 w-full items-center justify-between rounded-lg border px-3 text-sm font-medium",
               "focus-visible:border-ring focus-visible:ring-ring/20 focus-visible:ring-2 focus-visible:outline-none",
               !selectedDate && "text-muted-foreground",
             )}

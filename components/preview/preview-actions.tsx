@@ -23,7 +23,7 @@ export default function PreviewActions({ actions }: PreviewActionsProps) {
           variant={action.variant}
           onClick={action.onClick}
           disabled={action.disabled}
-          className="w-full"
+          className="w-full gap-0.5"
         >
           {action.icon}
           {action.label}

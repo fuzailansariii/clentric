@@ -37,7 +37,7 @@ export const Field = forwardRef<
     const fieldId = id ?? props.name;
 
     return (
-      <div className="flex flex-col gap-0.5">
+      <div className="flex flex-col gap-1">
         {label && (
           <label
             htmlFor={fieldId}
@@ -75,7 +75,7 @@ export const Field = forwardRef<
               id={fieldId}
               className={cn(
                 baseStyles,
-                "h-10",
+                "h-11",
                 prefix && "pl-7",
                 suffix && "pr-8",
                 "[appearance:textfield]",
