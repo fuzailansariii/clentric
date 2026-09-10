@@ -31,11 +31,15 @@ import QuickInvoiceForm from "./new/quick-invoice-form";
 type InvoiceBuilderProps = {
   clients: ClientOption[];
   projects: ProjectOption[];
+  initialClientId?: string;
+  initialProjectId?: string;
 };
 
 export default function InvoiceBuilder({
   clients,
   projects,
+  initialClientId,
+  initialProjectId,
 }: InvoiceBuilderProps) {
   const [mode, setMode] = useState<"quick" | "detailed">("quick");
   const [showQuickConfirm, setShowQuickConfirm] = useState(false);
@@ -47,7 +51,8 @@ export default function InvoiceBuilder({
   const form = useForm<InvoiceFormInput, any, InvoiceFormOutput>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
-      clientId: "",
+      clientId: initialClientId ?? "",
+      projectId: initialProjectId ?? undefined,
       issueDate: dateToFormValue(new Date()),
       dueDate: dateToFormValue(new Date()),
       taxRate: 0,

@@ -33,5 +33,19 @@ export const invoiceSchema = invoiceObjectSchema.refine(
   },
 );
 
+export const updateInvoiceSchema = invoiceObjectSchema.extend({
+  invoiceId: invoiceIdSchema,
+});
+
+const revertibleStatuses = ["draft", "sent"] as const;
+
+export const updateInvoiceStatusSchema = z.object({
+  invoiceId: invoiceIdSchema,
+  status: z.enum(revertibleStatuses),
+});
+
 export type InvoiceFormInput = z.input<typeof invoiceSchema>;
 export type InvoiceFormOutput = z.output<typeof invoiceSchema>;
+
+export type UpdateInvoiceFormInput = z.input<typeof updateInvoiceSchema>;
+export type UpdateInvoiceFormOutput = z.output<typeof updateInvoiceSchema>;
