@@ -3,7 +3,7 @@ import { formatDate } from "@/lib/format-date";
 import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { invoiceStatusConfig } from "./invoice-status-config";
+import { invoiceAmountColor, invoiceStatusConfig } from "./invoice-status-config";
 import { InvoiceRowActions } from "./invoice-row-actions";
 import { InvoiceListItem } from "./queries";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
@@ -49,8 +49,13 @@ export const invoiceColumns: Column<InvoiceListItem>[] = [
   {
     header: "Amount",
     accessorKey: "total",
+    hideBelow: "md",
     className: "whitespace-nowrap",
-    cell: (row) => formatCurrency(row.total),
+    cell: (row) => (
+      <span className={cn("font-medium", invoiceAmountColor[row.status])}>
+        {formatCurrency(row.total)}
+      </span>
+    ),
   },
   {
     header: "Issued",

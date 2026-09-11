@@ -29,6 +29,7 @@ import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 import { cn } from "@/lib/utils";
 import { Field } from "@/components/ui/input";
+import { StatsCards } from "@/components/ui/stats-cards";
 
 export function toProjectFormDefaults(
   project: ProjectListItem,
@@ -77,7 +78,13 @@ export function ProjectDetail({
   const handleCancelClick = () => {
     reset(toProjectFormDefaults(project));
     setIsEditing(false);
-    router.replace(`/projects/${project.id}`);
+    // Cancel doesn't change any data, so there's nothing to refetch — just
+    // tidy the `?edit=true` out of the address bar. Using router.replace()
+    // here would ask Next.js to re-run this (dynamic) Server Component and
+    // re-query the DB on every single Cancel click for no reason. Writing
+    // straight to the History API updates the URL without going through
+    // Next's router/data-fetching at all.
+    window.history.replaceState(null, "", `/projects/${project.id}`);
   };
 
   useEffect(() => {
@@ -269,58 +276,53 @@ export function ProjectDetail({
             )}
 
             {/* Metrics (always visible, single source of truth) */}
-            <div className="bg-border grid grid-cols-2 gap-px border-t sm:grid-cols-4">
-              <div className="bg-background px-5 py-4">
-                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-                  Budget
-                </p>
-                <p className="mt-1 text-lg font-semibold">
-                  {formatCurrency(project.budget)}
-                </p>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  Fixed price
-                </p>
-              </div>
-
-              <div className="bg-background px-5 py-4">
-                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-                  Deadline
-                </p>
-                <p className="mt-1 text-lg font-semibold text-amber-600">
-                  {project.deadline ? formatDate(project.deadline) : "—"}
-                </p>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  {project.deadline ? "Upcoming" : "No deadline"}
-                </p>
-              </div>
-
-              <div className="bg-background px-5 py-4">
-                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-                  Progress
-                </p>
-                <p className="mt-1 text-lg font-semibold text-blue-600">
-                  {project.progress}%
-                </p>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  of project complete
-                </p>
-              </div>
-
-              <div className="bg-background px-5 py-4">
-                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-                  Client
-                </p>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <AvatarInitials
-                    name={project.clientName ?? "?"}
-                    size="sm"
-                    shape="circle"
-                  />
-                  <p className="text-sm font-medium">
-                    {project.clientName ?? "—"}
-                  </p>
-                </div>
-              </div>
+            <div className="border-t">
+              <StatsCards
+                variant="divided"
+                items={[
+                  {
+                    label: "Budget",
+                    value: formatCurrency(project.budget),
+                    hint: "Fixed price",
+                  },
+                  {
+                    label: "Deadline",
+                    value: (
+                      <span className="text-amber-600">
+                        {project.deadline
+                          ? formatDate(project.deadline)
+                          : "—"}
+                      </span>
+                    ),
+                    hint: project.deadline ? "Upcoming" : "No deadline",
+                  },
+                  {
+                    label: "Progress",
+                    value: (
+                      <span className="text-blue-600">
+                        {project.progress}%
+                      </span>
+                    ),
+                    hint: "of project complete",
+                  },
+                  {
+                    label: "Client",
+                    value: (
+                      <div className="flex min-w-0 items-center gap-2">
+                        <AvatarInitials
+                          name={project.clientName ?? "?"}
+                          size="sm"
+                          shape="circle"
+                          className="shrink-0"
+                        />
+                        <span className="truncate text-sm font-medium">
+                          {project.clientName ?? "—"}
+                        </span>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
             </div>
           </div>
 

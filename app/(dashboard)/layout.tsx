@@ -17,7 +17,9 @@ export default async function DashboardLayout({
   children: ReactNode;
 }) {
   const cookieStore = await cookies();
-  const collapsed = cookieStore.get("sidebar_collapsed")?.value === "true";
+  const sidebarCookie = cookieStore.get("sidebar_collapsed")?.value;
+  const collapsed =
+    sidebarCookie === undefined ? true : sidebarCookie === "true";
 
   const supabase = await createClient();
   const {

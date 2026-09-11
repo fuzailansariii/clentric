@@ -35,7 +35,10 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
         ]}
         actions={
           <CustomButton variant="primary">
-            <Link href="/clients/new" className="flex items-center gap-2">
+            <Link
+              href="/clients/new"
+              className="mx-auto flex items-center gap-1 text-xs"
+            >
               <PlusIcon className="h-4 w-4" />
               <span>Add Client</span>
             </Link>
@@ -45,30 +48,30 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
 
       <DashboardContainer>
         <div className="flex flex-col gap-4">
-        <DataTableToolbar
-          searchPlaceholder="Search clients..."
-          filters={[
-            {
-              key: "status",
-              label: "All statuses",
-              options: Object.entries(clientStatusConfig).map(
-                ([value, config]) => ({
-                  value,
-                  label: config.label,
-                }),
-              ),
-            },
-          ]}
-        />
+          <DataTableToolbar
+            searchPlaceholder="Search clients..."
+            filters={[
+              {
+                key: "status",
+                label: "All statuses",
+                options: Object.entries(clientStatusConfig).map(
+                  ([value, config]) => ({
+                    value,
+                    label: config.label,
+                  }),
+                ),
+              },
+            ]}
+          />
 
-        <ClientsTable data={clients} />
+          <ClientsTable data={clients} />
 
-        <DataTablePagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          totalPages={totalPages}
-        />
+          <DataTablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+          />
         </div>
       </DashboardContainer>
     </>

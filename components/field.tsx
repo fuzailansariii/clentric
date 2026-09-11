@@ -2,6 +2,7 @@
 
 import { UseFormRegisterReturn } from "react-hook-form";
 import { Field as InputField } from "./ui/input";
+import { cn } from "@/lib/utils";
 
 type DataFieldProps = {
   label: string;
@@ -38,12 +39,20 @@ export function DataField({
     );
   }
 
+  const isLongText = type === "textarea";
+
   return (
-    <div>
+    <div className="min-w-0">
       <dt className="text-muted-foreground font-mono text-[10.5px] font-medium tracking-[0.06em] uppercase">
         {label}
       </dt>
-      <dd className="mt-1 text-sm">
+      <dd
+        className={cn(
+          "mt-1 text-[13px]",
+          isLongText ? "wrap-break-words" : "truncate",
+        )}
+        title={!isLongText && value ? value : undefined}
+      >
         {!value ? (
           <span className="text-muted-foreground">—</span>
         ) : href ? (

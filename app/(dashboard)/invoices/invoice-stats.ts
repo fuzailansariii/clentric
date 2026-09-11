@@ -7,6 +7,8 @@ export type InvoiceStats = {
   paid: number;
   outstandingCount: number;
   outstanding: number;
+  overdueCount: number;
+  overdue: number;
   draftCount: number;
   draft: number;
 };
@@ -18,6 +20,8 @@ export function computeInvoiceStats(invoices: InvoiceListItem[]): InvoiceStats {
   let paid = 0;
   let outstandingCount = 0;
   let outstanding = 0;
+  let overdueCount = 0;
+  let overdue = 0;
   let draftCount = 0;
   let draft = 0;
 
@@ -33,8 +37,11 @@ export function computeInvoiceStats(invoices: InvoiceListItem[]): InvoiceStats {
     } else if (invoice.status === "draft") {
       draftCount++;
       draft += amount;
+    } else if (invoice.status === "overdue") {
+      overdueCount++;
+      overdue += amount;
     } else {
-      // sent + overdue
+      // sent, not overdue
       outstandingCount++;
       outstanding += amount;
     }
@@ -47,6 +54,8 @@ export function computeInvoiceStats(invoices: InvoiceListItem[]): InvoiceStats {
     paid,
     outstandingCount,
     outstanding,
+    overdueCount,
+    overdue,
     draftCount,
     draft,
   };

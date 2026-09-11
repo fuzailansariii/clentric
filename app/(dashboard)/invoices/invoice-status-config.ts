@@ -31,3 +31,10 @@ export const invoiceStatusConfig: Record<
     dotColor: "bg-rose-500",
   },
 };
+
+export const invoiceAmountColor: Record<InvoiceStatus, string | undefined> = {
+  draft: undefined,
+  sent: "text-blue-600",
+  paid: "text-emerald-600",
+  overdue: "text-rose-500",
+};

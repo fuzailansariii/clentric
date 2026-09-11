@@ -3,23 +3,15 @@ import { AppError, logError } from "@/lib/errors";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
 import { invoices } from "@/src/db/schema/invoices";
-import { and, asc, desc, eq, ilike, isNull, lt, sql } from "drizzle-orm";
-import { invoiceIdSchema } from "./schema";
+import { and, asc, count, desc, eq, ilike, isNull, lt, sql } from "drizzle-orm";
+import { invoiceIdSchema, invoiceSearchParamsSchema } from "./schema";
 import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { clientIdSchema } from "../clients/schema";
-import { InvoiceStatus } from "./invoice-status-config";
 import {
   getDisplayStatus,
   InvoiceDisplayStatus,
 } from "@/lib/get-invoice-display-status";
 import { projects } from "@/src/db/schema/projects";
-
-export type InvoiceListFilters = {
-  page: number;
-  pageSize: number;
-  statusFilter?: "draft" | "sent" | "paid" | "overdue";
-  search?: string;
-};
 
 export type InvoiceListItem = {
   id: string;
@@ -33,65 +25,74 @@ export type InvoiceListItem = {
   createdAt: string | Date;
 };
 
-export async function getInvoicesByUserId(filters: InvoiceListFilters) {
+export async function getInvoicesByUserId(rawParams: unknown) {
   try {
     const user = await requireUser();
+
+    const { page, pageSize, search, status } = invoiceSearchParamsSchema.parse(
+      rawParams ?? {},
+    );
 
     const conditions = [
       eq(invoices.userId, user.id),
       isNull(invoices.deletedAt),
     ];
 
-    if (filters.statusFilter === "overdue") {
+    if (status === "overdue") {
       conditions.push(eq(invoices.status, "sent"));
       conditions.push(lt(invoices.dueDate, sql`now()`));
-    } else if (filters.statusFilter) {
-      conditions.push(eq(invoices.status, filters.statusFilter));
+    } else if (status) {
+      conditions.push(eq(invoices.status, status));
     }
 
-    if (filters.search) {
-      conditions.push(ilike(clients.name, `%${filters.search}%`));
+    if (search) {
+      conditions.push(ilike(clients.name, `%${search}%`));
     }
 
-    const offset = (filters.page - 1) * filters.pageSize;
+    const offset = (page - 1) * pageSize;
 
-    const [rows, countRows] = await Promise.all([
+    const [rows, [{ value: total }]] = await Promise.all([
       db
         .select({
           id: invoices.id,
           invoiceNumber: invoices.invoiceNumber,
           status: invoices.status,
+          issueDate: invoices.issueDate,
           dueDate: invoices.dueDate,
           total: invoices.total,
           clientName: clients.name,
+          projectTitle: projects.title,
+          createdAt: invoices.createdAt,
         })
         .from(invoices)
         .innerJoin(clients, eq(invoices.clientId, clients.id))
+        .leftJoin(projects, eq(invoices.projectId, projects.id))
         .where(and(...conditions))
         .orderBy(desc(invoices.createdAt))
-        .limit(filters.pageSize)
+        .limit(pageSize)
         .offset(offset),
 
       db
-        .select({ count: sql<number>`count(*)` })
+        .select({ value: count() })
         .from(invoices)
         .innerJoin(clients, eq(invoices.clientId, clients.id))
         .where(and(...conditions)),
     ]);
 
-    const totalCount = Number(countRows[0]?.count ?? 0);
-
     return {
-      success: true,
-      data: { invoices: rows, totalCount },
+      invoices: rows.map((row) => ({
+        ...row,
+        status: getDisplayStatus(row),
+      })),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
     };
   } catch (error) {
     logError("getInvoicesByUserId", error);
-    return {
-      success: false,
-      error:
-        error instanceof AppError ? error.message : "Could not load invoices.",
-    };
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load invoices.");
   }
 }
 

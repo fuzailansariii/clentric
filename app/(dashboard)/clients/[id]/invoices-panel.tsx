@@ -19,6 +19,7 @@ import { filterInvoices } from "../../invoices/filter-invoices";
 import { computeInvoiceStats } from "../../invoices/invoice-stats";
 import { InvoiceFiltersBar } from "../../invoices/invoice-filters-bar";
 import { invoiceColumns } from "../../invoices/invoices-columns";
+import { renderInvoiceMobileCard } from "../../invoices/render-invoice-mobile-card";
 
 const PAGE_SIZE = 10;
 
@@ -49,6 +50,7 @@ export function InvoicesPanel({
       )}
     >
       <StatsCards
+        variant="divided"
         items={[
           {
             label: "Total Billed",
@@ -61,16 +63,19 @@ export function InvoicesPanel({
             label: "Paid",
             value: formatCurrency(stats.paid.toFixed(2)),
             hint: `${stats.paidCount} invoices`,
+            valueColor: "text-emerald-600",
           },
           {
             label: "Outstanding",
             value: formatCurrency(stats.outstanding.toFixed(2)),
             hint: `${stats.outstandingCount} invoices`,
+            valueColor: "text-blue-600",
           },
           {
-            label: "Draft",
-            value: formatCurrency(stats.draft.toFixed(2)),
-            hint: `${stats.draftCount} not sent`,
+            label: "Overdue",
+            value: formatCurrency(stats.overdue.toFixed(2)),
+            hint: `${stats.overdueCount} invoices`,
+            valueColor: "text-rose-500",
           },
         ]}
       />
@@ -109,51 +114,7 @@ export function InvoicesPanel({
           isFiltering ? "No invoices match your filters." : "No invoices yet."
         }
         className="border-none"
-        renderMobileCard={(invoice) => (
-          <div className="px-4 py-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="font-mono text-xs font-medium">
-                    INV-{String(invoice.invoiceNumber).padStart(3, "0")}
-                  </span>
-
-                  <span className="text-muted-foreground text-[10px]">•</span>
-
-                  <span className="text-muted-foreground text-[11px] capitalize">
-                    {invoice.status}
-                  </span>
-                </div>
-
-                <p className="mt-1.5 truncate text-sm font-medium">
-                  {invoice.clientName ?? "—"}
-                </p>
-              </div>
-              <p className="shrink-0 text-sm font-semibold">
-                {formatCurrency(invoice.total)}
-              </p>
-            </div>
-
-            <div className="border-border mt-4 grid grid-cols-2 border-t pt-3">
-              <div className="min-w-0 pr-3">
-                <p className="text-muted-foreground text-[10px] font-medium tracking-[0.06em] uppercase">
-                  Project
-                </p>
-
-                <p className="mt-1 truncate text-xs">
-                  {invoice.projectTitle ?? "—"}
-                </p>
-              </div>
-
-              <div className="border-border border-l pl-3">
-                <p className="text-muted-foreground text-[10px] font-medium tracking-[0.06em] uppercase">
-                  Due date
-                </p>
-                <p className="mt-1 text-xs">{invoice.dueDate}</p>
-              </div>
-            </div>
-          </div>
-        )}
+        renderMobileCard={renderInvoiceMobileCard}
       />
       {filtered.length > 0 && (
         <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">

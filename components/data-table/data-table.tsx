@@ -1,22 +1,20 @@
 "use client";
-
 import { cn } from "@/lib/utils";
 import type { Column, DataTableProps } from "./data-table.types";
 
 function getVisibilityClass(hideBelow?: Column<unknown>["hideBelow"]) {
   switch (hideBelow) {
     case "sm":
-      return "hidden sm:table-cell";
+      return "hidden @[640px]:table-cell";
 
     case "md":
-      return "hidden md:table-cell";
+      return "hidden @[768px]:table-cell";
 
     case "lg":
-      return "hidden lg:table-cell";
+      return "hidden @[1024px]:table-cell";
 
     case "xl":
-      return "hidden xl:table-cell";
-
+      return "hidden @[1280px]:table-cell";
     default:
       return "";
   }
@@ -68,12 +66,15 @@ export function DataTable<T>({
   }
 
   return (
-    <div className="w-full">
+    <div className="@container w-full">
       {/* ----------------------------------------
           Desktop / Tablet
       ----------------------------------------- */}
       <div
-        className={cn("w-full", hasMobileCards ? "hidden sm:block" : "block")}
+        className={cn(
+          "w-full",
+          hasMobileCards ? "hidden @[640px]:block" : "block",
+        )}
       >
         <div
           className={cn(
@@ -91,7 +92,7 @@ export function DataTable<T>({
                     className={cn(
                       "text-muted-foreground/70 bg-paper-50 dark:bg-ink-900",
                       "border-border border-b",
-                      "px-5 py-3",
+                      "px-4 py-2.5",
                       "text-left",
                       "font-mono text-[10.5px]",
                       "font-medium uppercase",
@@ -146,7 +147,7 @@ export function DataTable<T>({
                         key={columnIndex}
                         className={cn(
                           "border-0",
-                          "px-5 py-3.5",
+                          "px-4 py-2.5",
                           "align-middle",
                           "text-[13.5px]",
 
@@ -177,7 +178,7 @@ export function DataTable<T>({
           Mobile
       ----------------------------------------- */}
       {renderMobileCard && (
-        <div className="sm:hidden">
+        <div className="@[640px]:hidden">
           <div className="border-border overflow-hidden rounded-xl border">
             {data.map((row, rowIndex) => {
               const rowId = getRowId ? getRowId(row) : rowIndex;

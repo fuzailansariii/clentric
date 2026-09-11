@@ -33,7 +33,10 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
         ]}
         actions={
           <CustomButton variant="primary">
-            <Link href="/projects/new" className="flex items-center gap-2">
+            <Link
+              href="/projects/new"
+              className="mx-auto flex items-center gap-1 text-xs"
+            >
               <PlusIcon className="h-4 w-4" />
               <span>Add Project</span>
             </Link>

@@ -9,7 +9,7 @@ import { Check, PencilIcon, RefreshCw, TrashIcon, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { TabButton } from "@/components/ui/tab-button";
 import { ProjectsPanel } from "./projects-panel";
-import { ClientInvoice, InvoicesPanel } from "./invoices-panel";
+import { InvoicesPanel } from "./invoices-panel";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { deleteClientAction, updateClientAction } from "../actions";
 import { useRouter } from "next/navigation";
@@ -30,6 +30,7 @@ import {
 import { PhoneField, PhoneFieldHandle } from "@/components/ui/phone-field";
 import { CountryCombobox } from "@/components/ui/country-combobox";
 import { ProjectListItem } from "../../projects/queries";
+import type { InvoiceListItem } from "../../invoices/queries";
 import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 
@@ -40,7 +41,7 @@ export function ClientDetail({
   initialEdit = false,
 }: {
   client: ClientRow;
-  invoices: ClientInvoice[];
+  invoices: InvoiceListItem[];
   projects: ProjectListItem[];
   initialEdit?: boolean;
 }) {
@@ -78,7 +79,7 @@ export function ClientDetail({
   const handleCancelClick = () => {
     reset(toClientFormsDefault(client));
     setIsEditing(false);
-    router.replace(`/clients/${client.id}`);
+    window.history.replaceState(null, "", `/clients/${client.id}`);
   };
 
   useEffect(() => {

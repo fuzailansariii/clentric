@@ -14,6 +14,7 @@ import { filterProjects } from "./project-filters";
 import { projectColumns } from "../../projects/projects-columns";
 import { cn } from "@/lib/utils";
 import type { ProjectListItem } from "../../projects/queries";
+import Link from "next/link";
 
 const PAGE_SIZE = 10;
 
@@ -41,8 +42,14 @@ export function ProjectsPanel({
   );
 
   return (
-    <div className={cn("border-border rounded-xl border", className)}>
+    <div
+      className={cn(
+        "border-border min-w-0 overflow-hidden rounded-xl border",
+        className,
+      )}
+    >
       <StatsCards
+        variant="divided"
         items={[
           {
             label: "Total Projects",
@@ -59,23 +66,31 @@ export function ProjectsPanel({
         ]}
       />
 
-      <div className="border-border flex items-center justify-between border-b px-5 py-1">
-        <ProjectFiltersBar
-          search={search}
-          onSearchChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          status={status}
-          onStatusChange={(value) => {
-            setStatus(value);
-            setPage(1);
-          }}
-        />
-        <CustomButton variant="primary" size="sm" className="gap-1.5">
-          <PlusIcon className="h-3.5 w-3.5" />
-          New Project
-        </CustomButton>
+      <div className="border-border flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+        <div className="min-w-0 flex-1">
+          <ProjectFiltersBar
+            search={search}
+            onSearchChange={(value) => {
+              setSearch(value);
+              setPage(1);
+            }}
+            status={status}
+            onStatusChange={(value) => {
+              setStatus(value);
+              setPage(1);
+            }}
+          />
+        </div>
+        <Link href={"/projects/new"} className="w-full sm:w-auto">
+          <CustomButton
+            variant="primary"
+            size="sm"
+            className="w-full gap-1.5 sm:w-auto"
+          >
+            <PlusIcon className="h-3.5 w-3.5" />
+            New Project
+          </CustomButton>
+        </Link>
       </div>
 
       <DataTable
@@ -89,7 +104,7 @@ export function ProjectsPanel({
       />
 
       {filtered.length > 0 && (
-        <div className="flex items-center justify-between px-5 py-3.5">
+        <div className="flex flex-col gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:justify-between sm:px-5">
           <span className="text-muted-foreground text-xs">
             Showing {paginatedItems.length} of {filtered.length} projects
           </span>

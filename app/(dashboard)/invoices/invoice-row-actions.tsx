@@ -4,9 +4,12 @@ import { useState, useTransition } from "react";
 import {
   BellIcon,
   CheckIcon,
-  MoreHorizontalIcon,
+  EyeIcon,
+  MoreVerticalIcon,
+  PencilIcon,
   SendIcon,
   Trash2Icon,
+  Undo2Icon,
 } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import {
@@ -21,6 +24,7 @@ import {
   markInvoicePaidAction,
   sendInvoiceAction,
   sendReminderAction,
+  updateInvoiceStatusAction,
 } from "./actions";
 import type { ActionResult } from "@/lib/action-result";
 import type { InvoiceListItem } from "./queries";
@@ -34,6 +38,8 @@ export function InvoiceRowActions({ invoice }: { invoice: InvoiceListItem }) {
   const router = useRouter();
 
   const isDraft = invoice.status === "draft";
+  // sent or overdue — sendReminderAction itself allows both, only draft/paid
+  // are rejected, so the bell shouldn't be limited to "overdue" alone.
   const isOutstanding =
     invoice.status === "sent" || invoice.status === "overdue";
 
@@ -49,11 +55,15 @@ export function InvoiceRowActions({ invoice }: { invoice: InvoiceListItem }) {
   return (
     <>
       <div className="flex items-center justify-end gap-1">
+        {/* Quick actions stay as single-click icons — send/undo-send and
+            reminder are the ones people reach for on every row, so they
+            don't belong buried in a menu. */}
         {isDraft && (
           <CustomButton
             variant="ghost"
             size="sm"
-            className="gap-1.5"
+            title="Send invoice"
+            aria-label="Send invoice"
             disabled={isPending}
             onClick={() => run(() => sendInvoiceAction(invoice.id))}
           >
@@ -61,57 +71,88 @@ export function InvoiceRowActions({ invoice }: { invoice: InvoiceListItem }) {
           </CustomButton>
         )}
 
-        {invoice.status === "overdue" && (
+        {isOutstanding && (
           <CustomButton
-            variant="secondary"
+            variant="ghost"
             size="sm"
-            className="gap-1.5"
+            title="Undo send"
+            aria-label="Undo send"
+            disabled={isPending}
+            onClick={() =>
+              run(() =>
+                updateInvoiceStatusAction({
+                  invoiceId: invoice.id,
+                  status: "draft",
+                }),
+              )
+            }
+          >
+            <Undo2Icon className="h-3.5 w-3.5" />
+          </CustomButton>
+        )}
+
+        {isOutstanding && (
+          <CustomButton
+            variant="ghost"
+            size="sm"
+            title="Send reminder"
+            aria-label="Send reminder"
             disabled={isPending}
             onClick={() => run(() => sendReminderAction(invoice.id))}
           >
             <BellIcon className="h-3.5 w-3.5" />
-            Send reminder
           </CustomButton>
         )}
 
+        {/* Everything else lives behind the three-dot menu, labeled —
+            these are looked-up-not-repeated actions, so a label beats
+            memorizing another icon. */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <CustomButton
               variant="ghost"
               size="sm"
-              aria-label="Actions"
+              title="More actions"
+              aria-label="More actions"
               disabled={isPending}
             >
-              <MoreHorizontalIcon className="h-4 w-4" />
+              <MoreVerticalIcon className="h-3.5 w-3.5" />
             </CustomButton>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem asChild>
-              <Link href={`/invoices/${invoice.id}`}>View</Link>
+              <Link href={`/invoices/${invoice.id}`}>
+                <EyeIcon className="h-3.5 w-3.5" />
+                View invoice
+              </Link>
             </DropdownMenuItem>
+
             <DropdownMenuItem asChild>
-              <Link href={`/invoices/${invoice.id}/edit`}>Edit</Link>
+              <Link href={`/invoices/${invoice.id}/edit`}>
+                <PencilIcon className="h-3.5 w-3.5" />
+                Edit invoice
+              </Link>
             </DropdownMenuItem>
 
             {isOutstanding && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => run(() => markInvoicePaidAction(invoice.id))}
-                >
-                  <CheckIcon className="mr-2 h-3.5 w-3.5" />
-                  Mark as paid
-                </DropdownMenuItem>
-              </>
+              <DropdownMenuItem
+                disabled={isPending}
+                onClick={() => run(() => markInvoicePaidAction(invoice.id))}
+              >
+                <CheckIcon className="h-3.5 w-3.5" />
+                Mark as paid
+              </DropdownMenuItem>
             )}
 
             <DropdownMenuSeparator />
+
             <DropdownMenuItem
               variant="destructive"
+              disabled={isPending}
               onClick={() => setIsDeleteOpen(true)}
             >
-              <Trash2Icon className="mr-2 h-3.5 w-3.5" />
-              Delete
+              <Trash2Icon className="h-3.5 w-3.5" />
+              Delete invoice
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

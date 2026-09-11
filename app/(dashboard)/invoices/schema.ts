@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { clientIdSchema } from "../clients/schema";
 import { projectIdSchema } from "../projects/schema";
+import { invoiceStatusEnum as invoiceStatusPgEnum } from "@/src/db/schema/invoices";
 
 export const invoiceLineSchema = z.object({
   description: z.string().min(1, "Item Description is required"),
@@ -42,6 +43,17 @@ const revertibleStatuses = ["draft", "sent"] as const;
 export const updateInvoiceStatusSchema = z.object({
   invoiceId: invoiceIdSchema,
   status: z.enum(revertibleStatuses),
+});
+
+export const invoiceStatusFilterEnum = z.enum(invoiceStatusPgEnum.enumValues);
+
+// Mirrors clientSearchParamsSchema / projectSearchParamsSchema — same
+// page/pageSize/search/status shape, driven by the list page's URL.
+export const invoiceSearchParamsSchema = z.object({
+  search: z.string().trim().max(200).optional(),
+  status: invoiceStatusFilterEnum.optional().catch(undefined),
+  page: z.coerce.number().int().min(1).catch(1),
+  pageSize: z.coerce.number().int().max(100).catch(20),
 });
 
 export type InvoiceFormInput = z.input<typeof invoiceSchema>;
