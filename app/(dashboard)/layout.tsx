@@ -10,6 +10,7 @@ import { logoutAction } from "../(auth)/action";
 import { getDashboardData } from "./queries";
 import { Toaster } from "@/components/ui/sonner";
 import { VerticalScale } from "@/components/ui/scale-border";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default async function DashboardLayout({
   children,
@@ -32,6 +33,7 @@ export default async function DashboardLayout({
 
   return (
     <SidebarProvider defaultCollapsed={collapsed}>
+      <TooltipProvider>
       <div className="fixed inset-0 flex overflow-hidden">
         <Sidebar
           footer={
@@ -55,6 +57,7 @@ export default async function DashboardLayout({
           </main>
         </div>
       </div>
+      </TooltipProvider>
       <Toaster />
     </SidebarProvider>
   );

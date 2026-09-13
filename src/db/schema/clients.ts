@@ -6,6 +6,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { users } from "./users";
 
 export const clientStatusEnum = pgEnum("client_status", [
@@ -37,7 +38,14 @@ export const clients = pgTable(
       .defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
-  (table) => [index("idx_clients_user_id").on(table.userId)],
+  (table) => [
+    index("idx_clients_user_id").on(table.userId),
+    // Serves the list page: this user's live clients, newest first.
+    // Applied by supabase/migrations/0003_list_indexes.sql.
+    index("idx_clients_user_created")
+      .on(table.userId, table.createdAt.desc())
+      .where(sql`deleted_at is null`),
+  ],
 );
 
 export type ClientRow = typeof clients.$inferSelect;

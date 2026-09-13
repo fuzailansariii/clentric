@@ -1,38 +1,47 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import React, { useState } from "react";
-import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import {
   invoiceSchema,
   type InvoiceFormInput,
   type InvoiceFormOutput,
 } from "./schema";
-import { createInvoiceAction } from "./actions";
+import { createInvoiceAction, updateInvoiceAction } from "./actions";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { useRouter } from "next/navigation";
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
-import FormSection from "@/components/dashboard/form-section";
-import { ClientCombobox, ClientOption } from "@/components/client-combobox";
-import { Field } from "@/components/ui/input";
-import { ProjectCombobox, ProjectOption } from "@/components/project-combobox";
-import { DatePickerField } from "@/components/date-picker-field";
+import { ClientOption } from "@/components/client-combobox";
+import { ProjectOption } from "@/components/project-combobox";
 import { dateToFormValue } from "@/lib/format-date";
-import { Plus } from "lucide-react";
+import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { calculateInvoiceTotals } from "@/lib/calculate-invoice-totals";
-import LineItems from "./line-items";
 import InvoicePreview from "@/components/preview/invoice-preview";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { CustomButton } from "@/components/ui/custom-button";
 import { cn } from "@/lib/utils";
 import DetailedInvoiceForm from "./new/detailed-invoice-form";
 import QuickInvoiceForm from "./new/quick-invoice-form";
+
+/** An existing invoice loaded into the builder for editing. */
+export type EditableInvoice = {
+  id: string;
+  invoiceNumber: number;
+  clientId: string;
+  projectId?: string;
+  issueDate: string;
+  dueDate: string;
+  taxRate: number;
+  lineItems: { description: string; quantity: number; rate: number }[];
+};
 
 type InvoiceBuilderProps = {
   clients: ClientOption[];
   projects: ProjectOption[];
   initialClientId?: string;
   initialProjectId?: string;
+  /** When set, the builder edits this invoice instead of creating one. */
+  invoice?: EditableInvoice;
 };
 
 export default function InvoiceBuilder({
@@ -40,24 +49,37 @@ export default function InvoiceBuilder({
   projects,
   initialClientId,
   initialProjectId,
+  invoice,
 }: InvoiceBuilderProps) {
-  const [mode, setMode] = useState<"quick" | "detailed">("quick");
+  // Editing opens in Detailed mode: Quick only shows the first line item and
+  // hides the issue date, which would hide part of an existing invoice.
+  const [mode, setMode] = useState<"quick" | "detailed">(
+    invoice ? "detailed" : "quick",
+  );
   const [showQuickConfirm, setShowQuickConfirm] = useState(false);
   const [formError, setFormError] = useState("");
 
   const router = useRouter();
 
-  // form to create invoice
   const form = useForm<InvoiceFormInput, any, InvoiceFormOutput>({
     resolver: zodResolver(invoiceSchema),
-    defaultValues: {
-      clientId: initialClientId ?? "",
-      projectId: initialProjectId ?? undefined,
-      issueDate: dateToFormValue(new Date()),
-      dueDate: dateToFormValue(new Date()),
-      taxRate: 0,
-      lineItems: [{ description: "", quantity: 1, rate: 0 }],
-    },
+    defaultValues: invoice
+      ? {
+          clientId: invoice.clientId,
+          projectId: invoice.projectId,
+          issueDate: invoice.issueDate,
+          dueDate: invoice.dueDate,
+          taxRate: invoice.taxRate,
+          lineItems: invoice.lineItems,
+        }
+      : {
+          clientId: initialClientId ?? "",
+          projectId: initialProjectId ?? undefined,
+          issueDate: dateToFormValue(new Date()),
+          dueDate: dateToFormValue(new Date()),
+          taxRate: 0,
+          lineItems: [{ description: "", quantity: 1, rate: 0 }],
+        },
   });
 
   const {
@@ -138,8 +160,28 @@ export default function InvoiceBuilder({
     watchedTaxRate,
   );
 
+  const invoicePath = invoice ? `/invoices/${invoice.id}` : "/invoices";
+  const invoiceLabel = invoice
+    ? formatInvoiceNumber(invoice.invoiceNumber)
+    : null;
+
   // form submit handler
   const onSubmit = handleSubmit(async (data: InvoiceFormOutput) => {
+    setFormError("");
+
+    if (invoice) {
+      await runActionWithToast(
+        updateInvoiceAction({ ...data, invoiceId: invoice.id }),
+        {
+          loading: "Saving invoice...",
+          success: "Invoice updated.",
+          onSuccess: () => router.push(`/invoices/${invoice.id}`),
+          onError: setFormError,
+        },
+      );
+      return;
+    }
+
     await runActionWithToast(createInvoiceAction(data), {
       loading: "Creating invoice.",
       success: "Invoice created.",
@@ -154,14 +196,27 @@ export default function InvoiceBuilder({
   return (
     <>
       <PageHeader
-        title="New Invoice"
-        subtitle="Bill a client for completed work with line items, tax, and due dates."
-        backHref="/invoices"
-        breadcrumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Invoices", href: "/invoices" },
-          { label: "New" },
-        ]}
+        title={invoiceLabel ? `Edit ${invoiceLabel}` : "New Invoice"}
+        subtitle={
+          invoice
+            ? "Update the client, dates, tax, or line items."
+            : "Bill a client for completed work with line items, tax, and due dates."
+        }
+        backHref={invoicePath}
+        breadcrumbs={
+          invoiceLabel
+            ? [
+                { label: "Dashboard", href: "/dashboard" },
+                { label: "Invoices", href: "/invoices" },
+                { label: invoiceLabel, href: invoicePath },
+                { label: "Edit" },
+              ]
+            : [
+                { label: "Dashboard", href: "/dashboard" },
+                { label: "Invoices", href: "/invoices" },
+                { label: "New" },
+              ]
+        }
       />
       <DashboardContainer>
         {formError && (
@@ -239,8 +294,11 @@ export default function InvoiceBuilder({
                 taxAmount={taxAmount}
                 total={total}
                 onSubmit={onSubmit}
-                onCancel={() => router.push("/invoices")}
+                onCancel={() => router.push(invoicePath)}
                 isSubmitting={isSubmitting}
+                editing={
+                  invoiceLabel ? { invoiceNumber: invoiceLabel } : undefined
+                }
               />
             </div>
           </div>

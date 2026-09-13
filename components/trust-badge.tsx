@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 type TrustBadgeProps = {
   avatarUrls: string[];
   count: number;
@@ -13,17 +15,17 @@ export function TrustBadge({
     <div className="flex items-center gap-3">
       <div className="flex -space-x-3">
         {avatarUrls.map((url, idx) => (
-          <img
+          <Image
             key={idx}
             src={url}
             alt=""
-            className="size-8 rounded-full border-2 border-background object-cover"
+            className="border-background size-8 rounded-full border-2 object-cover"
           />
         ))}
       </div>
-      <p className="text-xs leading-snug text-muted-foreground">
+      <p className="text-muted-foreground text-xs leading-snug">
         Trusted by{" "}
-        <span className="font-semibold text-foreground">
+        <span className="text-foreground font-semibold">
           {count.toLocaleString()}+
         </span>{" "}
         {label}

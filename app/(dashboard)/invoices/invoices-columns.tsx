@@ -1,34 +1,35 @@
+import { FileTextIcon } from "lucide-react";
 import type { Column } from "@/components/data-table/data-table.types";
+import { RowIdentity } from "@/components/data-table/row-parts";
+import { IconTile } from "@/components/ui/icon-tile";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { formatDate } from "@/lib/format-date";
 import { formatCurrency } from "@/lib/format-currency";
-import { cn } from "@/lib/utils";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { invoiceAmountColor, invoiceStatusConfig } from "./invoice-status-config";
-import { InvoiceRowActions } from "./invoice-row-actions";
-import { InvoiceListItem } from "./queries";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
+import { cn } from "@/lib/utils";
+import { getInvoiceDueLabel } from "./invoice-due-label";
+import { InvoiceRowActions } from "./invoice-row-actions";
+import { invoiceAmountColor, invoiceStatusConfig } from "./invoice-status-config";
+import type { InvoiceListItem } from "./queries";
 
+// Visibility by table width — always: Invoice (with client underneath),
+// Status, Amount · 720px+: Due · 860px+: Issued · 1000px+: Project. Amount
+// is never hidden: this is billing software, it's the figure people scan for.
 export const invoiceColumns: Column<InvoiceListItem>[] = [
   {
     header: "Invoice",
-    className: "min-w-[9rem] max-w-[14rem]",
+    className: "min-w-[11rem] max-w-[16rem]",
     cell: (row) => (
-      <div className="min-w-0">
-        <div className="truncate font-medium">
-          {formatInvoiceNumber(row.invoiceNumber)}
-        </div>
-        <div className="text-muted-foreground truncate text-xs">
-          {row.projectTitle ?? "—"}
-        </div>
-      </div>
-    ),
-  },
-  {
-    header: "Client",
-    hideBelow: "md",
-    className: "min-w-[7rem] max-w-[11rem]",
-    cell: (row) => (
-      <span className="block truncate">{row.clientName ?? "—"}</span>
+      <RowIdentity
+        leading={
+          <IconTile tone={invoiceStatusConfig[row.status].variant}>
+            <FileTextIcon />
+          </IconTile>
+        }
+        title={formatInvoiceNumber(row.invoiceNumber)}
+        titleClassName="font-mono text-[13px]"
+        subtitle={row.clientName ?? "No client"}
+      />
     ),
   },
   {
@@ -39,6 +40,7 @@ export const invoiceColumns: Column<InvoiceListItem>[] = [
       return (
         <StatusBadge
           status={config.variant}
+          variant="soft"
           className={config.dim ? "opacity-60" : undefined}
         >
           {config.label}
@@ -48,37 +50,56 @@ export const invoiceColumns: Column<InvoiceListItem>[] = [
   },
   {
     header: "Amount",
-    accessorKey: "total",
-    hideBelow: "md",
-    className: "whitespace-nowrap",
+    className: "whitespace-nowrap text-right",
     cell: (row) => (
-      <span className={cn("font-medium", invoiceAmountColor[row.status])}>
+      <span
+        className={cn(
+          "font-semibold tabular-nums",
+          invoiceAmountColor[row.status],
+        )}
+      >
         {formatCurrency(row.total)}
       </span>
     ),
   },
   {
-    header: "Issued",
-    accessorKey: "issueDate",
-    hideBelow: "lg",
+    header: "Due",
+    hideBelow: "md",
     className: "whitespace-nowrap",
+    cell: (row) => {
+      const due = getInvoiceDueLabel(row);
+      return (
+        <div>
+          <div>{formatDate(row.dueDate)}</div>
+          <div
+            className={cn(
+              "text-[12.5px]",
+              due.late ? "text-danger-600" : "text-muted-foreground",
+            )}
+          >
+            {due.label}
+          </div>
+        </div>
+      );
+    },
+  },
+  {
+    header: "Issued",
+    hideBelow: "lg",
+    className: "text-muted-foreground whitespace-nowrap",
     cell: (row) => formatDate(row.issueDate),
   },
   {
-    header: "Due",
-    accessorKey: "dueDate",
+    header: "Project",
     hideBelow: "xl",
-    className: "whitespace-nowrap",
+    className: "max-w-[12rem] text-muted-foreground",
     cell: (row) => (
-      <span
-        className={cn(row.status === "overdue" && "font-medium text-rose-500")}
-      >
-        {formatDate(row.dueDate)}
-      </span>
+      <span className="block truncate">{row.projectTitle ?? "—"}</span>
     ),
   },
   {
-    header: "Actions",
+    header: <span className="sr-only">Actions</span>,
+    revealOnHover: true,
     className: "w-[1%] whitespace-nowrap text-right",
     cell: (row) => <InvoiceRowActions invoice={row} />,
   },

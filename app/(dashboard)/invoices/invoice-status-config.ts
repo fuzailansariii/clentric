@@ -32,9 +32,11 @@ export const invoiceStatusConfig: Record<
   },
 };
 
+// Only amounts that need a second look get color: overdue reads red, drafts
+// are muted because nothing has been billed yet.
 export const invoiceAmountColor: Record<InvoiceStatus, string | undefined> = {
-  draft: undefined,
-  sent: "text-blue-600",
-  paid: "text-emerald-600",
-  overdue: "text-rose-500",
+  draft: "text-muted-foreground",
+  sent: undefined,
+  paid: undefined,
+  overdue: "text-danger-600",
 };

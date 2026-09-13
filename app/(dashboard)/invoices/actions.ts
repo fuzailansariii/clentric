@@ -2,6 +2,7 @@
 
 import type { ActionResult } from "@/lib/action-result";
 import {
+  invoiceIdSchema,
   invoiceSchema,
   updateInvoiceSchema,
   updateInvoiceStatusSchema,
@@ -14,9 +15,31 @@ import { invoices } from "@/src/db/schema/invoices";
 import { revalidatePath } from "next/cache";
 import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { clients } from "@/src/db/schema/clients";
-import { and, eq } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { projects } from "@/src/db/schema/projects";
 import { getDisplayStatus } from "@/lib/get-invoice-display-status";
+import {
+  isReminderOnCooldown,
+  REMINDER_COOLDOWN_MS,
+} from "@/lib/is-reminder-on-cooldown";
+import {
+  isWithinUndoSendWindow,
+  UNDO_SEND_WINDOW_MS,
+} from "@/lib/is-within-undo-send-window";
+
+// Every page that renders an invoice: the list, its detail page, and its
+// client's page.
+function revalidateInvoicePaths(invoiceId: string, clientId: string) {
+  revalidatePath("/invoices");
+  revalidatePath(`/invoices/${invoiceId}`);
+  revalidatePath(`/clients/${clientId}`);
+}
+
+// `now() - <ms>` for SQL guards, built from the same millisecond constants
+// the UI uses, so the database check and the button state can't drift apart.
+function msAgo(ms: number) {
+  return sql`now() - make_interval(secs => ${ms / 1000})`;
+}
 
 export async function createInvoiceAction(
   input: unknown,
@@ -54,6 +77,7 @@ export async function createInvoiceAction(
           and(
             eq(clients.id, parsed.data.clientId),
             eq(clients.userId, user.id),
+            isNull(clients.deletedAt),
           ),
         )
         .limit(1);
@@ -74,6 +98,7 @@ export async function createInvoiceAction(
               eq(projects.id, parsed.data.projectId),
               eq(projects.userId, user.id),
               eq(projects.clientId, parsed.data.clientId),
+              isNull(projects.deletedAt),
             ),
           )
           .limit(1);
@@ -122,8 +147,7 @@ export async function createInvoiceAction(
       return created;
     });
 
-    revalidatePath("/invoices");
-    revalidatePath(`/invoices/${newInvoice.invoiceId}`);
+    revalidateInvoicePaths(newInvoice.invoiceId, parsed.data.clientId);
 
     return {
       success: true,
@@ -179,6 +203,7 @@ export async function updateInvoiceAction(
           and(
             eq(clients.userId, user.id),
             eq(clients.id, parsed.data.clientId),
+            isNull(clients.deletedAt),
           ),
         );
 
@@ -196,6 +221,7 @@ export async function updateInvoiceAction(
               eq(projects.id, parsed.data.projectId),
               eq(projects.userId, user.id),
               eq(projects.clientId, parsed.data.clientId),
+              isNull(projects.deletedAt),
             ),
           );
 
@@ -206,17 +232,27 @@ export async function updateInvoiceAction(
 
       // invoice ownership — confirms THIS invoice is actually yours
       const [existingInvoice] = await tx
-        .select({ id: invoices.id })
+        .select({
+          id: invoices.id,
+          status: invoices.status,
+          clientId: invoices.clientId,
+        })
         .from(invoices)
         .where(
           and(
             eq(invoices.userId, user.id),
             eq(invoices.id, parsed.data.invoiceId),
+            isNull(invoices.deletedAt),
           ),
         );
 
       if (!existingInvoice) {
         throw new AppError("NOT_FOUND", "Invoice not found");
+      }
+
+      // Paid invoices are a closed record (the UI disables Edit for them).
+      if (existingInvoice.status === "paid") {
+        throw new AppError("BAD_REQUEST", "Paid invoices can't be edited.");
       }
 
       // update invoice — note: invoiceNumber is NOT touched, it's assigned once at creation
@@ -237,12 +273,16 @@ export async function updateInvoiceAction(
           and(
             eq(invoices.id, parsed.data.invoiceId),
             eq(invoices.userId, user.id),
+            isNull(invoices.deletedAt),
+            // Re-checked in the write itself: it may have been marked paid
+            // between the read above and this update.
+            ne(invoices.status, "paid"),
           ),
         )
         .returning({ id: invoices.id, clientId: invoices.clientId });
 
       if (!updatedInvoice) {
-        throw new AppError("UPDATE_FAILED", "Failed to update invoice");
+        throw new AppError("BAD_REQUEST", "Paid invoices can't be edited.");
       }
 
       // wholesale replace line items: delete all, reinsert fresh
@@ -261,12 +301,14 @@ export async function updateInvoiceAction(
         })),
       );
 
-      return updatedInvoice;
+      return { ...updatedInvoice, previousClientId: existingInvoice.clientId };
     });
 
-    revalidatePath("/invoices");
-    revalidatePath(`/invoices/${update.id}`);
-    revalidatePath(`/clients/${update.clientId}`);
+    revalidateInvoicePaths(update.id, update.clientId);
+    // Moved to another client: the old client's page still lists it.
+    if (update.previousClientId !== update.clientId) {
+      revalidatePath(`/clients/${update.previousClientId}`);
+    }
 
     return { success: true, data: { invoiceId: update.id } };
   } catch (error) {
@@ -295,12 +337,14 @@ export async function updateInvoiceStatusAction(
       .select({
         id: invoices.id,
         status: invoices.status,
+        sentAt: invoices.sentAt,
       })
       .from(invoices)
       .where(
         and(
           eq(invoices.id, parsed.data.invoiceId),
           eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
         ),
       )
       .limit(1);
@@ -323,9 +367,25 @@ export async function updateInvoiceStatusAction(
       );
     }
 
+    // "Undo send" (sent -> draft) only within the 5-minute grace window —
+    // past that the client may already have seen it, so silently reverting
+    // the status would misrepresent what actually happened.
+    const isUndoSend = currentStatus === "sent" && targetStatus === "draft";
+
+    if (isUndoSend && !isWithinUndoSendWindow(existingInvoice.sentAt)) {
+      throw new AppError(
+        "BAD_REQUEST",
+        "The 5-minute undo window for this invoice has passed.",
+      );
+    }
+
     const clearedTimestamp =
       currentStatus === "sent" ? { sentAt: null } : { paidAt: null };
 
+    // The checks above give a clear error message; this WHERE is what actually
+    // enforces them. It only matches if the status is still what we read and,
+    // for undo-send, the window is still open — so two requests racing each
+    // other (or the window closing mid-request) can't both succeed.
     const [updated] = await db
       .update(invoices)
       .set({
@@ -337,16 +397,25 @@ export async function updateInvoiceStatusAction(
         and(
           eq(invoices.id, parsed.data.invoiceId),
           eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+          eq(invoices.status, currentStatus),
+          isUndoSend
+            ? gt(invoices.sentAt, msAgo(UNDO_SEND_WINDOW_MS))
+            : undefined,
         ),
       )
-      .returning({ id: invoices.id });
+      .returning({ id: invoices.id, clientId: invoices.clientId });
 
     if (!updated) {
-      throw new AppError("UPDATE_FAILED", "Failed to update invoice status");
+      throw new AppError(
+        "CONFLICT",
+        isUndoSend
+          ? "The 5-minute undo window for this invoice has passed."
+          : "This invoice changed in the meantime. Refresh and try again.",
+      );
     }
 
-    revalidatePath("/invoices");
-    revalidatePath(`/invoices/${parsed.data.invoiceId}`);
+    revalidateInvoicePaths(updated.id, updated.clientId);
     return { success: true };
   } catch (error) {
     logError("updateInvoiceStatusAction", error);
@@ -364,12 +433,23 @@ export async function sendInvoiceAction(
   invoiceId: string,
 ): Promise<ActionResult> {
   try {
+    const parsedId = invoiceIdSchema.safeParse(invoiceId);
+    if (!parsedId.success) {
+      return { success: false, error: "Invalid invoice ID." };
+    }
+
     const user = await requireUser();
 
     const [invoice] = await db
       .select({ id: invoices.id, status: invoices.status })
       .from(invoices)
-      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, user.id)))
+      .where(
+        and(
+          eq(invoices.id, parsedId.data),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+        ),
+      )
       .limit(1);
 
     if (!invoice) {
@@ -380,12 +460,25 @@ export async function sendInvoiceAction(
       throw new AppError("BAD_REQUEST", "Invoice is already paid");
     }
 
-    await db
+    const [updated] = await db
       .update(invoices)
       .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, user.id)));
+      .where(
+        and(
+          eq(invoices.id, parsedId.data),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+          // Enforced in the write: it may have been paid since the read.
+          ne(invoices.status, "paid"),
+        ),
+      )
+      .returning({ id: invoices.id, clientId: invoices.clientId });
 
-    revalidatePath("/invoices");
+    if (!updated) {
+      throw new AppError("BAD_REQUEST", "Invoice is already paid");
+    }
+
+    revalidateInvoicePaths(updated.id, updated.clientId);
 
     return { success: true };
   } catch (error) {
@@ -404,6 +497,11 @@ export async function sendReminderAction(
   invoiceId: string,
 ): Promise<ActionResult> {
   try {
+    const parsedId = invoiceIdSchema.safeParse(invoiceId);
+    if (!parsedId.success) {
+      return { success: false, error: "Invalid invoice ID." };
+    }
+
     const user = await requireUser();
 
     const [invoice] = await db
@@ -411,9 +509,16 @@ export async function sendReminderAction(
         id: invoices.id,
         status: invoices.status,
         dueDate: invoices.dueDate,
+        lastReminderSentAt: invoices.lastReminderSentAt,
       })
       .from(invoices)
-      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, user.id)))
+      .where(
+        and(
+          eq(invoices.id, parsedId.data),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+        ),
+      )
       .limit(1);
 
     if (!invoice) {
@@ -429,14 +534,42 @@ export async function sendReminderAction(
       );
     }
 
-    await db
+    const cooldownMessage =
+      "A reminder was already sent for this invoice in the last 24 hours.";
+
+    // Cap reminders at once per rolling 24h window so a client isn't
+    // bombarded if someone clicks the bell repeatedly.
+    if (isReminderOnCooldown(invoice.lastReminderSentAt)) {
+      throw new AppError("BAD_REQUEST", cooldownMessage);
+    }
+
+    // The check above is for a friendly message; this WHERE enforces it.
+    // Two sends at the same moment (two tabs, list + detail page) both pass
+    // the read, but only one of them still matches here.
+    const [updated] = await db
       .update(invoices)
       .set({ lastReminderSentAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, user.id)));
+      .where(
+        and(
+          eq(invoices.id, parsedId.data),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+          inArray(invoices.status, ["sent", "overdue"]),
+          or(
+            isNull(invoices.lastReminderSentAt),
+            lt(invoices.lastReminderSentAt, msAgo(REMINDER_COOLDOWN_MS)),
+          ),
+        ),
+      )
+      .returning({ id: invoices.id, clientId: invoices.clientId });
+
+    if (!updated) {
+      throw new AppError("BAD_REQUEST", cooldownMessage);
+    }
 
     // TODO: send the actual email here
 
-    revalidatePath("/invoices");
+    revalidateInvoicePaths(updated.id, updated.clientId);
 
     return { success: true };
   } catch (error) {
@@ -455,19 +588,36 @@ export async function markInvoicePaidAction(
   invoiceId: string,
 ): Promise<ActionResult> {
   try {
+    const parsedId = invoiceIdSchema.safeParse(invoiceId);
+    if (!parsedId.success) {
+      return { success: false, error: "Invalid invoice ID." };
+    }
+
     const user = await requireUser();
 
     const [updated] = await db
       .update(invoices)
       .set({ status: "paid", paidAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, user.id)))
-      .returning({ id: invoices.id });
+      .where(
+        and(
+          eq(invoices.id, parsedId.data),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+          // Only invoices that are actually awaiting payment — same rule the
+          // UI uses for showing "Mark as paid".
+          inArray(invoices.status, ["sent", "overdue"]),
+        ),
+      )
+      .returning({ id: invoices.id, clientId: invoices.clientId });
 
     if (!updated) {
-      throw new AppError("NOT_FOUND", "Invoice not found");
+      throw new AppError(
+        "NOT_FOUND",
+        "Invoice not found, or it isn't awaiting payment.",
+      );
     }
 
-    revalidatePath("/invoices");
+    revalidateInvoicePaths(updated.id, updated.clientId);
 
     return { success: true };
   } catch (error) {
@@ -486,19 +636,30 @@ export async function deleteInvoiceAction(
   invoiceId: string,
 ): Promise<ActionResult> {
   try {
+    const parsedId = invoiceIdSchema.safeParse(invoiceId);
+    if (!parsedId.success) {
+      return { success: false, error: "Invalid invoice ID." };
+    }
+
     const user = await requireUser();
 
     const [updated] = await db
       .update(invoices)
       .set({ deletedAt: new Date(), updatedAt: new Date() })
-      .where(and(eq(invoices.id, invoiceId), eq(invoices.userId, user.id)))
-      .returning({ id: invoices.id });
+      .where(
+        and(
+          eq(invoices.id, parsedId.data),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+        ),
+      )
+      .returning({ id: invoices.id, clientId: invoices.clientId });
 
     if (!updated) {
       throw new AppError("NOT_FOUND", "Invoice not found");
     }
 
-    revalidatePath("/invoices");
+    revalidateInvoicePaths(updated.id, updated.clientId);
 
     return { success: true };
   } catch (error) {

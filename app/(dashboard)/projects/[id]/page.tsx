@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getProjectById } from "../queries";
+import { getMilestonesByProjectId, getProjectById } from "../queries";
 import { ProjectDetail } from "../project-details";
 
 type ProjectDetailProps = {
@@ -14,7 +14,11 @@ export default async function ProjectPage({
   const { id } = await params;
   const query = await searchParams;
 
-  const project = await getProjectById(id);
+  // Independent reads — both check ownership themselves.
+  const [project, milestones] = await Promise.all([
+    getProjectById(id),
+    getMilestonesByProjectId(id),
+  ]);
 
   if (!project) {
     notFound();
@@ -23,6 +27,7 @@ export default async function ProjectPage({
   return (
     <ProjectDetail
       project={project}
+      milestones={milestones}
       initialEdit={query.edit === "true"}
     />
   );

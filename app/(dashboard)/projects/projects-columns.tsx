@@ -1,42 +1,34 @@
+import { FolderIcon } from "lucide-react";
 import type { Column } from "@/components/data-table/data-table.types";
-import { ProjectRowActions } from "./project-row-actions";
-import { formatDate } from "@/lib/format-date";
-import { projectStatusConfig } from "./project-status-config";
+import { RowIdentity } from "@/components/data-table/row-parts";
+import { IconTile } from "@/components/ui/icon-tile";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format-currency";
-import { ProjectListItem } from "./queries";
-import { AvatarInitials } from "@/components/ui/avatar-initials";
+import { formatDate } from "@/lib/format-date";
+import { cn } from "@/lib/utils";
+import { MilestoneProgress } from "./milestone-progress";
+import { getProjectDeadlineLabel } from "./project-deadline-label";
+import { ProjectRowActions } from "./project-row-actions";
+import { projectStatusConfig } from "./project-status-config";
+import type { ProjectListItem } from "./queries";
 
+// Visibility by table width — always: Project (with client underneath),
+// Status, Budget · 860px+: Progress · 1000px+: Deadline. Budget is never
+// hidden: it's the figure people look for first.
 export const projectColumns: Column<ProjectListItem>[] = [
   {
-    header: "Projects",
-    className: "min-w-[9rem] max-w-[14rem]",
+    header: "Project",
+    className: "min-w-[12rem] max-w-[18rem]",
     cell: (row) => (
-      <div className="min-w-0">
-        <div className="truncate font-medium">{row.title}</div>
-        <div className="text-muted-foreground truncate text-xs">
-          Started {formatDate(row.createdAt)}
-        </div>
-      </div>
-    ),
-  },
-  {
-    header: "Client",
-    hideBelow: "md",
-    className: "min-w-[7rem] max-w-[11rem]",
-    cell: (row) => (
-      <div className="flex min-w-0 items-center gap-1.5">
-        {row.clientName && (
-          <AvatarInitials
-            name={row.clientName}
-            shape="square"
-            variant="colored"
-            size="sm"
-            className="shrink-0"
-          />
-        )}
-        <span className="truncate">{row.clientName ?? "—"}</span>
-      </div>
+      <RowIdentity
+        leading={
+          <IconTile tone={projectStatusConfig[row.status].variant}>
+            <FolderIcon />
+          </IconTile>
+        }
+        title={row.title}
+        subtitle={row.clientName ?? "No client"}
+      />
     ),
   },
   {
@@ -47,6 +39,7 @@ export const projectColumns: Column<ProjectListItem>[] = [
       return (
         <StatusBadge
           status={config.variant}
+          variant="soft"
           className={config.dim ? "opacity-60" : undefined}
         >
           {config.label}
@@ -56,20 +49,53 @@ export const projectColumns: Column<ProjectListItem>[] = [
   },
   {
     header: "Budget",
-    accessorKey: "budget",
+    className: "whitespace-nowrap text-right",
+    cell: (row) => (
+      <span className="font-semibold tabular-nums">
+        {formatCurrency(row.budget)}
+      </span>
+    ),
+  },
+  {
+    header: "Progress",
     hideBelow: "lg",
     className: "whitespace-nowrap",
-    cell: (row) => formatCurrency(row.budget),
+    cell: (row) => (
+      <MilestoneProgress
+        completed={row.completedMilestones}
+        total={row.totalMilestones}
+        progress={row.progress}
+      />
+    ),
   },
   {
     header: "Deadline",
-    accessorKey: "deadline",
     hideBelow: "xl",
     className: "whitespace-nowrap",
-    cell: (row) => (row.deadline ? formatDate(row.deadline) : "—"),
+    cell: (row) => {
+      if (!row.deadline) {
+        return <span className="text-muted-foreground">—</span>;
+      }
+
+      const deadline = getProjectDeadlineLabel(row);
+      return (
+        <div>
+          <div>{formatDate(row.deadline)}</div>
+          <div
+            className={cn(
+              "text-[12.5px]",
+              deadline.late ? "text-danger-600" : "text-muted-foreground",
+            )}
+          >
+            {deadline.label}
+          </div>
+        </div>
+      );
+    },
   },
   {
-    header: "Actions",
+    header: <span className="sr-only">Actions</span>,
+    revealOnHover: true,
     className: "w-[1%] whitespace-nowrap text-right",
     cell: (row) => <ProjectRowActions project={row} />,
   },

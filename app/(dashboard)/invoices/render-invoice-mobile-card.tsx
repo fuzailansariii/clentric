@@ -1,51 +1,59 @@
+"use client";
+
+import { FileTextIcon } from "lucide-react";
+import { MobileListRow } from "@/components/data-table/row-parts";
+import { IconTile } from "@/components/ui/icon-tile";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format-currency";
-import { formatDate } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
-import { invoiceAmountColor } from "./invoice-status-config";
 import { cn } from "@/lib/utils";
+import { getInvoiceDueLabel } from "./invoice-due-label";
+import { InvoiceRowActions } from "./invoice-row-actions";
+import { invoiceAmountColor, invoiceStatusConfig } from "./invoice-status-config";
 import type { InvoiceListItem } from "./queries";
 
+// Mobile shows: invoice number, client · due/overdue, amount, status.
+// Project and issue date stay on the detail page.
 export function renderInvoiceMobileCard(invoice: InvoiceListItem) {
+  const config = invoiceStatusConfig[invoice.status];
+  const due = getInvoiceDueLabel(invoice);
+
   return (
-    <div className="px-4 py-4">
-      <div className="flex items-start justify-between gap-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="font-mono text-xs font-medium">
-              {formatInvoiceNumber(invoice.invoiceNumber)}
-            </span>
-
-            <span className="text-muted-foreground text-[10px]">•</span>
-
-            <span className="text-muted-foreground text-[11px] capitalize">
-              {invoice.status}
-            </span>
-          </div>
-
-          {/* Project is the headline — client is the secondary line below it. */}
-          <p className="mt-1.5 truncate text-sm font-medium">
-            {invoice.projectTitle ?? "—"}
-          </p>
-          <p className="text-muted-foreground truncate text-xs">
-            {invoice.clientName ?? "—"}
-          </p>
-        </div>
-        <p
-          className={cn(
-            "shrink-0 text-sm font-semibold",
-            invoiceAmountColor[invoice.status],
-          )}
-        >
-          {formatCurrency(invoice.total)}
-        </p>
-      </div>
-
-      <div className="mt-3 flex items-center justify-between">
-        <p className="text-muted-foreground text-[10px] font-medium tracking-[0.06em] uppercase">
-          Due date
-        </p>
-        <p className="text-xs font-medium">{formatDate(invoice.dueDate)}</p>
-      </div>
-    </div>
+    <MobileListRow
+      leading={
+        <IconTile tone={config.variant} size="md">
+          <FileTextIcon />
+        </IconTile>
+      }
+      title={formatInvoiceNumber(invoice.invoiceNumber)}
+      titleClassName="font-mono text-[13.5px]"
+      subtitle={
+        <>
+          {invoice.clientName ?? "No client"} ·{" "}
+          <span className={cn(due.late && "text-danger-600")}>{due.label}</span>
+        </>
+      }
+      trailing={
+        <>
+          <span
+            className={cn(
+              "text-sm font-semibold tabular-nums",
+              invoiceAmountColor[invoice.status],
+            )}
+          >
+            {formatCurrency(invoice.total)}
+          </span>
+          <StatusBadge
+            status={config.variant}
+            variant="soft"
+            size="sm"
+            className={config.dim ? "opacity-60" : undefined}
+          >
+            {config.label}
+          </StatusBadge>
+        </>
+      }
+      actions={<InvoiceRowActions invoice={invoice} compact />}
+    />
   );
 }

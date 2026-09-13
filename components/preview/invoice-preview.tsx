@@ -16,6 +16,9 @@ type InvoicePreviewProps = {
   onSubmit: () => void;
   onCancel: () => void;
   isSubmitting: boolean;
+  /** Set when editing an existing invoice: shows its real number and a
+   * single "Save changes" action instead of the create actions. */
+  editing?: { invoiceNumber: string };
 };
 
 export default function InvoicePreview({
@@ -29,6 +32,7 @@ export default function InvoicePreview({
   onSubmit,
   onCancel,
   isSubmitting,
+  editing,
 }: InvoicePreviewProps) {
   return (
     <div className="w-full min-w-0">
@@ -51,7 +55,9 @@ export default function InvoicePreview({
 
           <PreviewRow
             label="Invoice #"
-            value="Assigned automatically when you save"
+            value={
+              editing?.invoiceNumber ?? "Assigned automatically when you save"
+            }
           />
           <PreviewRow label="Client" value={clientName ?? "Select a client"} />
           <PreviewRow label="Project" value={projectName ?? "No project"} />
@@ -70,38 +76,56 @@ export default function InvoicePreview({
             emphasize
           />
 
-          <div className="mt-4">
-            <span className="bg-muted-foreground/20 font-space rounded px-2.5 py-1 text-xs font-bold">
-              draft
-            </span>
-          </div>
+          {!editing && (
+            <div className="mt-4">
+              <span className="bg-muted-foreground/20 font-space rounded px-2.5 py-1 text-xs font-bold">
+                draft
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
       <PreviewActions
-        actions={[
-          {
-            label: "Create & Send",
-            variant: "primary",
-            onClick: onSubmit, // TODO: once sendInvoiceAction exists, this should
-            // chain createInvoiceAction -> sendInvoiceAction,
-            // not call the same create-only handler as Draft
-            disabled: isSubmitting,
-            icon: <Plus className="h-4 w-4" />,
-          },
-          {
-            label: "Save as Draft",
-            variant: "secondary",
-            onClick: onSubmit, // TODO: same as above — identical to Create & Send
-            // for now since there's no send step to skip yet
-            disabled: isSubmitting,
-          },
-          {
-            label: "Cancel",
-            variant: "ghost",
-            onClick: onCancel,
-          },
-        ]}
+        actions={
+          editing
+            ? [
+                {
+                  label: isSubmitting ? "Saving..." : "Save changes",
+                  variant: "primary",
+                  onClick: onSubmit,
+                  disabled: isSubmitting,
+                },
+                {
+                  label: "Cancel",
+                  variant: "ghost",
+                  onClick: onCancel,
+                },
+              ]
+            : [
+                {
+                  label: "Create & Send",
+                  variant: "primary",
+                  onClick: onSubmit, // TODO: once sendInvoiceAction exists, this should
+                  // chain createInvoiceAction -> sendInvoiceAction,
+                  // not call the same create-only handler as Draft
+                  disabled: isSubmitting,
+                  icon: <Plus className="h-4 w-4" />,
+                },
+                {
+                  label: "Save as Draft",
+                  variant: "secondary",
+                  onClick: onSubmit, // TODO: same as above — identical to Create & Send
+                  // for now since there's no send step to skip yet
+                  disabled: isSubmitting,
+                },
+                {
+                  label: "Cancel",
+                  variant: "ghost",
+                  onClick: onCancel,
+                },
+              ]
+        }
       />
     </div>
   );

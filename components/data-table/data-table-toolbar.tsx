@@ -4,30 +4,42 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
 import { SearchIcon } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 type FilterOption = {
   label: string;
   value: string;
-  /** Tailwind class for the status dot, e.g. "bg-blue-500" */
-  dotColor?: string;
+  /** Rows matching this option, with the search applied. */
+  count?: number;
 };
 
 type FilterConfig = {
   key: string;
+  /** Accessible name for the tab group, e.g. "Filter clients by status". */
   label: string;
   options: FilterOption[];
+  /** Count shown on the "All" tab. */
+  allCount?: number;
 };
 
 type DataTableToolbarProps = {
   searchPlaceholder?: string;
   filters?: FilterConfig[];
+  /** Buttons shown next to the search box, e.g. "New Project". */
+  actions?: ReactNode;
   className?: string;
 };
 
 export function DataTableToolbar({
   searchPlaceholder = "Search...",
   filters = [],
+  actions,
   className,
 }: DataTableToolbarProps) {
   const router = useRouter();
@@ -52,7 +64,9 @@ export function DataTableToolbar({
         else params.delete(key);
       }
       params.set("page", "1");
-      router.replace(`${pathname}?${params.toString()}`);
+      // scroll: false — the toolbar can sit well down a page (client detail
+      // tabs); jumping to the top on every keystroke would lose your place.
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [pathname, router],
   );
@@ -69,81 +83,67 @@ export function DataTableToolbar({
   }, [debouncedSearch]);
 
   return (
-    // @container: the flex-row switch, search width, and pill-grid columns
-    // below all react to the space this toolbar actually has, not the
-    // browser viewport — same reasoning as DataTable/StatsCards. With the
-    // sidebar taking real width, a viewport-only `sm:`/`md:` can claim
-    // there's room when there isn't.
+    // @container: layout reacts to the space this toolbar actually has, not
+    // the viewport — with the sidebar taking real width, a viewport-only
+    // `sm:`/`md:` can claim there's room when there isn't.
     <div className="@container">
       <div
         className={cn(
-          "flex flex-col gap-3 @[640px]:flex-row @[640px]:items-center @[640px]:gap-3",
+          "flex flex-col gap-3 @[640px]:flex-row @[640px]:items-center @[640px]:justify-between",
           className,
         )}
       >
-        {/* Search */}
-        <div className="relative w-full @[640px]:w-64">
-          <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-          <input
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            placeholder={searchPlaceholder}
-            className="border-border/60 bg-muted/50 placeholder:text-muted-foreground focus:border-border focus:bg-background focus-visible:ring-ring h-9 w-full rounded-lg border pr-3 pl-9 text-sm transition-colors outline-none focus-visible:ring-1"
-          />
+        {/* Search (+ optional actions): first and full width on mobile,
+            after the tabs from 640px up. */}
+        <div className="flex w-full items-center gap-2 @[640px]:order-last @[640px]:w-auto">
+          <div className="relative min-w-0 flex-1 @[640px]:w-56 @[640px]:flex-none">
+            <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+            <input
+              type="search"
+              aria-label={searchPlaceholder}
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              placeholder={searchPlaceholder}
+              className="border-border bg-card placeholder:text-muted-foreground focus-visible:ring-ring h-9 w-full rounded-lg border pr-3 pl-9 text-sm outline-none focus-visible:ring-2 @[640px]:bg-secondary/40 @[640px]:h-8"
+            />
+          </div>
+          {actions}
         </div>
 
-        {/* Status pills - your grid style */}
+        {/* Status tabs with counts. They scroll sideways on mobile instead
+            of wrapping into a grid. */}
         {filters.map((filter) => {
           const currentValue = searchParams.get(filter.key) ?? "";
 
           return (
             <div
               key={filter.key}
-              className="grid grid-cols-3 items-center gap-1.5 @[640px]:grid-cols-5"
+              role="group"
+              aria-label={filter.label}
+              className="flex min-w-0 gap-1.5 overflow-x-auto [scrollbar-width:none] @[640px]:gap-0.5 [&::-webkit-scrollbar]:hidden"
             >
-              {/* All */}
-              <button
-                type="button"
+              <FilterTab
+                label="All"
+                count={filter.allCount}
+                active={!currentValue}
                 onClick={() => updateParams({ [filter.key]: null })}
-                className={cn(
-                  "h-8 rounded-lg border px-3 text-xs font-medium transition-colors @[640px]:text-sm",
-                  !currentValue
-                    ? "border-transparent bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground",
-                )}
-              >
-                All
-              </button>
+              />
 
               {filter.options.map((option) => {
                 const isActive = currentValue === option.value;
 
                 return (
-                  <button
+                  <FilterTab
                     key={option.value}
-                    type="button"
+                    label={option.label}
+                    count={option.count}
+                    active={isActive}
                     onClick={() =>
                       updateParams({
                         [filter.key]: isActive ? null : option.value,
                       })
                     }
-                    className={cn(
-                      "flex h-8 items-center justify-center gap-1.5 rounded-lg border px-3 text-xs font-medium transition-colors @[640px]:text-sm",
-                      isActive
-                        ? "border-transparent bg-blue-100 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
-                        : "border-border/60 text-muted-foreground hover:bg-muted hover:text-foreground",
-                    )}
-                  >
-                    {option.dotColor && (
-                      <span
-                        className={cn(
-                          "h-1.5 w-1.5 shrink-0 rounded-full",
-                          option.dotColor,
-                        )}
-                      />
-                    )}
-                    <span className="truncate">{option.label}</span>
-                  </button>
+                  />
                 );
               })}
             </div>
@@ -151,5 +151,48 @@ export function DataTableToolbar({
         })}
       </div>
     </div>
+  );
+}
+
+function FilterTab({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active}
+      onClick={onClick}
+      className={cn(
+        "focus-visible:ring-ring inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-[13px] whitespace-nowrap transition-colors outline-none focus-visible:ring-2",
+        "@[640px]:h-7 @[640px]:px-2.5",
+        // Mobile: solid chips, the active one inverted. From 640px: quiet
+        // tabs, the active one on a light fill.
+        active
+          ? "bg-foreground text-background border-transparent font-medium @[640px]:bg-secondary @[640px]:text-foreground @[640px]:border-border"
+          : "border-border bg-card text-muted-foreground hover:text-foreground @[640px]:hover:bg-secondary/60 @[640px]:border-transparent @[640px]:bg-transparent",
+      )}
+    >
+      {label}
+      {count !== undefined && (
+        <span
+          className={cn(
+            "text-xs tabular-nums",
+            active
+              ? "text-background/65 @[640px]:text-muted-foreground"
+              : "text-muted-foreground/70",
+          )}
+        >
+          {count}
+        </span>
+      )}
+    </button>
   );
 }

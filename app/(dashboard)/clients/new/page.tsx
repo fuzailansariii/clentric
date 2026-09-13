@@ -35,7 +35,6 @@ export default function NewClientPage() {
     control,
     watch,
     setValue,
-    reset,
   } = useForm<ClientInput>({
     resolver: zodResolver(clientSchema),
     defaultValues: {
@@ -74,181 +73,184 @@ export default function NewClientPage() {
 
       <DashboardContainer>
         <form onSubmit={onSubmit} className="mx-auto max-w-4xl pb-12">
-        <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
-          {/* Basic information */}
-          <FormSection
-            title="Tell us about your client"
-            step="01 - Basic information"
-            description="Start with the basic details of the person or company
+          <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
+            {/* Basic information */}
+            <FormSection
+              title="Tell us about your client"
+              step="01 - Basic information"
+              description="Start with the basic details of the person or company
                 you're working with."
-          >
-            <div className="grid gap-5 sm:grid-cols-2">
-              <Field
-                {...register("name")}
-                label="Name"
-                placeholder="e.g. John Doe"
-                error={errors.name?.message}
-              />
-
-              <Field
-                {...register("company")}
-                label="Company"
-                placeholder="e.g. Acme Inc."
-                error={errors.company?.message}
-              />
-            </div>
-          </FormSection>
-
-          <div className="bg-border h-px" />
-
-          {/* Contact details */}
-          <FormSection
-            step="02 - Contact details"
-            title="Stay connected"
-            description="Add the contact information you'll use to communicate with
-                this client."
-          >
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div className="sm:col-span-1">
+            >
+              <div className="grid gap-5 sm:grid-cols-2">
                 <Field
-                  {...register("email")}
-                  label="Email"
-                  placeholder="e.g. john@acme.com"
-                  error={errors.email?.message}
+                  {...register("name")}
+                  label="Name"
+                  placeholder="e.g. John Doe"
+                  error={errors.name?.message}
+                />
+
+                <Field
+                  {...register("company")}
+                  label="Company"
+                  placeholder="e.g. Acme Inc."
+                  error={errors.company?.message}
                 />
               </div>
+            </FormSection>
 
-              <div>
+            <div className="bg-border h-px" />
+
+            {/* Contact details */}
+            <FormSection
+              step="02 - Contact details"
+              title="Stay connected"
+              description="Add the contact information you'll use to communicate with
+                this client."
+            >
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="sm:col-span-1">
+                  <Field
+                    {...register("email")}
+                    label="Email"
+                    placeholder="e.g. john@acme.com"
+                    error={errors.email?.message}
+                  />
+                </div>
+
+                <div>
+                  <Controller
+                    control={control}
+                    name="phone"
+                    render={({ field }) => (
+                      <PhoneField
+                        ref={phoneFieldRef}
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={errors.phone?.message}
+                        syncCountryValue={countryValue}
+                        onDialCountryChange={(isoValue) =>
+                          setValue("country", isoValue, {
+                            shouldValidate: true,
+                          })
+                        }
+                      />
+                    )}
+                  />
+                </div>
+
+                <div>
+                  <Controller
+                    control={control}
+                    name="country"
+                    render={({ field }) => (
+                      <CountryCombobox
+                        value={field.value}
+                        onChange={(value) => {
+                          phoneFieldRef.current?.resetOverride();
+                          field.onChange(value);
+                        }}
+                      />
+                    )}
+                  />
+                  {errors.country && (
+                    <p className="text-destructive text-sm">
+                      {errors.country.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </FormSection>
+
+            <div className="bg-border h-px" />
+
+            {/* Additional information */}
+            <FormSection
+              step="03 - Workspace details"
+              title="Organize your relationship"
+              description="Keep a little context about where this client stands."
+            >
+              <div className="space-y-5 md:max-w-sm">
                 <Controller
                   control={control}
-                  name="phone"
+                  name="status"
                   render={({ field }) => (
-                    <PhoneField
-                      ref={phoneFieldRef}
-                      value={field.value}
-                      onChange={field.onChange}
-                      error={errors.phone?.message}
-                      syncCountryValue={countryValue}
-                      onDialCountryChange={(isoValue) =>
-                        setValue("country", isoValue, {
-                          shouldValidate: true,
-                        })
-                      }
-                    />
+                    <div className="w-32 space-y-2">
+                      <label className="text-sm font-medium">Status</label>
+
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                          {clientStatusEnum.options.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   )}
                 />
-              </div>
 
-              <div>
-                <Controller
-                  control={control}
-                  name="country"
-                  render={({ field }) => (
-                    <CountryCombobox
-                      value={field.value}
-                      onChange={(value) => {
-                        phoneFieldRef.current?.resetOverride();
-                        field.onChange(value);
-                      }}
-                    />
-                  )}
+                <Field
+                  {...register("notes")}
+                  label="Notes"
+                  placeholder="Add any useful context about this client..."
+                  multiline
+                  error={errors.notes?.message}
                 />
-                {errors.country && (
-                  <p className="text-destructive text-sm">
-                    {errors.country.message}
-                  </p>
-                )}
               </div>
-            </div>
-          </FormSection>
+            </FormSection>
 
-          <div className="bg-border h-px" />
+            {formError && (
+              <div className="border-t px-6 py-3 sm:px-8">
+                <p className="text-destructive text-sm">{formError}</p>
+              </div>
+            )}
 
-          {/* Additional information */}
-          <FormSection
-            step="03 - Workspace details"
-            title="Organize your relationship"
-            description="Keep a little context about where this client stands."
-          >
-            <div className="space-y-5 md:max-w-sm">
-              <Controller
-                control={control}
-                name="status"
-                render={({ field }) => (
-                  <div className="w-32 space-y-2">
-                    <label className="text-sm font-medium">Status</label>
-
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-
-                      <SelectContent>
-                        {clientStatusEnum.options.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {status.charAt(0).toUpperCase() + status.slice(1)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              />
-
-              <Field
-                {...register("notes")}
-                label="Notes"
-                placeholder="Add any useful context about this client..."
-                multiline
-                error={errors.notes?.message}
-              />
-            </div>
-          </FormSection>
-
-          {formError && (
-            <div className="border-t px-6 py-3 sm:px-8">
-              <p className="text-destructive text-sm">{formError}</p>
-            </div>
-          )}
-
-          {/* Footer */}
-          <div className="bg-muted/30 flex flex-col-reverse gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-8">
-            {isSubmitting ? (
-              <CustomButton
-                type="button"
-                variant="secondary"
-                disabled
-                className="w-full sm:w-auto"
-              >
-                Cancel
-              </CustomButton>
-            ) : (
-              <Link href="/clients">
+            {/* Footer */}
+            <div className="bg-muted/30 flex flex-col-reverse gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-8">
+              {isSubmitting ? (
                 <CustomButton
                   type="button"
                   variant="secondary"
+                  disabled
                   className="w-full sm:w-auto"
                 >
                   Cancel
                 </CustomButton>
-              </Link>
-            )}
+              ) : (
+                <Link href="/clients">
+                  <CustomButton
+                    type="button"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                  >
+                    Cancel
+                  </CustomButton>
+                </Link>
+              )}
 
-            <CustomButton
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full sm:w-auto"
-            >
-              {isSubmitting ? "Creating..." : "Create client"}
-            </CustomButton>
+              <CustomButton
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto"
+              >
+                {isSubmitting ? "Creating..." : "Create client"}
+              </CustomButton>
+            </div>
           </div>
-        </div>
-        <p className="text-muted-foreground mt-2 flex items-center gap-2 px-2 font-mono text-[8px] font-light sm:px-0 sm:text-xs">
-          <ArrowRight size={12} />
-          <span>
-            client records use soft deletes - nothing is lost, only archived
-          </span>
-        </p>
+          <p className="text-muted-foreground mt-2 flex items-center gap-2 px-2 font-mono text-[8px] font-light sm:px-0 sm:text-xs">
+            <ArrowRight size={12} />
+            <span>
+              client records use soft deletes - nothing is lost, only archived
+            </span>
+          </p>
         </form>
       </DashboardContainer>
     </>

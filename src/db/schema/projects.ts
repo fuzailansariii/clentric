@@ -8,6 +8,7 @@ import {
   date,
   index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { users } from "./users";
 import { clients } from "./clients";
 
@@ -44,6 +45,11 @@ export const projects = pgTable(
   (table) => [
     index("idx_projects_user_id").on(table.userId),
     index("idx_project_client_id").on(table.clientId),
+    // Serves the list page: this user's live projects, newest first.
+    // Applied by supabase/migrations/0003_list_indexes.sql.
+    index("idx_projects_user_created")
+      .on(table.userId, table.createdAt.desc())
+      .where(sql`deleted_at is null`),
   ],
 );
 

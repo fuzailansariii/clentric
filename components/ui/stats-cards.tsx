@@ -50,7 +50,7 @@ export function StatsCards({
 
             <div
               className={cn(
-                "mt-1 min-w-0 text-base font-semibold tracking-tight @[640px]:mt-1.5 @[640px]:text-2xl",
+                "mt-1 min-w-0 truncate text-base font-semibold tracking-tight @[640px]:mt-1.5 @[640px]:text-2xl",
                 item.valueColor ?? "text-foreground",
               )}
             >

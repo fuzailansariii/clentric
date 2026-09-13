@@ -5,10 +5,12 @@ import { StatsCards } from "@/components/ui/stats-cards";
 import { Plus, Receipt } from "lucide-react";
 import Link from "next/link";
 import { getInvoicesByUserId } from "./queries";
-import { computeInvoiceStats } from "./invoice-stats";
 import { formatCurrency } from "@/lib/format-currency";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
-import { invoiceStatusConfig } from "./invoice-status-config";
+import {
+  invoiceStatusConfig,
+  type InvoiceStatus,
+} from "./invoice-status-config";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { InvoicesTable } from "./invoices-table";
 
@@ -20,9 +22,16 @@ export default async function InvoicesPage({
   searchParams,
 }: InvoicesPageProps) {
   const params = await searchParams;
-  const { invoices, total, page, pageSize, totalPages } =
-    await getInvoicesByUserId(params);
-  const stats = computeInvoiceStats(invoices);
+  const {
+    invoices,
+    total,
+    page,
+    pageSize,
+    totalPages,
+    statusCounts,
+    allCount,
+    summary,
+  } = await getInvoicesByUserId(params);
 
   return (
     <>
@@ -39,6 +48,7 @@ export default async function InvoicesPage({
           { label: "Dashboard", href: "/dashboard" },
           { label: "Invoices" },
         ]}
+        mobileActions="inline"
         actions={
           <Link href={"/invoices/new"}>
             <CustomButton className="mx-auto flex items-center gap-1 text-xs">
@@ -51,58 +61,65 @@ export default async function InvoicesPage({
 
       <DashboardContainer>
         <div className="flex flex-col gap-4">
+          {/* Totals come from the database across every matching invoice
+              (search applied, status tab not) — not just the current page. */}
           <StatsCards
             items={[
               {
                 label: "Total Billed",
-                value: formatCurrency(stats.total.toFixed(2)),
-                hint: `${stats.totalCount} invoices`,
+                value: formatCurrency(summary.total),
+                hint: `${summary.totalCount} invoices`,
               },
               {
                 label: "Paid",
-                value: formatCurrency(stats.paid.toFixed(2)),
-                hint: `${stats.paidCount} invoices`,
+                value: formatCurrency(summary.paid),
+                hint: `${summary.paidCount} invoices`,
                 valueColor: "text-emerald-600",
               },
               {
                 label: "Outstanding",
-                value: formatCurrency(stats.outstanding.toFixed(2)),
-                hint: `${stats.outstandingCount} invoices`,
+                value: formatCurrency(summary.outstanding),
+                hint: `${summary.outstandingCount} invoices`,
                 valueColor: "text-blue-600",
               },
               {
                 label: "Overdue",
-                value: formatCurrency(stats.overdue.toFixed(2)),
-                hint: `${stats.overdueCount} invoices`,
+                value: formatCurrency(summary.overdue),
+                hint: `${summary.overdueCount} invoices`,
                 valueColor: "text-rose-500",
               },
             ]}
           />
 
-          <DataTableToolbar
-            searchPlaceholder="Search invoices..."
-            filters={[
-              {
-                key: "status",
-                label: "Status",
-                options: Object.entries(invoiceStatusConfig).map(
-                  ([value, config]) => ({
-                    label: config.label,
-                    value,
-                    dotColor: config.dotColor,
-                  }),
-                ),
-              },
-            ]}
-          />
-
-          <InvoicesTable data={invoices} />
-
-          <DataTablePagination
-            page={page}
-            pageSize={pageSize}
-            total={total}
-            totalPages={totalPages}
+          <InvoicesTable
+            data={invoices}
+            toolbar={
+              <DataTableToolbar
+                searchPlaceholder="Search invoices..."
+                filters={[
+                  {
+                    key: "status",
+                    label: "Filter invoices by status",
+                    allCount,
+                    options: (
+                      Object.keys(invoiceStatusConfig) as InvoiceStatus[]
+                    ).map((status) => ({
+                      value: status,
+                      label: invoiceStatusConfig[status].label,
+                      count: statusCounts[status],
+                    })),
+                  },
+                ]}
+              />
+            }
+            footer={
+              <DataTablePagination
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                totalPages={totalPages}
+              />
+            }
           />
         </div>
       </DashboardContainer>

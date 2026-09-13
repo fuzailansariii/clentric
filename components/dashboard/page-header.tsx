@@ -27,56 +27,13 @@ type BreadcrumbMode = "full" | "condensed" | "hidden";
 type PageHeaderProps = {
   title: string;
   subtitle?: string;
-
-  /**
-   * Used on list/index pages.
-   * Detail pages use backHref instead.
-   */
   icon?: ReactNode;
-
-  /**
-   * Can be a status badge, count badge, etc.
-   */
   badge?: ReactNode;
-
-  /**
-   * When provided, the header behaves as a detail-page header
-   * and renders a back button instead of the section icon.
-   */
   backHref?: string;
-
-  /**
-   * Header action buttons.
-   *
-   * Desktop: displayed normally.
-   * Tablet: displayed in compact form.
-   * Mobile: placed inside a More menu.
-   */
   actions?: ReactNode;
-
+  mobileActions?: "menu" | "inline";
   breadcrumbs?: BreadcrumbItemType[];
-
-  /**
-   * Controls the breadcrumb presentation.
-   *
-   * full:
-   *   Desktop -> full
-   *   Tablet  -> condensed
-   *   Mobile  -> hidden
-   *
-   * condensed:
-   *   Desktop -> condensed
-   *   Tablet  -> condensed
-   *   Mobile  -> hidden
-   *
-   * hidden:
-   *   hidden everywhere
-   */
   breadcrumbMode?: BreadcrumbMode;
-
-  /**
-   * Optional className for custom page-level adjustments.
-   */
   className?: string;
 };
 
@@ -206,6 +163,7 @@ export default function PageHeader({
   actions,
   breadcrumbs = [],
   breadcrumbMode = "full",
+  mobileActions = "menu",
   className,
 }: PageHeaderProps) {
   const isDetailPage = Boolean(backHref);
@@ -348,40 +306,46 @@ export default function PageHeader({
               </div>
 
               {/* ===================================================
-                  MOBILE ACTION MENU
+                  MOBILE ACTIONS
                   =================================================== */}
 
-              <details className="relative shrink-0 md:hidden">
-                <summary
-                  aria-label="Open actions"
-                  className={[
-                    "border-border bg-background",
-                    "hover:bg-muted/50",
-                    "flex h-9 w-9 cursor-pointer list-none",
-                    "items-center justify-center",
-                    "rounded-lg border",
-                    "transition-colors",
-                    "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
-                    "[&::-webkit-details-marker]:hidden",
-                  ].join(" ")}
-                >
-                  <MoreHorizontalIcon className="h-4 w-4" />
-                </summary>
-
-                <div
-                  className={[
-                    "border-border bg-background",
-                    "absolute top-[calc(100%+0.5rem)] right-0 z-50",
-                    "min-w-37.5",
-                    "rounded-lg border p-1",
-                    "shadow-lg",
-                  ].join(" ")}
-                >
-                  <div className="flex flex-col gap-1 [&_button]:w-full [&_button]:justify-start">
-                    {actions}
-                  </div>
+              {mobileActions === "inline" ? (
+                <div className="flex shrink-0 items-center gap-2 md:hidden">
+                  {actions}
                 </div>
-              </details>
+              ) : (
+                <details className="relative shrink-0 md:hidden">
+                  <summary
+                    aria-label="Open actions"
+                    className={[
+                      "border-border bg-background",
+                      "hover:bg-muted/50",
+                      "flex h-9 w-9 cursor-pointer list-none",
+                      "items-center justify-center",
+                      "rounded-lg border",
+                      "transition-colors",
+                      "focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none",
+                      "[&::-webkit-details-marker]:hidden",
+                    ].join(" ")}
+                  >
+                    <MoreHorizontalIcon className="h-4 w-4" />
+                  </summary>
+
+                  <div
+                    className={[
+                      "border-border bg-background",
+                      "absolute top-[calc(100%+0.5rem)] right-0 z-50",
+                      "min-w-37.5",
+                      "rounded-lg border p-1",
+                      "shadow-lg",
+                    ].join(" ")}
+                  >
+                    <div className="flex flex-col gap-1 [&_button]:w-full [&_button]:justify-start">
+                      {actions}
+                    </div>
+                  </div>
+                </details>
+              )}
             </>
           )}
         </div>

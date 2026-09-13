@@ -1,53 +1,41 @@
 "use client";
 
-import { formatPhone } from "@/lib/format-phone";
-import { StatusBadge } from "../ui/status-badge";
-import { AvatarInitials } from "../ui/avatar-initials";
 import { clientStatusConfig } from "@/app/(dashboard)/clients/client-status-config";
-import type { ClientRow } from "@/src/db/schema/clients";
 import { ClientRowActions } from "@/app/(dashboard)/clients/client-row-actions";
+import type { ClientRow } from "@/src/db/schema/clients";
+import { AvatarInitials } from "../ui/avatar-initials";
+import { StatusBadge } from "../ui/status-badge";
+import { MobileListRow } from "./row-parts";
 
+// Mobile shows: name, company (email when there's no company), status.
+// Phone and date added are left for the detail page — you open a client to
+// call them, you don't pick one from a list by their number.
 export function renderClientMobileCard(row: ClientRow) {
   const config = clientStatusConfig[row.status];
 
   return (
-    <div className="flex flex-col gap-2 px-4.5 py-3.5">
-      {/* Top */}
-      <div className="flex items-center gap-2.5">
-        <AvatarInitials name={row.name} variant="colored" shape="circle" />
-
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-[13.5px] font-medium">{row.name}</div>
-
-          {row.email && (
-            <div className="text-muted-foreground truncate text-[11.5px]">
-              {row.email}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Bottom */}
-      <div className="flex items-center justify-between pl-10">
-        {row.phone ? (
-          <span className="text-muted-foreground font-mono text-xs">
-            {formatPhone(row.phone)}
-          </span>
-        ) : (
-          <span className="text-muted-foreground font-mono text-xs">—</span>
-        )}
-
-        <div className="flex items-center gap-2">
-          <StatusBadge
-            status={config.variant}
-            className={config.dim ? "opacity-60" : undefined}
-          >
-            {config.label}
-          </StatusBadge>
-
-          <ClientRowActions client={row} />
-        </div>
-      </div>
-    </div>
+    <MobileListRow
+      leading={
+        <AvatarInitials
+          name={row.name}
+          variant="colored"
+          shape="square"
+          className="rounded-[10px]"
+        />
+      }
+      title={row.name}
+      subtitle={row.company ?? row.email ?? "No company"}
+      trailing={
+        <StatusBadge
+          status={config.variant}
+          variant="soft"
+          size="sm"
+          className={config.dim ? "opacity-60" : undefined}
+        >
+          {config.label}
+        </StatusBadge>
+      }
+      actions={<ClientRowActions client={row} />}
+    />
   );
 }

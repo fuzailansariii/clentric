@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { CustomButton } from "@/components/ui/custom-button";
 import { formatDate, formatRelativeDate } from "@/lib/format-date";
 import { formatCurrency } from "@/lib/format-currency";
-import { Check, Folder, PencilIcon, TrashIcon, X } from "lucide-react";
+import { Check, Folder, PencilIcon, Trash2Icon, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TabButton } from "@/components/ui/tab-button";
 import { DeleteDialog } from "@/components/delete-dialog";
@@ -21,7 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { DatePickerField } from "@/components/date-picker-field";
-import { ProjectListItem } from "./queries";
+import type { MilestoneItem, ProjectListItem } from "./queries";
+import { MilestonesPanel } from "./milestones-panel";
 import { EditableProjectInput, editableProjectsSchema } from "./schema";
 import { projectStatusConfig } from "./project-status-config";
 import { deleteProjectAction, updateProjectAction } from "./actions";
@@ -45,9 +46,11 @@ export function toProjectFormDefaults(
 
 export function ProjectDetail({
   project,
+  milestones,
   initialEdit = false,
 }: {
   project: ProjectListItem;
+  milestones: MilestoneItem[];
   initialEdit?: boolean;
 }) {
   const [activeSection, setActiveSection] =
@@ -151,7 +154,7 @@ export function ProjectDetail({
                 onClick={() => setIsDeleteOpen(true)}
                 className="flex items-center gap-1"
               >
-                <TrashIcon className="h-3.5 w-3.5" /> Delete
+                <Trash2Icon className="h-3.5 w-3.5" /> Delete
               </CustomButton>
               <CustomButton
                 variant="primary"
@@ -369,6 +372,19 @@ export function ProjectDetail({
                     {formatDate(project.createdAt)}
                   </dd>
                 </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs uppercase">
+                    Last updated
+                  </dt>
+                  {/* Relative time is read from the clock, so server and
+                      browser can disagree by a minute at render time. */}
+                  <dd className="mt-1 font-medium" suppressHydrationWarning>
+                    {formatRelativeDate(project.updatedAt)}
+                  </dd>
+                  <dd className="text-muted-foreground mt-0.5 text-xs">
+                    {formatDate(project.updatedAt)}
+                  </dd>
+                </div>
               </dl>
             </div>
           </div>
@@ -383,13 +399,17 @@ export function ProjectDetail({
             <TabButton
               id="milestones-tab"
               label="Milestones"
-              count={project.totalMilestones}
+              count={milestones.length}
               isActive={activeSection === "milestones"}
               onClick={() => setActiveSection("milestones")}
             />
           </div>
-          <div role="tabpanel" className="border-t">
-            {/* <MilestonesPanel /> */}
+          <div
+            role="tabpanel"
+            aria-labelledby="milestones-tab"
+            className="border-t"
+          >
+            <MilestonesPanel projectId={project.id} milestones={milestones} />
           </div>
         </div>
 

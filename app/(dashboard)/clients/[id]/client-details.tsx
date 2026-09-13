@@ -4,9 +4,16 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { CustomButton } from "@/components/ui/custom-button";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDate, formatRelativeDate } from "@/lib/format-date";
+import { cn } from "@/lib/utils";
 import { clientStatusConfig } from "../client-status-config";
-import { Check, PencilIcon, RefreshCw, TrashIcon, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Check, PencilIcon, Trash2Icon, X } from "lucide-react";
+import {
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { TabButton } from "@/components/ui/tab-button";
 import { ProjectsPanel } from "./projects-panel";
 import { InvoicesPanel } from "./invoices-panel";
@@ -29,25 +36,41 @@ import {
 } from "@/components/ui/select";
 import { PhoneField, PhoneFieldHandle } from "@/components/ui/phone-field";
 import { CountryCombobox } from "@/components/ui/country-combobox";
-import { ProjectListItem } from "../../projects/queries";
-import type { InvoiceListItem } from "../../invoices/queries";
+import type { ProjectListResult } from "../../projects/queries";
+import type { InvoiceListResult } from "../../invoices/queries";
 import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 
+type ClientDetailSection = "projects" | "invoices";
+
+// Params that belong to the open tab's list, dropped when switching tabs.
+const LIST_PARAMS = ["search", "status", "page"];
+
 export function ClientDetail({
   client,
-  invoices,
+  section,
   projects,
+  invoices,
+  projectCount,
+  invoiceCount,
   initialEdit = false,
 }: {
   client: ClientRow;
-  invoices: InvoiceListItem[];
-  projects: ProjectListItem[];
+  /** The tab from the `?section=` URL param, so a refresh or a shared link
+   * lands on the same tab. */
+  section: ClientDetailSection;
+  /** Only the open tab's list is fetched; the other one is null. */
+  projects: ProjectListResult | null;
+  invoices: InvoiceListResult | null;
+  projectCount: number;
+  invoiceCount: number;
   initialEdit?: boolean;
 }) {
-  const [activeSection, setActiveSection] = useState<"projects" | "invoices">(
-    "projects",
-  );
+  // The tab highlights immediately on click, while the server fetches that
+  // tab's rows; it follows the URL again once they arrive (back/forward too).
+  const [activeSection, setOptimisticSection] = useOptimistic(section);
+  const [isSectionPending, startSectionTransition] = useTransition();
+
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(initialEdit);
   const [formError, setFormError] = useState<string | null>(null);
@@ -71,6 +94,15 @@ export function ClientDetail({
   const phoneFieldRef = useRef<PhoneFieldHandle>(null);
   const countryValue = watch("country");
 
+  // The current URL minus the given params — used so leaving edit mode keeps
+  // the open tab and its search/filter/page.
+  const currentUrlWithout = (keys: string[]) => {
+    const params = new URLSearchParams(window.location.search);
+    for (const key of keys) params.delete(key);
+    const query = params.toString();
+    return `/clients/${client.id}${query ? `?${query}` : ""}`;
+  };
+
   const handleEditClick = () => {
     reset(toClientFormsDefault(client));
     setIsEditing(true);
@@ -79,8 +111,37 @@ export function ClientDetail({
   const handleCancelClick = () => {
     reset(toClientFormsDefault(client));
     setIsEditing(false);
-    window.history.replaceState(null, "", `/clients/${client.id}`);
+    // Only drop ?edit — nothing changed, so there's nothing to refetch.
+    window.history.replaceState(null, "", currentUrlWithout(["edit"]));
   };
+
+  const handleSectionChange = (next: ClientDetailSection) => {
+    if (next === activeSection) return;
+
+    // The other tab's rows aren't on the page, so this is a real navigation:
+    // the server fetches just that tab's first page. Search/filter/page
+    // belonged to the tab being left, so they're dropped.
+    const params = new URLSearchParams(window.location.search);
+    for (const key of LIST_PARAMS) params.delete(key);
+    if (next === "projects") {
+      params.delete("section");
+    } else {
+      params.set("section", next);
+    }
+    const query = params.toString();
+
+    startSectionTransition(() => {
+      setOptimisticSection(next);
+      router.replace(`/clients/${client.id}${query ? `?${query}` : ""}`, {
+        scroll: false,
+      });
+    });
+  };
+
+  // Keyed on id + updatedAt rather than the client object: searching or
+  // switching tabs re-renders this page with a fresh-but-identical client,
+  // which must not wipe an edit in progress.
+  const clientVersion = `${client.id}:${new Date(client.updatedAt).getTime()}`;
 
   useEffect(() => {
     if (!initialEdit) {
@@ -89,7 +150,8 @@ export function ClientDetail({
 
     reset(toClientFormsDefault(client));
     setIsEditing(true);
-  }, [initialEdit, client, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEdit, clientVersion, reset]);
 
   const onSubmit = handleSubmit(async (data: ClientInput) => {
     setFormError(null);
@@ -98,7 +160,7 @@ export function ClientDetail({
       success: "Client updated.",
       onSuccess: () => {
         setIsEditing(false);
-        router.replace(`/clients/${client.id}`);
+        router.replace(currentUrlWithout(["edit"]), { scroll: false });
       },
       onError: setFormError,
     });
@@ -152,7 +214,7 @@ export function ClientDetail({
                 onClick={() => setIsDeleteOpen(true)}
                 className="flex items-center gap-1"
               >
-                <TrashIcon className="h-3.5 w-3.5" /> Delete
+                <Trash2Icon className="h-3.5 w-3.5" /> Delete
               </CustomButton>
               <CustomButton
                 variant="primary"
@@ -366,16 +428,16 @@ export function ClientDetail({
               <TabButton
                 id="project-tab"
                 label="Projects"
-                count={projects.length}
+                count={projectCount}
                 isActive={activeSection === "projects"}
-                onClick={() => setActiveSection("projects")}
+                onClick={() => handleSectionChange("projects")}
               />
               <TabButton
                 id="invoices-tab"
                 label="Invoices"
-                count={invoices.length}
+                count={invoiceCount}
                 isActive={activeSection === "invoices"}
-                onClick={() => setActiveSection("invoices")}
+                onClick={() => handleSectionChange("invoices")}
               />
             </div>
             <div
@@ -384,12 +446,22 @@ export function ClientDetail({
               aria-labelledby={
                 activeSection === "projects" ? "project-tab" : "invoices-tab"
               }
-              className="border-t"
+              aria-busy={isSectionPending}
+              className={cn(
+                "border-t transition-opacity",
+                isSectionPending && "pointer-events-none opacity-60",
+              )}
             >
               {activeSection === "projects" ? (
-                <ProjectsPanel projects={projects} className="border-none" />
+                projects ? (
+                  <ProjectsPanel result={projects} />
+                ) : (
+                  <PanelLoading />
+                )
+              ) : invoices ? (
+                <InvoicesPanel clientId={client.id} result={invoices} />
               ) : (
-                <InvoicesPanel invoices={invoices} className="border-none" />
+                <PanelLoading />
               )}
             </div>
           </div>
@@ -412,5 +484,14 @@ export function ClientDetail({
         </div>
       </DashboardContainer>
     </>
+  );
+}
+
+/** Shown for the moment between clicking a tab and its rows arriving. */
+function PanelLoading() {
+  return (
+    <p className="text-muted-foreground px-6 py-12 text-center text-sm">
+      Loading…
+    </p>
   );
 }

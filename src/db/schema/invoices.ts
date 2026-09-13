@@ -10,6 +10,7 @@ import {
   unique,
   integer,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { users } from "./users";
 import { clients } from "./clients";
 import { projects } from "./projects";
@@ -65,6 +66,11 @@ export const invoices = pgTable(
     index("idx_invoices_client_id").on(table.clientId),
     index("idx_invoices_project_id").on(table.projectId),
     index("idx_invoices_status").on(table.status),
+    // Serves the list page: this user's live invoices, newest first.
+    // Applied by supabase/migrations/0003_list_indexes.sql.
+    index("idx_invoices_user_created")
+      .on(table.userId, table.createdAt.desc())
+      .where(sql`deleted_at is null`),
     unique("uq_user_invoice_number").on(table.userId, table.invoiceNumber),
   ],
 );

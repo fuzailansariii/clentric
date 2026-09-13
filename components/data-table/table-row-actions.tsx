@@ -2,10 +2,28 @@
 
 import { ReactNode, useState, type MouseEvent } from "react";
 import { useRouter } from "next/navigation";
-import { PencilIcon, SquareArrowOutUpRight, TrashIcon } from "lucide-react";
+import {
+  MoreVerticalIcon,
+  PencilIcon,
+  SquareArrowOutUpRight,
+  Trash2Icon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { DeleteDialog } from "@/components/delete-dialog";
+import { CustomButton } from "@/components/ui/custom-button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 
 type ActionResult = { success: true } | { success: false; error: string };
@@ -28,15 +46,13 @@ export type TableRowActionsProps = {
   showView?: boolean;
   showDelete?: boolean;
   className?: string;
+  align?: "start" | "end";
   customAction?: {
     label: string;
     icon: ReactNode;
     onClick: (event: MouseEvent) => void;
   };
 };
-
-const actionButtonClassName =
-  "text-muted-foreground hover:text-foreground inline-flex h-7 w-7 items-center justify-center rounded-md transition-colors focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none";
 
 export function TableRowActions({
   entityName,
@@ -51,10 +67,14 @@ export function TableRowActions({
   showView = true,
   showDelete = true,
   className,
+  align = "end",
   customAction,
 }: TableRowActionsProps) {
   const router = useRouter();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  // The dialog mounts on first open only: every row renders these actions
+  // twice (table + mobile list), and most rows are never deleted.
+  const [hasOpenedDelete, setHasOpenedDelete] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const resolvedEditHref = editHref ?? `${detailHref}?edit=true`;
@@ -83,6 +103,7 @@ export function TableRowActions({
 
   const handleDeleteClick = (event: MouseEvent) => {
     stopPropagation(event);
+    setHasOpenedDelete(true);
     setIsDeleteOpen(true);
   };
 
@@ -120,69 +141,90 @@ export function TableRowActions({
 
   return (
     <>
+      {/* One kebab trigger instead of a row of icon buttons — same pattern
+          as the invoices dropdown. Keeps this compact enough for a mobile
+          card (three separate CustomButtons crowd the row next to the
+          status badge) and gives mobile a single, unmistakable tap target
+          for "more actions" instead of a cluster of small icons. */}
       <div
-        className={cn("flex items-center justify-end gap-0.5", className)}
+        className={cn("flex items-center justify-end", className)}
         onClick={stopPropagation}
       >
-        {showEdit && (
-          <button
-            type="button"
-            aria-label={`Edit ${entityName}`}
-            className={actionButtonClassName}
-            onClick={handleEdit}
-          >
-            <PencilIcon className="h-4 w-4" />
-          </button>
-        )}
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                <CustomButton
+                  variant="ghost"
+                  size="sm"
+                  aria-label={`Actions for ${entityName}`}
+                  className="w-8 px-0!"
+                >
+                  <MoreVerticalIcon className="h-3.5 w-3.5" />
+                </CustomButton>
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent>More actions</TooltipContent>
+          </Tooltip>
 
-        {customAction && (
-          <button
-            type="button"
-            aria-label={customAction.label}
-            className={actionButtonClassName}
-            onClick={handleCustomAction}
-          >
-            {customAction.icon}
-          </button>
-        )}
-
-        {showView && (
-          <button
-            type="button"
-            aria-label={`View ${entityName}`}
-            className={actionButtonClassName}
-            onClick={handleViewDetails}
-          >
-            <SquareArrowOutUpRight className="h-4 w-4" />
-          </button>
-        )}
-
-        {showDelete && (
-          <button
-            type="button"
-            aria-label={`Delete ${entityName}`}
-            disabled={isDeleting}
-            className={cn(
-              actionButtonClassName,
-              "hover:text-destructive focus-visible:text-destructive",
-              isDeleting && "pointer-events-none opacity-50",
+          <DropdownMenuContent align={align} className="w-48">
+            {showEdit && (
+              <DropdownMenuItem onClick={handleEdit} className="items-center">
+                <PencilIcon className="size-3.5" />
+                Edit
+              </DropdownMenuItem>
             )}
-            onClick={handleDeleteClick}
-          >
-            <TrashIcon className="h-4 w-4" />
-          </button>
+
+            {customAction && (
+              <DropdownMenuItem
+                onClick={handleCustomAction}
+                className="items-center"
+              >
+                {customAction.icon}
+                {customAction.label}
+              </DropdownMenuItem>
+            )}
+
+            {showView && (
+              <DropdownMenuItem
+                onClick={handleViewDetails}
+                className="items-center"
+              >
+                <SquareArrowOutUpRight className="size-3.5" />
+                View details
+              </DropdownMenuItem>
+            )}
+
+            {showDelete && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  variant="destructive"
+                  disabled={isDeleting}
+                  onClick={handleDeleteClick}
+                  className="items-center"
+                >
+                  <Trash2Icon className="size-3.5" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Inside the stopPropagation wrapper on purpose: the dialog is
+            portaled, but React still bubbles its clicks up this tree —
+            outside the wrapper they'd reach the row and open it. */}
+        {showDelete && hasOpenedDelete && (
+          <DeleteDialog
+            open={isDeleteOpen}
+            onOpenChange={setIsDeleteOpen}
+            onDelete={handleDelete}
+            title={deleteTitle}
+            description={resolvedDeleteDescription}
+          />
         )}
       </div>
-
-      {showDelete && (
-        <DeleteDialog
-          open={isDeleteOpen}
-          onOpenChange={setIsDeleteOpen}
-          onDelete={handleDelete}
-          title={deleteTitle}
-          description={resolvedDeleteDescription}
-        />
-      )}
     </>
   );
 }
