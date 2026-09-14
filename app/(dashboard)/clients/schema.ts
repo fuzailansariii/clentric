@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { clientStatusEnum as clientStatusPgEnum } from "@/src/db/schema/clients";
+import { hourlyRateSchema } from "@/lib/hourly-rate-schema";
 
 export const clientStatusEnum = z.enum(clientStatusPgEnum.enumValues);
 
@@ -11,6 +12,7 @@ export const clientSchema = z.object({
   country: z.string().length(2, "Select a country").optional(),
   notes: z.string().trim().max(2000).optional(),
   status: clientStatusEnum,
+  hourlyRate: hourlyRateSchema,
 });
 
 export const clientIdSchema = z.uuid();

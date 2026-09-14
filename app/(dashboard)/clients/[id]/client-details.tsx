@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { CustomButton } from "@/components/ui/custom-button";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDate, formatRelativeDate } from "@/lib/format-date";
+import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
 import { clientStatusConfig } from "../client-status-config";
 import { Check, PencilIcon, Trash2Icon, X } from "lucide-react";
@@ -375,6 +376,22 @@ export function ClientDetail({
                 <p className="text-destructive text-sm">{formError}</p>
               </div>
             )}
+
+            <div className="border-border border-t" />
+            {/* Billing default — prefills hour lines on this client's invoices */}
+            <div className="px-6 py-5 sm:max-w-xs">
+              <DataField
+                label="Default hourly rate"
+                editing={isEditing}
+                value={
+                  client.hourlyRate
+                    ? `${formatCurrency(client.hourlyRate)}/hr`
+                    : null
+                }
+                registration={register("hourlyRate")}
+                error={errors.hourlyRate?.message}
+              />
+            </div>
 
             {(client.notes || true) && (
               <>

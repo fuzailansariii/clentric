@@ -20,6 +20,7 @@ import { calculateInvoiceTotals } from "@/lib/calculate-invoice-totals";
 import InvoicePreview from "@/components/preview/invoice-preview";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { cn } from "@/lib/utils";
+import type { InvoiceItemUnit } from "@/src/db/schema/invoice-items";
 import DetailedInvoiceForm from "./new/detailed-invoice-form";
 import QuickInvoiceForm from "./new/quick-invoice-form";
 
@@ -32,7 +33,12 @@ export type EditableInvoice = {
   issueDate: string;
   dueDate: string;
   taxRate: number;
-  lineItems: { description: string; quantity: number; rate: number }[];
+  lineItems: {
+    description: string;
+    quantity: number;
+    rate: number;
+    unit: InvoiceItemUnit;
+  }[];
 };
 
 type InvoiceBuilderProps = {
@@ -59,9 +65,6 @@ export default function InvoiceBuilder({
 
   const router = useRouter();
 
-  // `any` for the context generic is the project convention for z.coerce
-  // schemas (CLAUDE.md: type useForm as useForm<Input, any, Output>()).
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<InvoiceFormInput, any, InvoiceFormOutput>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: invoice
@@ -79,7 +82,7 @@ export default function InvoiceBuilder({
           issueDate: dateToFormValue(new Date()),
           dueDate: dateToFormValue(new Date()),
           taxRate: 0,
-          lineItems: [{ description: "", quantity: 1, rate: 0 }],
+          lineItems: [{ description: "", quantity: 1, rate: 0, unit: "item" }],
         },
   });
 
@@ -89,6 +92,7 @@ export default function InvoiceBuilder({
     formState: { errors, isSubmitting },
     reset,
     setValue,
+    getValues,
     control,
   } = form;
 
@@ -121,7 +125,9 @@ export default function InvoiceBuilder({
 
   function collapseToSingleLineItem() {
     const firstItem = watchedLineItems[0];
-    replace([{ ...firstItem, quantity: 1 }]);
+    // Quick mode bills one flat amount — a leftover "hour" unit would print
+    // "1 hr" on the invoice.
+    replace([{ ...firstItem, quantity: 1, unit: "item" }]);
   }
 
   const handleQuickClick = () => {
@@ -145,6 +151,28 @@ export default function InvoiceBuilder({
 
   const { fields, append, remove, replace } = fieldArray;
 
+  const hourlyRateFor = (
+    clientId: string | undefined,
+    projectId: string | undefined,
+  ): number | null => {
+    const projectRate = projects.find((p) => p.id === projectId)?.hourlyRate;
+    const clientRate = clients.find((c) => c.id === clientId)?.hourlyRate;
+    const rate = Number(projectRate ?? clientRate ?? 0);
+    return rate > 0 ? rate : null;
+  };
+
+  const fillEmptyHourlyRates = (rate: number | null) => {
+    if (!rate) return;
+    getValues("lineItems").forEach((item, index) => {
+      if (item.unit === "hour" && !(Number(item.rate) > 0)) {
+        setValue(`lineItems.${index}.rate`, rate, {
+          shouldDirty: true,
+          shouldValidate: true,
+        });
+      }
+    });
+  };
+
   const handleClientChange = (
     onChange: (value: string) => void,
     value: string,
@@ -154,7 +182,41 @@ export default function InvoiceBuilder({
       shouldDirty: true,
       shouldValidate: false,
     });
+    fillEmptyHourlyRates(hourlyRateFor(value, undefined));
   };
+
+  const handleProjectChange = (
+    onChange: (value: string) => void,
+    value: string,
+  ) => {
+    onChange(value);
+    fillEmptyHourlyRates(
+      hourlyRateFor(getValues("clientId"), value || undefined),
+    );
+  };
+
+  const handleUnitChange = (index: number, unit: InvoiceItemUnit) => {
+    setValue(`lineItems.${index}.unit`, unit, { shouldDirty: true });
+    if (unit !== "hour") return;
+    const rate = hourlyRateFor(getValues("clientId"), getValues("projectId"));
+    if (rate && !(Number(getValues(`lineItems.${index}.rate`)) > 0)) {
+      setValue(`lineItems.${index}.rate`, rate, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    }
+  };
+
+  const activeHourlyRate = hourlyRateFor(selectedClientId, selectedProjectId);
+  const hourlyRateHint = activeHourlyRate
+    ? {
+        rate: activeHourlyRate,
+        source:
+          selectedProject && Number(selectedProject.hourlyRate) > 0
+            ? selectedProject.title
+            : (selectedClient?.name ?? "This client"),
+      }
+    : null;
 
   const { subtotal, taxRate, taxAmount, total } = calculateInvoiceTotals(
     watchedLineItems,
@@ -280,6 +342,9 @@ export default function InvoiceBuilder({
                 append={append}
                 remove={remove}
                 onClientChange={handleClientChange}
+                onProjectChange={handleProjectChange}
+                onUnitChange={handleUnitChange}
+                hourlyRateHint={hourlyRateHint}
                 onSubmit={onSubmit}
               />
             )}

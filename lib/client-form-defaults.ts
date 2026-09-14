@@ -10,5 +10,6 @@ export function toClientFormsDefault(client: ClientRow): ClientInput {
     country: client.country ?? "",
     notes: client.notes ?? "",
     status: client.status,
+    hourlyRate: client.hourlyRate ?? "",
   };
 }

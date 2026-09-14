@@ -112,6 +112,8 @@ export async function getClientOptions() {
         id: clients.id,
         name: clients.name,
         company: clients.company,
+        // Prefills hour lines in the invoice builder.
+        hourlyRate: clients.hourlyRate,
       })
       .from(clients)
       .where(and(eq(clients.userId, user.id), isNull(clients.deletedAt)))

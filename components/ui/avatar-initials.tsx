@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 
 type AvatarSize = "sm" | "md" | "lg";
-type AvatarVariant = "neutral" | "colored";
+type AvatarVariant = "neutral" | "colored" | "accent";
 type AvatarShape = "square" | "circle";
 
 const sizeStyles: Record<AvatarSize, string> = {
@@ -45,7 +45,8 @@ type AvatarInitialsProps = {
   name: string;
   size?: AvatarSize;
   /** "neutral" = gray, matches surrounding UI (sidebar/footer, single-user contexts).
-   *  "colored" = deterministic color per name, for scanning many rows at once (tables/lists). */
+   *  "colored" = deterministic color per name, for scanning many rows at once (tables/lists).
+   *  "accent" = soft brand tint with sans initials, for a single highlighted entity (detail-page side cards). */
   variant?: AvatarVariant;
   shape?: AvatarShape;
   className?: string;
@@ -59,6 +60,21 @@ export function AvatarInitials({
   className,
 }: AvatarInitialsProps) {
   const initials = getInitials(name);
+
+  if (variant === "accent") {
+    return (
+      <div
+        className={cn(
+          "bg-accent text-accent-foreground flex shrink-0 items-center justify-center font-semibold tracking-[0.02em]",
+          sizeStyles[size],
+          shapeStyles[shape],
+          className,
+        )}
+      >
+        {initials}
+      </div>
+    );
+  }
 
   if (variant === "colored") {
     return (

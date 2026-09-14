@@ -140,6 +140,7 @@ export async function createInvoiceAction(
           quantity: item.quantity.toFixed(2),
           rate: item.rate.toFixed(2),
           amount: item.amount.toFixed(2),
+          unit: item.unit,
           sortOrder: idx,
         })),
       );
@@ -297,6 +298,7 @@ export async function updateInvoiceAction(
           quantity: item.quantity.toFixed(2),
           rate: item.rate.toFixed(2),
           amount: item.amount.toFixed(2),
+          unit: item.unit,
           sortOrder: idx,
         })),
       );

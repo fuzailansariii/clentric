@@ -16,6 +16,8 @@ import FormSection from "@/components/dashboard/form-section";
 import { Plus } from "lucide-react";
 import { InvoiceFormInput } from "../schema";
 import LineItems from "../line-items";
+import { formatCurrency } from "@/lib/format-currency";
+import type { InvoiceItemUnit } from "@/src/db/schema/invoice-items";
 
 type DetailedInvoiceFormProps = {
   control: Control<InvoiceFormInput>;
@@ -28,6 +30,10 @@ type DetailedInvoiceFormProps = {
   append: UseFieldArrayReturn<InvoiceFormInput, "lineItems">["append"];
   remove: UseFieldArrayReturn<InvoiceFormInput, "lineItems">["remove"];
   onClientChange: (onChange: (value: string) => void, value: string) => void;
+  onProjectChange: (onChange: (value: string) => void, value: string) => void;
+  onUnitChange: (index: number, unit: InvoiceItemUnit) => void;
+  /** The default hourly rate in effect for the chosen client/project. */
+  hourlyRateHint: { rate: number; source: string } | null;
   onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
 };
 
@@ -42,6 +48,9 @@ export default function DetailedInvoiceForm({
   append,
   remove,
   onClientChange,
+  onProjectChange,
+  onUnitChange,
+  hourlyRateHint,
   onSubmit,
 }: DetailedInvoiceFormProps) {
   return (
@@ -74,7 +83,7 @@ export default function DetailedInvoiceForm({
                 <ProjectCombobox
                   projects={filteredProjects}
                   value={field.value ?? ""}
-                  onChange={field.onChange}
+                  onChange={(value) => onProjectChange(field.onChange, value)}
                   error={errors.projectId?.message}
                 />
               )}
@@ -136,10 +145,24 @@ export default function DetailedInvoiceForm({
             <LineItems
               fields={fields}
               register={register}
+              control={control}
               errors={errors}
               watchedLineItems={watchedLineItems}
               remove={remove}
+              onUnitChange={onUnitChange}
             />
+
+            {hourlyRateHint && (
+              <p className="text-muted-foreground text-xs">
+                Lines set to{" "}
+                <span className="text-foreground font-medium">Hours</span> use{" "}
+                {hourlyRateHint.source}&rsquo;s rate of{" "}
+                <span className="text-foreground font-mono">
+                  {formatCurrency(String(hourlyRateHint.rate))}/hr
+                </span>{" "}
+                while their rate is empty.
+              </p>
+            )}
 
             <button
               type="button"
@@ -148,6 +171,7 @@ export default function DetailedInvoiceForm({
                   description: "",
                   quantity: 1,
                   rate: 0,
+                  unit: "item",
                 })
               }
               className="text-primary hover:text-primary/80 inline-flex items-center gap-2 text-sm font-medium"

@@ -39,6 +39,7 @@ export function toProjectFormDefaults(
     title: project.title,
     description: project.description ?? "",
     budget: project.budget,
+    hourlyRate: project.hourlyRate ?? "",
     deadline: project.deadline ?? "",
     status: project.status,
   };
@@ -273,6 +274,20 @@ export function ProjectDetail({
 
                 <div className="space-y-1">
                   <label className="text-muted-foreground text-[11px] font-medium uppercase">
+                    Hourly rate
+                  </label>
+                  <Field
+                    {...register("hourlyRate")}
+                    placeholder="Client's rate"
+                    prefix="$"
+                    suffix="/hr"
+                    inputMode="decimal"
+                    error={errors.hourlyRate?.message}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-muted-foreground text-[11px] font-medium uppercase">
                     Deadline
                   </label>
                   <Controller
@@ -304,9 +319,7 @@ export function ProjectDetail({
                     label: "Deadline",
                     value: (
                       <span className="text-amber-600">
-                        {project.deadline
-                          ? formatDate(project.deadline)
-                          : "—"}
+                        {project.deadline ? formatDate(project.deadline) : "—"}
                       </span>
                     ),
                     hint: project.deadline ? "Upcoming" : "No deadline",
@@ -314,9 +327,7 @@ export function ProjectDetail({
                   {
                     label: "Progress",
                     value: (
-                      <span className="text-blue-600">
-                        {project.progress}%
-                      </span>
+                      <span className="text-blue-600">{project.progress}%</span>
                     ),
                     hint: "of project complete",
                   },
@@ -395,6 +406,21 @@ export function ProjectDetail({
                   </dd>
                   <dd className="text-muted-foreground mt-0.5 text-xs">
                     {formatDate(project.updatedAt)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs uppercase">
+                    Hourly rate
+                  </dt>
+                  <dd className="mt-1 font-medium">
+                    {project.hourlyRate
+                      ? `${formatCurrency(project.hourlyRate)}/hr`
+                      : "Not set"}
+                  </dd>
+                  <dd className="text-muted-foreground mt-0.5 text-xs">
+                    {project.hourlyRate
+                      ? "Prefills hour lines on invoices"
+                      : "Invoices use the client's rate"}
                   </dd>
                 </div>
               </dl>

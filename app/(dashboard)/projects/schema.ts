@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { projectStatusEnum as projectStatusPgEnum } from "@/src/db/schema/projects";
 import { milestoneStatusEnum as milestoneStatusPgEnum } from "@/src/db/schema/milestones";
+import { hourlyRateSchema } from "@/lib/hourly-rate-schema";
 
 export const projectStatusEnum = z.enum(projectStatusPgEnum.enumValues);
 
@@ -32,6 +33,8 @@ export const projectSchema = z.object({
     }, "Deadline can't be in the past")
     .optional(),
   status: projectStatusEnum,
+  // Overrides the client's rate when prefilling hour lines on invoices.
+  hourlyRate: hourlyRateSchema,
 });
 
 export const projectSearchParamsSchema = z.object({
