@@ -9,6 +9,8 @@ export type ClientOption = {
   id: string;
   name: string;
   company: string | null;
+  /** Default hourly rate (decimal string) — prefills hour lines on invoices. */
+  hourlyRate: string | null;
 };
 
 type ClientComboboxProps = {

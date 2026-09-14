@@ -45,6 +45,7 @@ export default async function EditInvoicePage({
           description: item.description,
           quantity: Number(item.quantity),
           rate: Number(item.rate),
+          unit: item.unit,
         })),
       }}
     />

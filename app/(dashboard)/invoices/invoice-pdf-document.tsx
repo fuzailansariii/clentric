@@ -2,291 +2,414 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatCurrency, formatNumber } from "@/lib/format-currency";
 import { formatDate } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
+import {
+  formatLineItemQuantity,
+  formatLineItemRate,
+} from "@/lib/format-line-item";
 import { invoiceStatusConfig } from "./invoice-status-config";
+import { pdfFonts } from "./invoice-pdf-fonts";
 import type { InvoicePdfData } from "./queries";
 
-// @react-pdf/renderer is its own renderer, not the DOM — no Tailwind, no
-// className, no CSS grid, just StyleSheet.create() and a flexbox subset.
-// None of the web app's components or classes carry over here.
-//
-// Colors are copied by hand from app/globals.css's :root tokens (light
-// theme only — a PDF has no dark mode) so the document reads as the same
-// product as the web UI, not a second, separately-invented look.
 const colors = {
   ink: "#111111",
-  inkSoft: "#6b6b6b",
-  inkFaint: "#9a9a95",
-  border: "#e4e2db",
-  paper: "#f6f5f1",
-  primary: "#3454d1",
-  success: "#2f8f5b",
-  warning: "#b8741e",
-  danger: "#c0432c",
-  neutral: "#6b6b6b",
+  muted: "#6b6b6b",
+  faint: "#9ca3af", // --color-ink-400
+  rule: "#d9d8d3", // ~ foreground at 12% on white — structural rules
+  hairline: "#ecebe7", // ~ --border — row separators
+  paper: "#f6f5f1", // --color-paper-50
+  ledger: "#3454d1", // --color-ledger-600 / --primary
 };
 
-// Same status -> tone mapping invoiceStatusConfig already uses for the web
-// badge (variant), just resolved to a real color instead of a Tailwind
-// class, since react-pdf can't read one.
-const variantColor: Record<string, string> = {
-  info: colors.primary,
-  success: colors.success,
-  warning: colors.warning,
-  danger: colors.danger,
-  neutral: colors.neutral,
+const toneInk: Record<string, string> = {
+  info: colors.ledger,
+  success: "#2f8f5b", // --color-success-600
+  warning: "#c98a2c", // --color-warning-600
+  danger: "#c0432c", // --color-danger-600
+  neutral: "#6b7280", // --color-ink-600
 };
+
+const PAGE_X = 48;
+
+const mono = { fontFamily: pdfFonts.mono, fontWeight: 400 } as const;
+const monoStrong = { fontFamily: pdfFonts.mono, fontWeight: 600 } as const;
+const sansStrong = { fontFamily: pdfFonts.sans, fontWeight: 600 } as const;
 
 const styles = StyleSheet.create({
   page: {
-    padding: 40,
-    fontSize: 10,
+    paddingTop: 52,
+    paddingBottom: 76,
+    paddingHorizontal: PAGE_X,
+    fontFamily: pdfFonts.sans,
+    fontWeight: 400,
+    fontSize: 9.5,
+    lineHeight: 1.45,
     color: colors.ink,
-    fontFamily: "Helvetica",
   },
-  row: { flexDirection: "row" },
-  spaceBetween: { flexDirection: "row", justifyContent: "space-between" },
+
+  // Brand band across the top edge of every page.
+  band: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: colors.ledger,
+  },
+
   label: {
-    fontSize: 8,
-    color: colors.inkFaint,
+    ...sansStrong,
+    fontSize: 7.5,
+    letterSpacing: 0.7,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
-    marginBottom: 3,
-  },
-  value: { fontSize: 10, color: colors.ink },
-  valueMuted: { fontSize: 9, color: colors.inkSoft },
-  hr: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    marginVertical: 16,
+    color: colors.muted,
   },
 
   // Header
-  headerTitle: { fontSize: 20, fontFamily: "Helvetica-Bold" },
-  headerNumber: {
-    fontSize: 12,
-    fontFamily: "Helvetica-Bold",
-    marginTop: 2,
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingBottom: 22,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.rule,
   },
-  statusBadge: {
-    alignSelf: "flex-end",
-    borderRadius: 3,
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    fontSize: 8,
-    fontFamily: "Helvetica-Bold",
+  eyebrow: {
+    fontFamily: pdfFonts.display,
+    fontWeight: 700,
+    fontSize: 8.5,
+    letterSpacing: 0.7,
+    textTransform: "uppercase",
+    color: colors.muted,
+  },
+  number: {
+    ...monoStrong,
+    fontSize: 24,
+    letterSpacing: -0.5,
+    lineHeight: 1.1,
     marginTop: 6,
   },
+  metaRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    alignItems: "baseline",
+    marginTop: 3,
+  },
+  metaLabel: { color: colors.muted, width: 62, textAlign: "right" },
+  metaValue: { ...mono, fontSize: 9, width: 96, textAlign: "right" },
 
-  // From / Bill To
-  partyBlock: { flex: 1 },
-  partyName: { fontSize: 10, fontFamily: "Helvetica-Bold", marginBottom: 2 },
-
-  // Line items table
-  table: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+  // Parties
+  parties: {
+    flexDirection: "row",
+    paddingVertical: 22,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.rule,
+  },
+  party: { flex: 1, paddingRight: 18 },
+  partyName: {
+    ...sansStrong,
+    fontSize: 11,
+    lineHeight: 1.35,
     marginTop: 8,
   },
-  tableHeaderRow: {
-    flexDirection: "row",
-    backgroundColor: colors.paper,
-    paddingVertical: 6,
-    paddingHorizontal: 8,
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 7,
-    paddingHorizontal: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  colDescription: { flex: 1 },
-  colQty: { width: 50, textAlign: "right" },
-  colRate: { width: 70, textAlign: "right" },
-  colAmount: { width: 80, textAlign: "right" },
-  tableHeaderText: {
-    fontSize: 8,
-    color: colors.inkFaint,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
+  partyLine: { color: colors.muted, marginTop: 1.5 },
 
-  // Totals
-  totalsBlock: { width: 200, marginLeft: "auto", marginTop: 16 },
+  // Line items
+  tableHead: {
+    flexDirection: "row",
+    paddingTop: 16,
+    paddingBottom: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.rule,
+  },
+  row: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 9,
+    borderBottomWidth: 0.75,
+    borderBottomColor: colors.hairline,
+  },
+  colDescription: { flex: 1, paddingRight: 14 },
+  // Wide enough for "12.5 days" in Roboto Mono.
+  colQty: { width: 60, textAlign: "right" },
+  colRate: { width: 82, textAlign: "right" },
+  colAmount: { width: 92, textAlign: "right" },
+  // Roboto Mono runs wider than Inter — a half-point smaller keeps
+  // six-figure amounts inside their columns.
+  cellNumber: { ...mono, fontSize: 9 },
+  cellMuted: { color: colors.muted },
+
+  // Stamp + totals
+  summary: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 22,
+  },
+  stampSlot: { flex: 1, alignItems: "flex-start", paddingLeft: 10 },
+  stampOuter: {
+    borderWidth: 1.5,
+    borderRadius: 5,
+    padding: 2,
+    opacity: 0.9,
+    transform: "rotate(-6deg)",
+  },
+  stampInner: {
+    borderWidth: 0.75,
+    borderRadius: 3,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    alignItems: "center",
+  },
+  stampLabel: {
+    fontFamily: pdfFonts.display,
+    fontWeight: 700,
+    fontSize: 18,
+    textTransform: "uppercase",
+    lineHeight: 1,
+  },
+  stampDetail: {
+    ...monoStrong,
+    fontSize: 6.5,
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+    marginTop: 5,
+    paddingTop: 3,
+    borderTopWidth: 0.5,
+  },
+  totals: { width: 236 },
   totalsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 3,
+    alignItems: "baseline",
+    paddingVertical: 4,
   },
-  totalsRowFinal: {
+  totalsRowLast: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingTop: 6,
-    marginTop: 3,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    alignItems: "baseline",
+    paddingTop: 4,
+    paddingBottom: 10,
+    borderBottomWidth: 2,
+    borderBottomColor: colors.rule,
   },
-  totalsLabel: { fontSize: 9, color: colors.inkSoft },
-  totalsValue: { fontSize: 9, color: colors.ink },
-  totalsValueFinal: {
-    fontSize: 11,
-    fontFamily: "Helvetica-Bold",
-    color: colors.primary,
+  grandRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    paddingTop: 12,
+  },
+  grandValue: {
+    ...monoStrong,
+    fontSize: 20,
+    letterSpacing: -0.6,
+    lineHeight: 1,
   },
 
-  // Footer
+  // Payment + contact
+  closing: {
+    flexDirection: "row",
+    marginTop: 34,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: colors.rule,
+  },
+  closingCol: { flex: 1, paddingRight: 18 },
+  paymentBox: {
+    marginTop: 8,
+    padding: 10,
+    backgroundColor: colors.paper,
+    borderRadius: 3,
+  },
+  reference: { color: colors.muted, fontSize: 8.5, marginTop: 6 },
+
+  // Footer on every page
   footer: {
     position: "absolute",
     bottom: 30,
-    left: 40,
-    right: 40,
-    textAlign: "center",
-    fontSize: 8,
-    color: colors.inkFaint,
+    left: PAGE_X,
+    right: PAGE_X,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingTop: 8,
+    borderTopWidth: 0.75,
+    borderTopColor: colors.hairline,
   },
+  footerText: { fontSize: 7.5, color: colors.faint },
 });
 
-/**
- * Pure presentation — every value comes from props, nothing is fetched or
- * recomputed here. Money fields are the decimal strings the server already
- * computed and stored (invoices/actions.ts); this component only formats
- * them for display, it never adds, multiplies, or otherwise recalculates
- * a total. `data.invoice.status` is already the *display* status
- * (getDisplayStatus() is applied once, in getInvoiceForPdf() — see
- * queries.ts) — this never reads a raw `sent`-that's-actually-overdue.
- */
+function stampDetail(invoice: InvoicePdfData["invoice"]): string | null {
+  switch (invoice.status) {
+    case "paid":
+      return invoice.paidAt ? formatDate(invoice.paidAt) : null;
+    case "overdue":
+      return `Was due ${formatDate(invoice.dueDate)}`;
+    case "sent":
+      return `Due ${formatDate(invoice.dueDate)}`;
+    default:
+      return "Not sent";
+  }
+}
+
 export function InvoicePdfDocument({
   data,
   showBranding = true,
 }: {
   data: InvoicePdfData;
-  /** Pro/Agency plans drop the "Powered by Clentric" footer. A prop, not a
-   * plan lookup in here — this component stays pure; the caller decides. */
   showBranding?: boolean;
 }) {
   const { invoice, items, profile } = data;
+  const invoiceNumber = formatInvoiceNumber(invoice.invoiceNumber);
   const statusInfo = invoiceStatusConfig[invoice.status];
-  const badgeColor = variantColor[statusInfo.variant] ?? colors.neutral;
+  const stampInk = toneInk[statusInfo.variant] ?? toneInk.neutral;
+  const detail = stampDetail(invoice);
+  const issuerName = profile.name ?? profile.email;
+  const clientCompany =
+    invoice.clientCompany && invoice.clientCompany !== invoice.clientName
+      ? invoice.clientCompany
+      : null;
 
   return (
     <Document
-      title={`Invoice ${formatInvoiceNumber(invoice.invoiceNumber)}`}
-      author={profile.name ?? profile.email}
+      title={`Invoice ${invoiceNumber}`}
+      author={issuerName}
+      subject={`Invoice ${invoiceNumber} for ${invoice.clientName}`}
+      creator="Clentric"
     >
       <Page size="A4" style={styles.page}>
+        <View fixed style={styles.band} />
+
         {/* Header */}
-        <View style={styles.spaceBetween}>
+        <View style={styles.header}>
           <View>
-            <Text style={styles.headerTitle}>INVOICE</Text>
-            <Text style={styles.headerNumber}>
-              {formatInvoiceNumber(invoice.invoiceNumber)}
-            </Text>
+            <Text style={styles.eyebrow}>Invoice</Text>
+            <Text style={styles.number}>{invoiceNumber}</Text>
           </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={styles.label}>Issued</Text>
-            <Text style={styles.value}>{formatDate(invoice.issueDate)}</Text>
-            <View style={{ marginTop: 6 }} />
-            <Text style={styles.label}>Due</Text>
-            <Text style={styles.value}>{formatDate(invoice.dueDate)}</Text>
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor: `${badgeColor}20`,
-                  color: badgeColor,
-                },
-              ]}
-            >
-              <Text>{statusInfo.label.toUpperCase()}</Text>
+          <View>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Issue date</Text>
+              <Text style={styles.metaValue}>
+                {formatDate(invoice.issueDate)}
+              </Text>
+            </View>
+            <View style={styles.metaRow}>
+              <Text style={styles.metaLabel}>Due date</Text>
+              <Text style={[styles.metaValue, monoStrong]}>
+                {formatDate(invoice.dueDate)}
+              </Text>
             </View>
           </View>
         </View>
 
-        <View style={styles.hr} />
-
-        {/* From / Bill To */}
-        <View style={styles.row}>
-          <View style={styles.partyBlock}>
+        {/* Parties */}
+        <View style={styles.parties}>
+          <View style={styles.party}>
             <Text style={styles.label}>From</Text>
-            <Text style={styles.partyName}>
-              {profile.name ?? profile.email}
-            </Text>
-            {profile.profession && (
-              <Text style={styles.valueMuted}>{profile.profession}</Text>
-            )}
-            <Text style={styles.valueMuted}>{profile.email}</Text>
+            <Text style={styles.partyName}>{issuerName}</Text>
+            {profile.profession ? (
+              <Text style={styles.partyLine}>{profile.profession}</Text>
+            ) : null}
+            {profile.name ? (
+              <Text style={styles.partyLine}>{profile.email}</Text>
+            ) : null}
           </View>
-          <View style={styles.partyBlock}>
-            <Text style={styles.label}>Bill To</Text>
+
+          <View style={styles.party}>
+            <Text style={styles.label}>Bill to</Text>
             <Text style={styles.partyName}>{invoice.clientName}</Text>
-            {invoice.clientCompany && (
-              <Text style={styles.valueMuted}>{invoice.clientCompany}</Text>
-            )}
-            {invoice.clientEmail && (
-              <Text style={styles.valueMuted}>{invoice.clientEmail}</Text>
-            )}
-            {invoice.clientCountry && (
-              <Text style={styles.valueMuted}>{invoice.clientCountry}</Text>
-            )}
+            {clientCompany ? (
+              <Text style={styles.partyLine}>{clientCompany}</Text>
+            ) : null}
+            {invoice.clientEmail ? (
+              <Text style={styles.partyLine}>{invoice.clientEmail}</Text>
+            ) : null}
+            {invoice.clientCountry ? (
+              <Text style={styles.partyLine}>{invoice.clientCountry}</Text>
+            ) : null}
           </View>
+
+          {invoice.projectTitle ? (
+            <View style={[styles.party, { paddingRight: 0 }]}>
+              <Text style={styles.label}>Project</Text>
+              <Text style={styles.partyName}>{invoice.projectTitle}</Text>
+            </View>
+          ) : null}
         </View>
 
         {/* Line items */}
-        <View style={styles.table}>
-          <View style={styles.tableHeaderRow}>
-            <Text style={[styles.colDescription, styles.tableHeaderText]}>
-              Description
-            </Text>
-            <Text style={[styles.colQty, styles.tableHeaderText]}>Qty</Text>
-            <Text style={[styles.colRate, styles.tableHeaderText]}>Rate</Text>
-            <Text style={[styles.colAmount, styles.tableHeaderText]}>
-              Amount
-            </Text>
-          </View>
-
-          {items.map((item) => (
-            <View key={item.id} style={styles.tableRow}>
-              <Text style={[styles.colDescription, styles.value]}>
-                {item.description}
-              </Text>
-              <Text style={[styles.colQty, styles.value]}>
-                {formatNumber(Number(item.quantity))}
-              </Text>
-              <Text style={[styles.colRate, styles.value]}>
-                {formatCurrency(item.rate)}
-              </Text>
-              <Text
-                style={[styles.colAmount, styles.value, { fontWeight: 700 }]}
-              >
-                {formatCurrency(item.amount)}
-              </Text>
-            </View>
-          ))}
+        <View style={styles.tableHead}>
+          <Text style={[styles.label, styles.colDescription]}>Description</Text>
+          <Text style={[styles.label, styles.colQty]}>Qty</Text>
+          <Text style={[styles.label, styles.colRate]}>Rate</Text>
+          <Text style={[styles.label, styles.colAmount]}>Amount</Text>
         </View>
 
-        {/* Totals */}
-        <View style={styles.totalsBlock}>
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>Subtotal</Text>
-            <Text style={styles.totalsValue}>
-              {formatCurrency(invoice.subTotal)}
+        {items.map((item) => (
+          // wrap={false}: a row moves to the next page whole rather than
+          // splitting a description across the page break.
+          <View key={item.id} style={styles.row} wrap={false}>
+            <Text style={styles.colDescription}>{item.description}</Text>
+            <Text style={[styles.colQty, styles.cellNumber, styles.cellMuted]}>
+              {formatLineItemQuantity(item.quantity, item.unit)}
+            </Text>
+            <Text style={[styles.colRate, styles.cellNumber, styles.cellMuted]}>
+              {formatLineItemRate(item.rate, item.unit)}
+            </Text>
+            <Text style={[styles.colAmount, styles.cellNumber]}>
+              {formatCurrency(item.amount)}
             </Text>
           </View>
-          <View style={styles.totalsRow}>
-            <Text style={styles.totalsLabel}>
-              Tax ({formatNumber(Number(invoice.taxRate))}%)
-            </Text>
-            <Text style={styles.totalsValue}>
-              {formatCurrency(invoice.taxAmount)}
-            </Text>
+        ))}
+
+        {/* Stamp + totals — kept together on one page. */}
+        <View style={styles.summary} wrap={false}>
+          <View style={styles.stampSlot}>
+            <View
+              style={[
+                styles.stampOuter,
+                { borderColor: stampInk, backgroundColor: `${stampInk}0D` },
+              ]}
+            >
+              <View style={[styles.stampInner, { borderColor: stampInk }]}>
+                <Text style={[styles.stampLabel, { color: stampInk }]}>
+                  {statusInfo.label}
+                </Text>
+                {detail ? (
+                  <Text
+                    style={[
+                      styles.stampDetail,
+                      { color: stampInk, borderTopColor: stampInk },
+                    ]}
+                  >
+                    {detail}
+                  </Text>
+                ) : null}
+              </View>
+            </View>
           </View>
-          <View style={styles.totalsRowFinal}>
-            <Text style={[styles.totalsLabel, { fontFamily: "Helvetica-Bold" }]}>
-              Total
-            </Text>
-            <Text style={styles.totalsValueFinal}>
-              {formatCurrency(invoice.total)}
-            </Text>
+
+          <View style={styles.totals}>
+            <View style={styles.totalsRow}>
+              <Text style={styles.cellMuted}>Subtotal</Text>
+              <Text style={styles.cellNumber}>
+                {formatCurrency(invoice.subTotal)}
+              </Text>
+            </View>
+            <View style={styles.totalsRowLast}>
+              <Text style={styles.cellMuted}>
+                Tax ({formatNumber(Number(invoice.taxRate))}%)
+              </Text>
+              <Text style={styles.cellNumber}>
+                {formatCurrency(invoice.taxAmount)}
+              </Text>
+            </View>
+            <View style={styles.grandRow}>
+              <Text style={[styles.label, { paddingBottom: 2 }]}>
+                {invoice.status === "paid" ? "Total paid" : "Total due"}
+              </Text>
+              <Text style={styles.grandValue}>
+                {formatCurrency(invoice.total)}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -294,16 +417,36 @@ export function InvoicePdfDocument({
             money between freelancer and client, so no payment button/link
             belongs here, only whatever instructions the freelancer typed
             in on this invoice. */}
-        {invoice.paymentDetails && (
-          <View style={{ marginTop: 24 }}>
-            <Text style={styles.label}>Payment Details</Text>
-            <Text style={styles.value}>{invoice.paymentDetails}</Text>
-          </View>
-        )}
+        <View style={styles.closing} wrap={false}>
+          {invoice.paymentDetails ? (
+            <View style={styles.closingCol}>
+              <Text style={styles.label}>Payment details</Text>
+              <View style={styles.paymentBox}>
+                <Text>{invoice.paymentDetails}</Text>
+                <Text style={styles.reference}>
+                  Please use {invoiceNumber} as the payment reference.
+                </Text>
+              </View>
+            </View>
+          ) : null}
 
-        {showBranding && (
-          <Text style={styles.footer}>Powered by Clentric</Text>
-        )}
+          <View style={[styles.closingCol, { paddingRight: 0 }]}>
+            <Text style={styles.label}>Questions</Text>
+            <Text style={{ marginTop: 8 }}>
+              Reply to <Text style={sansStrong}>{profile.email}</Text> and
+              mention {invoiceNumber}.
+            </Text>
+          </View>
+        </View>
+
+        <View fixed style={styles.footer}>
+          <Text style={styles.footerText}>
+            {invoiceNumber} · {issuerName}
+          </Text>
+          {showBranding ? (
+            <Text style={styles.footerText}>Powered by Clentric</Text>
+          ) : null}
+        </View>
       </Page>
     </Document>
   );

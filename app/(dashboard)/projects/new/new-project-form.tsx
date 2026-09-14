@@ -119,6 +119,15 @@ export default function NewProjectsForm({
                   prefix="$"
                   error={errors.budget?.message}
                 />
+                <Field
+                  {...register("hourlyRate")}
+                  label="Hourly rate"
+                  placeholder="Client's rate"
+                  prefix="$"
+                  suffix="/hr"
+                  inputMode="decimal"
+                  error={errors.hourlyRate?.message}
+                />
                 <Controller
                   control={control}
                   name="deadline"

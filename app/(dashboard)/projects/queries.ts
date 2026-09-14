@@ -21,6 +21,8 @@ export type ProjectListItem = {
   description: string | null;
   status: "not_started" | "in_progress" | "on_hold" | "completed";
   budget: string;
+  /** Optional default for hour lines on this project's invoices. */
+  hourlyRate: string | null;
   deadline: string | null;
   /** Whole days until the deadline (negative once it's passed); null when
    * there's no deadline. Computed in SQL so rendering doesn't read the clock. */
@@ -75,6 +77,7 @@ const projectListFields = {
   description: projects.description,
   status: projects.status,
   budget: projects.budget,
+  hourlyRate: projects.hourlyRate,
   deadline: projects.deadline,
   daysUntilDeadline,
   deadlineSpanDays,
@@ -266,6 +269,8 @@ export async function getProjectOptionsByUserId() {
         id: projects.id,
         title: projects.title,
         clientId: projects.clientId,
+        // Prefills hour lines in the invoice builder.
+        hourlyRate: projects.hourlyRate,
       })
       .from(projects)
       .where(and(eq(projects.userId, user.id), isNull(projects.deletedAt)))

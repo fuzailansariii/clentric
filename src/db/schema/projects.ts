@@ -32,6 +32,9 @@ export const projects = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     budget: decimal("budget", { precision: 12, scale: 2 }).notNull(),
+    // Optional; overrides the client's hourly rate when prefilling invoices.
+    // Applied by supabase/migrations/0004_hourly_billing.sql (> 0 CHECK).
+    hourlyRate: decimal("hourly_rate", { precision: 12, scale: 2 }),
     deadline: date("deadline"),
     status: projectStatusEnum("status").notNull().default("not_started"),
     createdAt: timestamp("created_at", { withTimezone: true })

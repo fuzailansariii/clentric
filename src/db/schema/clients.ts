@@ -1,4 +1,5 @@
 import {
+  decimal,
   index,
   pgEnum,
   pgTable,
@@ -30,6 +31,9 @@ export const clients = pgTable(
     country: text("country"),
     status: clientStatusEnum("status").default("active").notNull(),
     notes: text("notes"),
+    // Optional default for hour lines on this client's invoices. Applied by
+    // supabase/migrations/0004_hourly_billing.sql (with a > 0 CHECK).
+    hourlyRate: decimal("hourly_rate", { precision: 12, scale: 2 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

@@ -2,11 +2,13 @@ import { z } from "zod";
 import { clientIdSchema } from "../clients/schema";
 import { projectIdSchema } from "../projects/schema";
 import { invoiceStatusEnum as invoiceStatusPgEnum } from "@/src/db/schema/invoices";
+import { invoiceItemUnitEnum as invoiceItemUnitPgEnum } from "@/src/db/schema/invoice-items";
 
 export const invoiceLineSchema = z.object({
   description: z.string().min(1, "Item Description is required"),
   quantity: z.coerce.number().positive("Quantity must be greater than 0"),
   rate: z.coerce.number().positive("Rate must be a positive number"),
+  unit: z.enum(invoiceItemUnitPgEnum.enumValues).default("item"),
 });
 
 export const invoiceIdSchema = z.uuid();
@@ -47,8 +49,6 @@ export const updateInvoiceStatusSchema = z.object({
 
 export const invoiceStatusFilterEnum = z.enum(invoiceStatusPgEnum.enumValues);
 
-// Mirrors clientSearchParamsSchema / projectSearchParamsSchema — same
-// page/pageSize/search/status shape, driven by the list page's URL.
 export const invoiceSearchParamsSchema = z.object({
   search: z.string().trim().max(200).optional(),
   status: invoiceStatusFilterEnum.optional().catch(undefined),

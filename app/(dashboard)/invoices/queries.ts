@@ -7,9 +7,21 @@ import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
 import { invoices, invoiceStatusEnum } from "@/src/db/schema/invoices";
-import { and, asc, count, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  getTableColumns,
+  isNull,
+  sql,
+} from "drizzle-orm";
 import { invoiceIdSchema, invoiceSearchParamsSchema } from "./schema";
-import { invoiceItems } from "@/src/db/schema/invoice-items";
+import {
+  invoiceItems,
+  type InvoiceItemUnit,
+} from "@/src/db/schema/invoice-items";
 import { clientIdSchema } from "../clients/schema";
 import {
   getDisplayStatus,
@@ -51,9 +63,6 @@ const daysUntilDue = sql<number>`(${invoices.dueDate} - current_date)`.mapWith(
   Number,
 );
 
-// Same rule as getDisplayStatus(), in SQL: a "sent" invoice past its due
-// date counts as overdue. Filtering, tab counts and stat totals all use this,
-// so the "Pending" tab never includes invoices the list shows as overdue.
 const displayStatus = sql<InvoiceDisplayStatus>`case when ${invoices.status} = 'sent' and ${invoices.dueDate} < current_date then 'overdue' else ${invoices.status}::text end`;
 
 export async function getInvoicesByUserId(
@@ -67,8 +76,6 @@ export async function getInvoicesByUserId(
       rawParams ?? {},
     );
 
-    // Tab counts and stat totals ignore the status filter but honor the
-    // search, so each tab's count matches what clicking it would list.
     const baseConditions = [
       eq(invoices.userId, user.id),
       isNull(invoices.deletedAt),
@@ -194,13 +201,10 @@ export async function getInvoiceById(invoiceId: string) {
 
     const user = await requireUser();
 
-    const [invoiceRows, items] = await Promise.all([
+    const [invoiceRows, items, issuerRows] = await Promise.all([
       db
         .select({
           ...getTableColumns(invoices),
-          // For the relative due-date label on the detail page — computed
-          // here (not in the browser) so it doesn't depend on the clock and
-          // matches the same day count the list pages show.
           daysUntilDue,
         })
         .from(invoices)
@@ -218,6 +222,16 @@ export async function getInvoiceById(invoiceId: string) {
         .from(invoiceItems)
         .where(eq(invoiceItems.invoiceId, parsed.data))
         .orderBy(asc(invoiceItems.sortOrder)),
+
+      db
+        .select({
+          name: users.name,
+          email: users.email,
+          profession: users.profession,
+        })
+        .from(users)
+        .where(eq(users.id, user.id))
+        .limit(1),
     ]);
 
     const [invoice] = invoiceRows;
@@ -226,7 +240,9 @@ export async function getInvoiceById(invoiceId: string) {
     // check above.
     if (!invoice) return null;
 
-    return { ...invoice, lineItems: items };
+    const [issuer] = issuerRows;
+
+    return { ...invoice, lineItems: items, issuer: issuer ?? null };
   } catch (error) {
     unstable_rethrow(error);
     logError("getInvoiceById", error);
@@ -242,6 +258,8 @@ export type InvoicePdfData = {
     status: InvoiceDisplayStatus;
     issueDate: string;
     dueDate: string;
+    /** For the "Paid" stamp's date line. */
+    paidAt: Date | null;
     subTotal: string;
     taxRate: string;
     taxAmount: string;
@@ -254,6 +272,8 @@ export type InvoicePdfData = {
     clientEmail: string | null;
     clientCompany: string | null;
     clientCountry: string | null;
+    /** Linked project's title; null when unlinked or the project was deleted. */
+    projectTitle: string | null;
   };
   items: {
     id: string;
@@ -261,10 +281,9 @@ export type InvoicePdfData = {
     quantity: string;
     rate: string;
     amount: string;
+    /** What quantity counts — shown as "12.5 hrs × $85.00/hr". */
+    unit: InvoiceItemUnit;
   }[];
-  /** The freelancer issuing the invoice — for the PDF's "From" block. Only
-   * what actually exists on `users`; there's no separate business-name or
-   * business-address field today. */
   profile: {
     name: string | null;
     email: string;
@@ -272,12 +291,6 @@ export type InvoicePdfData = {
   };
 };
 
-/**
- * Everything the invoice PDF needs, in one ownership-scoped call. Returns
- * null when the invoice doesn't exist, is soft-deleted, or belongs to
- * another user — every one of those cases must look identical to the
- * caller, so this never distinguishes "not found" from "not yours".
- */
 export async function getInvoiceForPdf(
   invoiceId: string,
 ): Promise<InvoicePdfData | null> {
@@ -295,6 +308,7 @@ export async function getInvoiceForPdf(
           status: invoices.status,
           issueDate: invoices.issueDate,
           dueDate: invoices.dueDate,
+          paidAt: invoices.paidAt,
           subTotal: invoices.subTotal,
           taxRate: invoices.taxRate,
           taxAmount: invoices.taxAmount,
@@ -304,9 +318,14 @@ export async function getInvoiceForPdf(
           clientEmail: clients.email,
           clientCompany: clients.company,
           clientCountry: clients.country,
+          projectTitle: projects.title,
         })
         .from(invoices)
         .innerJoin(clients, eq(invoices.clientId, clients.id))
+        .leftJoin(
+          projects,
+          and(eq(invoices.projectId, projects.id), isNull(projects.deletedAt)),
+        )
         .where(
           and(
             eq(invoices.id, parsed.data),
@@ -333,8 +352,6 @@ export async function getInvoiceForPdf(
     const [invoiceRow] = invoiceRows;
     if (!invoiceRow) return null;
 
-    // invoice_items has no user_id of its own — this is only safe because
-    // invoiceRow above already proved parsed.data belongs to this user.
     const items = await db
       .select({
         id: invoiceItems.id,
@@ -342,6 +359,7 @@ export async function getInvoiceForPdf(
         quantity: invoiceItems.quantity,
         rate: invoiceItems.rate,
         amount: invoiceItems.amount,
+        unit: invoiceItems.unit,
       })
       .from(invoiceItems)
       .where(eq(invoiceItems.invoiceId, parsed.data))
