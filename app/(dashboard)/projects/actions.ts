@@ -10,6 +10,8 @@ import { normalize } from "@/lib/normalizeOptionalFields";
 import { revalidatePath } from "next/cache";
 import { ActionResult } from "@/lib/action-result";
 
+// PROJECT ACTIONS ---------------
+
 // Create Project Action
 export async function createProjectAction(
   input: unknown,

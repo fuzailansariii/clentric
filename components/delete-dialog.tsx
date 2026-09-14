@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import React, { useState } from "react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +15,7 @@ type DeleteDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
-  description: string;
+  description: React.ReactNode;
   onDelete: () => Promise<void>;
 };
 

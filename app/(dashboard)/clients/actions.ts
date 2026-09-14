@@ -62,7 +62,7 @@ export async function updateClientAction(
       (value) => value !== undefined,
     );
     if (!hasChange) {
-      return { success: false, error: "No changes to save" };
+      return { success: false, error: "No change to save" };
     }
 
     // get user

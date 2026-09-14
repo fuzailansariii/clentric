@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 type TabButtonProps = {
   id: string;
   label: string;
-  count: number;
+  count?: number;
   isActive: boolean;
   onClick: () => void;
 };
@@ -25,7 +25,7 @@ export function TabButton({
       tabIndex={isActive ? 0 : -1}
       onClick={onClick}
       className={cn(
-        "flex items-center font-mono tracking-tighter gap-2 border-b-2 px-3 py-3 text-[13px]",
+        "flex items-center gap-2 border-b-2 px-3 py-3 font-mono text-[13px] tracking-tighter",
         isActive
           ? "border-primary text-foreground font-medium"
           : "text-muted-foreground hover:text-foreground border-transparent",
