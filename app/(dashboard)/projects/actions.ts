@@ -101,7 +101,10 @@ export async function updateProjectAction(
       };
     }
 
-    const { clientId, ...updatableInput } = input as Record<string, unknown>;
+    // clientId is immutable after creation — drop it before validation so it's
+    // ignored rather than accepted and applied.
+    const updatableInput: Record<string, unknown> = { ...input };
+    delete updatableInput.clientId;
 
     const parsedInput = projectSchema
       .omit({ clientId: true })

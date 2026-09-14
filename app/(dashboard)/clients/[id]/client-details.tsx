@@ -21,7 +21,7 @@ import { DeleteDialog } from "@/components/delete-dialog";
 import { deleteClientAction, updateClientAction } from "../actions";
 import { useRouter } from "next/navigation";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { ClientInput, clientSchema } from "../schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ClientRow } from "@/src/db/schema/clients";
@@ -56,18 +56,13 @@ export function ClientDetail({
   initialEdit = false,
 }: {
   client: ClientRow;
-  /** The tab from the `?section=` URL param, so a refresh or a shared link
-   * lands on the same tab. */
   section: ClientDetailSection;
-  /** Only the open tab's list is fetched; the other one is null. */
   projects: ProjectListResult | null;
   invoices: InvoiceListResult | null;
   projectCount: number;
   invoiceCount: number;
   initialEdit?: boolean;
 }) {
-  // The tab highlights immediately on click, while the server fetches that
-  // tab's rows; it follows the URL again once they arrive (back/forward too).
   const [activeSection, setOptimisticSection] = useOptimistic(section);
   const [isSectionPending, startSectionTransition] = useTransition();
 
@@ -85,17 +80,14 @@ export function ClientDetail({
     setValue,
     formState: { isSubmitting, errors },
     reset,
-    watch,
   } = useForm<ClientInput>({
     resolver: zodResolver(clientSchema),
     defaultValues: toClientFormsDefault(client),
   });
 
   const phoneFieldRef = useRef<PhoneFieldHandle>(null);
-  const countryValue = watch("country");
+  const countryValue = useWatch({ control, name: "country" });
 
-  // The current URL minus the given params — used so leaving edit mode keeps
-  // the open tab and its search/filter/page.
   const currentUrlWithout = (keys: string[]) => {
     const params = new URLSearchParams(window.location.search);
     for (const key of keys) params.delete(key);
@@ -111,16 +103,12 @@ export function ClientDetail({
   const handleCancelClick = () => {
     reset(toClientFormsDefault(client));
     setIsEditing(false);
-    // Only drop ?edit — nothing changed, so there's nothing to refetch.
     window.history.replaceState(null, "", currentUrlWithout(["edit"]));
   };
 
   const handleSectionChange = (next: ClientDetailSection) => {
     if (next === activeSection) return;
 
-    // The other tab's rows aren't on the page, so this is a real navigation:
-    // the server fetches just that tab's first page. Search/filter/page
-    // belonged to the tab being left, so they're dropped.
     const params = new URLSearchParams(window.location.search);
     for (const key of LIST_PARAMS) params.delete(key);
     if (next === "projects") {
@@ -138,18 +126,15 @@ export function ClientDetail({
     });
   };
 
-  // Keyed on id + updatedAt rather than the client object: searching or
-  // switching tabs re-renders this page with a fresh-but-identical client,
-  // which must not wipe an edit in progress.
+  const [prevInitialEdit, setPrevInitialEdit] = useState(initialEdit);
+  if (initialEdit !== prevInitialEdit) {
+    setPrevInitialEdit(initialEdit);
+    if (initialEdit) setIsEditing(true);
+  }
   const clientVersion = `${client.id}:${new Date(client.updatedAt).getTime()}`;
 
   useEffect(() => {
-    if (!initialEdit) {
-      return;
-    }
-
-    reset(toClientFormsDefault(client));
-    setIsEditing(true);
+    if (initialEdit) reset(toClientFormsDefault(client));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialEdit, clientVersion, reset]);
 
@@ -487,7 +472,6 @@ export function ClientDetail({
   );
 }
 
-/** Shown for the moment between clicking a tab and its rows arriving. */
 function PanelLoading() {
   return (
     <p className="text-muted-foreground px-6 py-12 text-center text-sm">

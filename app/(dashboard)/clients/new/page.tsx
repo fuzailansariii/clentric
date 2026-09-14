@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
 import { ClientInput, clientSchema, clientStatusEnum } from "../schema";
@@ -33,7 +33,6 @@ export default function NewClientPage() {
     register,
     formState: { errors, isSubmitting },
     control,
-    watch,
     setValue,
   } = useForm<ClientInput>({
     resolver: zodResolver(clientSchema),
@@ -42,7 +41,7 @@ export default function NewClientPage() {
     },
   });
 
-  const countryValue = watch("country");
+  const countryValue = useWatch({ control, name: "country" });
   const phoneFieldRef = useRef<PhoneFieldHandle>(null);
 
   // form creation submit

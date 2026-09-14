@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_rethrow } from "next/navigation";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
 import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
@@ -18,8 +19,6 @@ export async function getClients(rawParams: unknown) {
 
     const offset = (page - 1) * pageSize;
 
-    // Status tab counts ignore the status filter but honor the search, so
-    // each tab's count matches what clicking it would list.
     const baseConditions = [
       eq(clients.userId, user.id),
       isNull(clients.deletedAt),
@@ -30,8 +29,6 @@ export async function getClients(rawParams: unknown) {
       ? [...baseConditions, eq(clients.status, status)]
       : baseConditions;
 
-    // Two queries: the page of rows and the per-status counts. The list's
-    // total is read from those counts — no separate COUNT(*).
     const [rows, statusRows] = await Promise.all([
       db
         .select()
@@ -47,7 +44,10 @@ export async function getClients(rawParams: unknown) {
         .groupBy(clients.status),
     ]);
 
-    const statusCounts = toStatusCounts(clientStatusEnum.enumValues, statusRows);
+    const statusCounts = toStatusCounts(
+      clientStatusEnum.enumValues,
+      statusRows,
+    );
     const allCount = sumStatusCounts(statusCounts);
     const total = status ? statusCounts[status] : allCount;
 
@@ -61,6 +61,7 @@ export async function getClients(rawParams: unknown) {
       allCount,
     };
   } catch (error) {
+    unstable_rethrow(error);
     logError("getClients", error);
     if (error instanceof AppError) {
       throw error;
@@ -92,6 +93,7 @@ export async function getClientById(clientId: string) {
       .limit(1);
     return client ?? null;
   } catch (error) {
+    unstable_rethrow(error);
     logError("clientByIdFetchFailed", error);
     if (error instanceof AppError) {
       throw error;
@@ -117,6 +119,7 @@ export async function getClientOptions() {
 
     return rows;
   } catch (error) {
+    unstable_rethrow(error);
     logError("getClientOptions", error);
     if (error instanceof AppError) {
       throw error;

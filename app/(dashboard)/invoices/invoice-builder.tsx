@@ -1,6 +1,6 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
-import React, { useState } from "react";
+import { useState } from "react";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import {
   invoiceSchema,
@@ -51,8 +51,6 @@ export default function InvoiceBuilder({
   initialProjectId,
   invoice,
 }: InvoiceBuilderProps) {
-  // Editing opens in Detailed mode: Quick only shows the first line item and
-  // hides the issue date, which would hide part of an existing invoice.
   const [mode, setMode] = useState<"quick" | "detailed">(
     invoice ? "detailed" : "quick",
   );
@@ -61,6 +59,9 @@ export default function InvoiceBuilder({
 
   const router = useRouter();
 
+  // `any` for the context generic is the project convention for z.coerce
+  // schemas (CLAUDE.md: type useForm as useForm<Input, any, Output>()).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<InvoiceFormInput, any, InvoiceFormOutput>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: invoice

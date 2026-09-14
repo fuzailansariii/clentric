@@ -51,10 +51,15 @@ export function DataTableToolbar({
     searchParamsRef.current = searchParams;
   }, [searchParams]);
 
-  const [searchValue, setSearchValue] = useState(
-    searchParams.get("search") ?? "",
-  );
+  const urlSearch = searchParams.get("search") ?? "";
+  const [searchValue, setSearchValue] = useState(urlSearch);
   const debouncedSearch = useDebouncedValue(searchValue, 350);
+
+  const [syncedUrlSearch, setSyncedUrlSearch] = useState(urlSearch);
+  if (urlSearch !== syncedUrlSearch) {
+    setSyncedUrlSearch(urlSearch);
+    if (urlSearch !== debouncedSearch) setSearchValue(urlSearch);
+  }
 
   const updateParams = useCallback(
     (updates: Record<string, string | null>) => {
@@ -64,16 +69,10 @@ export function DataTableToolbar({
         else params.delete(key);
       }
       params.set("page", "1");
-      // scroll: false — the toolbar can sit well down a page (client detail
-      // tabs); jumping to the top on every keystroke would lose your place.
       router.replace(`${pathname}?${params.toString()}`, { scroll: false });
     },
     [pathname, router],
   );
-
-  useEffect(() => {
-    setSearchValue(searchParams.get("search") ?? "");
-  }, [searchParams]);
 
   useEffect(() => {
     const currentSearch = searchParamsRef.current.get("search") ?? "";
@@ -83,9 +82,6 @@ export function DataTableToolbar({
   }, [debouncedSearch]);
 
   return (
-    // @container: layout reacts to the space this toolbar actually has, not
-    // the viewport — with the sidebar taking real width, a viewport-only
-    // `sm:`/`md:` can claim there's room when there isn't.
     <div className="@container">
       <div
         className={cn(
@@ -104,7 +100,7 @@ export function DataTableToolbar({
               value={searchValue}
               onChange={(e) => setSearchValue(e.target.value)}
               placeholder={searchPlaceholder}
-              className="border-border bg-card placeholder:text-muted-foreground focus-visible:ring-ring h-9 w-full rounded-lg border pr-3 pl-9 text-sm outline-none focus-visible:ring-2 @[640px]:bg-secondary/40 @[640px]:h-8"
+              className="border-border bg-card placeholder:text-muted-foreground focus-visible:ring-ring @[640px]:bg-secondary/40 h-9 w-full rounded-lg border pr-3 pl-9 text-sm outline-none focus-visible:ring-2 @[640px]:h-8"
             />
           </div>
           {actions}
@@ -120,7 +116,7 @@ export function DataTableToolbar({
               key={filter.key}
               role="group"
               aria-label={filter.label}
-              className="flex min-w-0 gap-1.5 overflow-x-auto [scrollbar-width:none] @[640px]:gap-0.5 [&::-webkit-scrollbar]:hidden"
+              className="flex min-w-0 scrollbar-none gap-1.5 overflow-x-auto @[640px]:gap-0.5 [&::-webkit-scrollbar]:hidden"
             >
               <FilterTab
                 label="All"
@@ -173,10 +169,8 @@ function FilterTab({
       className={cn(
         "focus-visible:ring-ring inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-[13px] whitespace-nowrap transition-colors outline-none focus-visible:ring-2",
         "@[640px]:h-7 @[640px]:px-2.5",
-        // Mobile: solid chips, the active one inverted. From 640px: quiet
-        // tabs, the active one on a light fill.
         active
-          ? "bg-foreground text-background border-transparent font-medium @[640px]:bg-secondary @[640px]:text-foreground @[640px]:border-border"
+          ? "bg-foreground text-background @[640px]:bg-secondary @[640px]:text-foreground @[640px]:border-border border-transparent font-medium"
           : "border-border bg-card text-muted-foreground hover:text-foreground @[640px]:hover:bg-secondary/60 @[640px]:border-transparent @[640px]:bg-transparent",
       )}
     >

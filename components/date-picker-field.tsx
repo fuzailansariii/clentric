@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useId, useState } from "react";
 
 type DatePickerFieldProps = {
   label?: string;
@@ -28,6 +28,9 @@ export function DatePickerField({
 }: DatePickerFieldProps) {
   const selectedDate = formValueToDate(value);
   const [month, setMonth] = useState<Date | undefined>(selectedDate);
+  // aria-invalid isn't allowed on a button, so the trigger points at the
+  // error message instead (aria-describedby).
+  const errorId = useId();
 
   return (
     <div className="flex flex-col gap-1">
@@ -41,7 +44,7 @@ export function DatePickerField({
         <PopoverTrigger asChild>
           <button
             type="button"
-            aria-invalid={!!error}
+            aria-describedby={error ? errorId : undefined}
             className={cn(
               "border-border bg-input/20 flex h-11 w-full items-center justify-between rounded-lg border px-3 text-sm font-medium",
               "focus-visible:border-ring focus-visible:ring-ring/20 focus-visible:ring-2 focus-visible:outline-none",
@@ -76,7 +79,11 @@ export function DatePickerField({
         </PopoverContent>
       </Popover>
 
-      {error && <span className="text-danger-600 text-xs">{error}</span>}
+      {error && (
+        <span id={errorId} className="text-danger-600 text-xs">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

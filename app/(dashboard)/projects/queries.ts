@@ -1,3 +1,6 @@
+// Rethrows Next's own control-flow errors (dynamic rendering bail-out,
+// redirect, notFound) so the catch blocks below only handle real failures.
+import { unstable_rethrow } from "next/navigation";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
 import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
@@ -175,6 +178,7 @@ export async function getAllProjects(
       },
     };
   } catch (error) {
+    unstable_rethrow(error);
     logError("getAllProjects", error);
     if (error instanceof AppError) {
       throw error;
@@ -214,6 +218,7 @@ export async function getProjectById(
 
     return withProgress(row);
   } catch (error) {
+    unstable_rethrow(error);
     logError("getProjectById", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load project.");
@@ -245,6 +250,7 @@ export async function countProjectsByClientId(
 
     return row?.value ?? 0;
   } catch (error) {
+    unstable_rethrow(error);
     logError("countProjectsByClientId", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load projects.");
@@ -266,6 +272,7 @@ export async function getProjectOptionsByUserId() {
       .orderBy(desc(projects.createdAt));
     return rows;
   } catch (error) {
+    unstable_rethrow(error);
     logError("getProjectOptionsByUserId", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load projects.");
@@ -309,6 +316,7 @@ export async function getMilestonesByProjectId(
 
     return rows;
   } catch (error) {
+    unstable_rethrow(error);
     logError("getMilestonesByProjectId", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load milestones.");

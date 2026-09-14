@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { BellIcon, SendIcon } from "lucide-react";
+import { BellIcon, FileDownIcon, SendIcon } from "lucide-react";
 import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 import { CustomButton } from "@/components/ui/custom-button";
@@ -19,7 +19,9 @@ import { useWithinWindow } from "@/hooks/use-within-window";
 import { useUndoableAction } from "@/hooks/use-undoable-action";
 import { UNDO_SEND_WINDOW_MS } from "@/lib/is-within-undo-send-window";
 import { REMINDER_SEND_DELAY_MS } from "@/lib/reminder-send-delay";
+import { cn } from "@/lib/utils";
 import { invoiceStatusConfig } from "../invoice-status-config";
+import { getInvoiceDueLabel } from "../invoice-due-label";
 import {
   deleteInvoiceAction,
   markInvoicePaidAction,
@@ -38,12 +40,17 @@ import type { ClientRow } from "@/src/db/schema/clients";
 import type { invoices } from "@/src/db/schema/invoices";
 import type { invoiceItems } from "@/src/db/schema/invoice-items";
 import type { ProjectListItem } from "../../projects/queries";
+import { InvoiceTimeline } from "./invoice-timeline";
 
 type InvoiceRow = typeof invoices.$inferSelect;
 type InvoiceItemRow = typeof invoiceItems.$inferSelect;
 
 type InvoiceDetailProps = {
-  invoice: InvoiceRow & { lineItems: InvoiceItemRow[] };
+  invoice: InvoiceRow & {
+    lineItems: InvoiceItemRow[];
+    /** Whole days until dueDate, negative once past — see getInvoiceById(). */
+    daysUntilDue: number;
+  };
   client: ClientRow | null;
   project: ProjectListItem | null;
 };
@@ -63,6 +70,11 @@ export function InvoiceDetail({ invoice, client, project }: InvoiceDetailProps) 
   const isPaid = invoice.status === "paid";
   const reminderOnCooldown = isReminderOnCooldown(invoice.lastReminderSentAt);
   const canUndoSend = useWithinWindow(invoice.sentAt, UNDO_SEND_WINDOW_MS);
+  const dueLabel = getInvoiceDueLabel({
+    status: displayStatus,
+    daysUntilDue: invoice.daysUntilDue,
+    paidAt: invoice.paidAt,
+  });
 
   const run = (
     action: () => Promise<ActionResult>,
@@ -192,6 +204,28 @@ export function InvoiceDetail({ invoice, client, project }: InvoiceDetailProps) 
               }
               onDeleteClick={() => setIsDeleteOpen(true)}
             />
+
+            {/* Plain browser download, not a server action — the route
+                itself sets Content-Disposition: attachment, so the
+                browser handles the download with no loading/success
+                toast needed here. Not gated to a paid plan yet: the route
+                serves everyone for now (see the TODO(billing) in
+                app/api/invoices/[id]/pdf/route.ts) — this button will
+                need the same gate once that lands. */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <a
+                  href={`/api/invoices/${invoice.id}/pdf`}
+                  download
+                  aria-label="Download PDF"
+                >
+                  <CustomButton variant="ghost" size="sm" className="w-8 px-0!">
+                    <FileDownIcon className="h-3.5 w-3.5" />
+                  </CustomButton>
+                </a>
+              </TooltipTrigger>
+              <TooltipContent>Download PDF</TooltipContent>
+            </Tooltip>
           </>
         }
       />
@@ -264,6 +298,15 @@ export function InvoiceDetail({ invoice, client, project }: InvoiceDetailProps) 
                   Due Date
                 </p>
                 <p className="mt-1 text-sm">{formatDate(invoice.dueDate)}</p>
+                {/* Same relative label the list pages show. */}
+                <p
+                  className={cn(
+                    "text-xs",
+                    dueLabel.late ? "text-danger-600" : "text-muted-foreground",
+                  )}
+                >
+                  {dueLabel.label}
+                </p>
               </div>
             </div>
 
@@ -339,21 +382,17 @@ export function InvoiceDetail({ invoice, client, project }: InvoiceDetailProps) 
 
             <div className="border-border border-t" />
 
-            {/* Footer timestamps */}
-            <div className="text-muted-foreground flex flex-wrap items-center gap-3 px-6 py-3.5 text-xs">
-              <span>Created {formatDate(invoice.createdAt)}</span>
-              {invoice.sentAt && (
-                <>
-                  <span>·</span>
-                  <span>Sent {formatDate(invoice.sentAt)}</span>
-                </>
-              )}
-              {invoice.paidAt && (
-                <>
-                  <span>·</span>
-                  <span>Paid {formatDate(invoice.paidAt)}</span>
-                </>
-              )}
+            {/* Activity — what happened to this invoice and when. */}
+            <div className="px-6 py-5">
+              <p className="text-muted-foreground mb-4 text-[10px] font-medium tracking-[0.06em] uppercase">
+                Activity
+              </p>
+              <InvoiceTimeline
+                createdAt={invoice.createdAt}
+                sentAt={invoice.sentAt}
+                lastReminderSentAt={invoice.lastReminderSentAt}
+                paidAt={invoice.paidAt}
+              />
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { ChevronsUpDown } from "lucide-react";
 import {
   Popover,
@@ -17,22 +17,13 @@ import {
 } from "@/components/ui/command";
 import { cn } from "@/lib/utils";
 
-// T = "whatever item type this combobox instance is showing" — a client, a
-// project, anything with a stable string id. The component itself never
-// needs to know what T actually is; the caller supplies small functions
-// that know how to work with it.
 type ComboboxProps<T> = {
   items: T[];
   value: string;
   onChange: (id: string) => void;
   getId: (item: T) => string;
-  // The string CommandInput's search box matches against — NOT what's shown,
-  // just what's searched. e.g. "Jane Doe Acme Inc" so typing "acme" finds Jane.
   getSearchValue: (item: T) => string;
-  // What the trigger button shows once something is selected.
   renderSelected: (item: T) => React.ReactNode;
-  // What each row in the open dropdown looks like. `isSelected` lets you
-  // show a checkmark or highlight on the currently chosen item.
   renderItem: (item: T, isSelected: boolean) => React.ReactNode;
   label: string;
   placeholder: string;
@@ -56,6 +47,8 @@ export function Combobox<T>({
   disabled,
 }: ComboboxProps<T>) {
   const [open, setOpen] = useState(false);
+  // Ties the combobox button to the list it opens (aria-controls).
+  const listId = useId();
   const selected = items.find((item) => getId(item) === value);
 
   return (
@@ -69,6 +62,7 @@ export function Combobox<T>({
             type="button"
             role="combobox"
             aria-expanded={open}
+            aria-controls={listId}
             aria-invalid={!!error}
             disabled={disabled}
             className={cn(
@@ -103,7 +97,7 @@ export function Combobox<T>({
         >
           <Command>
             <CommandInput placeholder="Search..." className="h-10 text-sm" />
-            <CommandList>
+            <CommandList id={listId}>
               <CommandEmpty className="text-muted-foreground py-6 text-center text-sm">
                 {emptyText}
               </CommandEmpty>

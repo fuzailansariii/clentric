@@ -1,8 +1,18 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 
+// Nothing to subscribe to — "are we in the browser?" never changes after mount.
+const subscribe = () => () => {};
+
+/**
+ * false during server render and hydration, true once running in the browser.
+ * useSyncExternalStore gives exactly that without a setState inside an effect,
+ * and returns true straight away on client-side navigations (no extra render).
+ */
 export function useHydrated() {
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => setHydrated(true), []);
-  return hydrated;
+  return useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false,
+  );
 }

@@ -90,11 +90,23 @@ export function ProjectDetail({
     window.history.replaceState(null, "", `/projects/${project.id}`);
   };
 
+  // Arriving with ?edit=true switches into edit mode — adjusted during render
+  // rather than in an effect, so the read-only view never flashes first.
+  const [prevInitialEdit, setPrevInitialEdit] = useState(initialEdit);
+  if (initialEdit !== prevInitialEdit) {
+    setPrevInitialEdit(initialEdit);
+    if (initialEdit) setIsEditing(true);
+  }
+
+  // Keyed on id + updatedAt rather than the project object: a milestone change
+  // re-renders this page with a fresh-but-identical project, which must not
+  // wipe an edit in progress. reset() writes to react-hook-form's own store.
+  const projectVersion = `${project.id}:${new Date(project.updatedAt).getTime()}`;
+
   useEffect(() => {
-    if (!initialEdit) return;
-    reset(toProjectFormDefaults(project));
-    setIsEditing(true);
-  }, [initialEdit, project, reset]);
+    if (initialEdit) reset(toProjectFormDefaults(project));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEdit, projectVersion, reset]);
 
   const onSubmit = handleSubmit(async (data) => {
     setFormError(null);

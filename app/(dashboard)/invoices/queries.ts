@@ -1,10 +1,13 @@
+// Rethrows Next's own control-flow errors (dynamic rendering bail-out,
+// redirect, notFound) so the catch blocks below only handle real failures.
+import { unstable_rethrow } from "next/navigation";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
 import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
 import { invoices, invoiceStatusEnum } from "@/src/db/schema/invoices";
-import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, getTableColumns, isNull, sql } from "drizzle-orm";
 import { invoiceIdSchema, invoiceSearchParamsSchema } from "./schema";
 import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { clientIdSchema } from "../clients/schema";
@@ -13,6 +16,7 @@ import {
   InvoiceDisplayStatus,
 } from "@/lib/get-invoice-display-status";
 import { projects } from "@/src/db/schema/projects";
+import { users } from "@/src/db/schema/users";
 
 export type InvoiceListItem = {
   id: string;
@@ -32,8 +36,6 @@ export type InvoiceListItem = {
   lastReminderSentAt: Date | null;
 };
 
-/** Stat-card figures. Amounts are decimal strings summed in Postgres — money
- * never goes through JS floats. */
 export type InvoiceSummary = {
   totalCount: number;
   total: string;
@@ -97,9 +99,6 @@ export async function getInvoicesByUserId(
 
     const offset = (page - 1) * pageSize;
 
-    // Two queries: the page of rows, and one ROLLUP giving count + sum per
-    // status plus a grand-total row (status null). The list's total comes
-    // from those counts, so there's no separate COUNT(*).
     const [rows, summaryRows] = await Promise.all([
       db
         .select({
@@ -146,7 +145,10 @@ export async function getInvoicesByUserId(
     const amountFor = (key: InvoiceDisplayStatus) =>
       perStatus.find((row) => row.status === key)?.amount ?? "0";
 
-    const statusCounts = toStatusCounts(invoiceStatusEnum.enumValues, perStatus);
+    const statusCounts = toStatusCounts(
+      invoiceStatusEnum.enumValues,
+      perStatus,
+    );
     const allCount = sumStatusCounts(statusCounts);
     const total = status ? statusCounts[status] : allCount;
 
@@ -175,6 +177,7 @@ export async function getInvoicesByUserId(
       summary,
     };
   } catch (error) {
+    unstable_rethrow(error);
     logError("getInvoicesByUserId", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load invoices.");
@@ -183,11 +186,6 @@ export async function getInvoicesByUserId(
 
 export type InvoiceListResult = Awaited<ReturnType<typeof getInvoicesByUserId>>;
 
-/**
- * The invoice with its line items, or null when it doesn't exist / isn't the
- * current user's. A failed query throws instead of returning null, so the
- * page shows its error state rather than a misleading 404.
- */
 export async function getInvoiceById(invoiceId: string) {
   try {
     const parsed = invoiceIdSchema.safeParse(invoiceId);
@@ -198,7 +196,13 @@ export async function getInvoiceById(invoiceId: string) {
 
     const [invoiceRows, items] = await Promise.all([
       db
-        .select()
+        .select({
+          ...getTableColumns(invoices),
+          // For the relative due-date label on the detail page — computed
+          // here (not in the browser) so it doesn't depend on the clock and
+          // matches the same day count the list pages show.
+          daysUntilDue,
+        })
         .from(invoices)
         .where(
           and(
@@ -224,7 +228,136 @@ export async function getInvoiceById(invoiceId: string) {
 
     return { ...invoice, lineItems: items };
   } catch (error) {
+    unstable_rethrow(error);
     logError("getInvoiceById", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load invoice.");
+  }
+}
+
+export type InvoicePdfData = {
+  invoice: {
+    id: string;
+    invoiceNumber: number;
+    status: InvoiceDisplayStatus;
+    issueDate: string;
+    dueDate: string;
+    subTotal: string;
+    taxRate: string;
+    taxAmount: string;
+    total: string;
+    /** Freelancer's own free-text payment instructions for this invoice
+     * (bank details, "Zelle to...", etc.) — there's no profile-level
+     * payment field; this is entered per invoice. */
+    paymentDetails: string | null;
+    clientName: string;
+    clientEmail: string | null;
+    clientCompany: string | null;
+    clientCountry: string | null;
+  };
+  items: {
+    id: string;
+    description: string;
+    quantity: string;
+    rate: string;
+    amount: string;
+  }[];
+  /** The freelancer issuing the invoice — for the PDF's "From" block. Only
+   * what actually exists on `users`; there's no separate business-name or
+   * business-address field today. */
+  profile: {
+    name: string | null;
+    email: string;
+    profession: string | null;
+  };
+};
+
+/**
+ * Everything the invoice PDF needs, in one ownership-scoped call. Returns
+ * null when the invoice doesn't exist, is soft-deleted, or belongs to
+ * another user — every one of those cases must look identical to the
+ * caller, so this never distinguishes "not found" from "not yours".
+ */
+export async function getInvoiceForPdf(
+  invoiceId: string,
+): Promise<InvoicePdfData | null> {
+  try {
+    const parsed = invoiceIdSchema.safeParse(invoiceId);
+    if (!parsed.success) return null;
+
+    const user = await requireUser();
+
+    const [invoiceRows, [profileRows]] = await Promise.all([
+      db
+        .select({
+          id: invoices.id,
+          invoiceNumber: invoices.invoiceNumber,
+          status: invoices.status,
+          issueDate: invoices.issueDate,
+          dueDate: invoices.dueDate,
+          subTotal: invoices.subTotal,
+          taxRate: invoices.taxRate,
+          taxAmount: invoices.taxAmount,
+          total: invoices.total,
+          paymentDetails: invoices.paymentDetails,
+          clientName: clients.name,
+          clientEmail: clients.email,
+          clientCompany: clients.company,
+          clientCountry: clients.country,
+        })
+        .from(invoices)
+        .innerJoin(clients, eq(invoices.clientId, clients.id))
+        .where(
+          and(
+            eq(invoices.id, parsed.data),
+            eq(invoices.userId, user.id),
+            isNull(invoices.deletedAt),
+          ),
+        )
+        .limit(1),
+
+      // Independent of the invoice lookup — runs alongside it, not after.
+      Promise.all([
+        db
+          .select({
+            name: users.name,
+            email: users.email,
+            profession: users.profession,
+          })
+          .from(users)
+          .where(eq(users.id, user.id))
+          .limit(1),
+      ]),
+    ]);
+
+    const [invoiceRow] = invoiceRows;
+    if (!invoiceRow) return null;
+
+    // invoice_items has no user_id of its own — this is only safe because
+    // invoiceRow above already proved parsed.data belongs to this user.
+    const items = await db
+      .select({
+        id: invoiceItems.id,
+        description: invoiceItems.description,
+        quantity: invoiceItems.quantity,
+        rate: invoiceItems.rate,
+        amount: invoiceItems.amount,
+      })
+      .from(invoiceItems)
+      .where(eq(invoiceItems.invoiceId, parsed.data))
+      .orderBy(asc(invoiceItems.sortOrder), asc(invoiceItems.id));
+
+    const [profile] = profileRows;
+    if (!profile) throw new AppError("NOT_FOUND", "Profile not found.");
+
+    return {
+      invoice: { ...invoiceRow, status: getDisplayStatus(invoiceRow) },
+      items,
+      profile,
+    };
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getInvoiceForPdf", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load invoice.");
   }
@@ -255,6 +388,7 @@ export async function countInvoicesByClientId(
 
     return row?.value ?? 0;
   } catch (error) {
+    unstable_rethrow(error);
     logError("countInvoicesByClientId", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load invoices.");
