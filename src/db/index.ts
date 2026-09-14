@@ -21,3 +21,4 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 export const db = drizzle({ client });
+export type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];

@@ -1,105 +1,116 @@
 "use client";
-import { useState, useMemo } from "react";
-import { DataTable } from "@/components/data-table/data-table";
-import { StatsCards } from "@/components/ui/stats-cards";
-import { Pagination } from "@/components/ui/pagination";
-import { CustomButton } from "@/components/ui/custom-button";
+
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { PlusIcon } from "lucide-react";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
+import { CustomButton } from "@/components/ui/custom-button";
+import { StatsCards } from "@/components/ui/stats-cards";
 import { formatCurrency } from "@/lib/format-currency";
-import { ProjectStatus } from "../../projects/project-status-config";
-import { computeProjectStats } from "../../projects/project-stats";
-import { usePagination } from "@/hooks/use-pagination";
-import { ProjectFiltersBar } from "../../projects/project-filters-bar";
-import { filterProjects } from "./project-filters";
-import { projectColumns } from "../../projects/projects-columns";
-import { cn } from "@/lib/utils";
-import type { ProjectListItem } from "../../projects/queries";
+import {
+  projectStatusConfig,
+  type ProjectStatus,
+} from "../../projects/project-status-config";
+import ProjectTable from "../../projects/projects-table";
+import type { ProjectListResult } from "../../projects/queries";
 
-const PAGE_SIZE = 10;
+// The table sits inside the tab card: no frame of its own from 640px up
+// (just a top rule under the stats), and a little padding on mobile where
+// toolbar, list and pagination stack.
+export const PANEL_TABLE_CLASS =
+  "p-3 @[640px]:rounded-none @[640px]:border-0 @[640px]:border-t @[640px]:p-0";
 
-export function ProjectsPanel({
-  projects,
-  className,
-}: {
-  projects: ProjectListItem[];
-  className?: string;
-}) {
-  const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<ProjectStatus | "all">("all");
+/**
+ * A client's projects, paged, searched and filtered on the server — the page
+ * fetches only what this tab shows, so a client with hundreds of projects
+ * doesn't ship them all to the browser.
+ */
+export function ProjectsPanel({ result }: { result: ProjectListResult }) {
+  const isSearching = Boolean(useSearchParams().get("search"));
 
-  const filtered = useMemo(
-    () => filterProjects(projects, search, status),
-    [projects, search, status],
-  );
-
-  const stats = useMemo(() => computeProjectStats(filtered), [filtered]);
-  const isFiltering = search.trim() !== "" || status !== "all";
-
-  const { page, setPage, totalPages, paginatedItems } = usePagination(
-    filtered,
-    PAGE_SIZE,
-  );
+  const {
+    projects,
+    total,
+    page,
+    pageSize,
+    totalPages,
+    statusCounts,
+    allCount,
+    summary,
+  } = result;
 
   return (
-    <div className={cn("border-border rounded-xl border", className)}>
+    <div className="min-w-0">
       <StatsCards
+        variant="divided"
         items={[
           {
             label: "Total Projects",
-            value: stats.total,
-            hint: isFiltering ? "Matching filters" : "All time",
+            value: allCount,
+            hint: isSearching ? "Matching search" : "All time",
           },
-          { label: "Active", value: stats.active, hint: "In progress" },
-          { label: "Completed", value: stats.completed, hint: "Delivered" },
+          {
+            label: "Active",
+            value: statusCounts.in_progress,
+            hint: "In progress",
+          },
+          {
+            label: "Completed",
+            value: statusCounts.completed,
+            hint: "Delivered",
+          },
           {
             label: "Total Billed",
-            value: formatCurrency((stats.totalBilledCents / 100).toFixed(2)),
-            hint: isFiltering ? "Matching filters" : "Across all projects",
+            value: formatCurrency(summary.budgetTotal),
+            hint: isSearching ? "Matching search" : "Across all projects",
           },
         ]}
       />
 
-      <div className="border-border flex items-center justify-between border-b px-5 py-1">
-        <ProjectFiltersBar
-          search={search}
-          onSearchChange={(value) => {
-            setSearch(value);
-            setPage(1);
-          }}
-          status={status}
-          onStatusChange={(value) => {
-            setStatus(value);
-            setPage(1);
-          }}
-        />
-        <CustomButton variant="primary" size="sm" className="gap-1.5">
-          <PlusIcon className="h-3.5 w-3.5" />
-          New Project
-        </CustomButton>
-      </div>
-
-      <DataTable
-        columns={projectColumns}
-        data={paginatedItems}
-        getRowId={(row) => row.id}
-        emptyMessage={
-          isFiltering ? "No projects match your filters." : "No projects yet."
-        }
-        className="border-none"
-      />
-
-      {filtered.length > 0 && (
-        <div className="flex items-center justify-between px-5 py-3.5">
-          <span className="text-muted-foreground text-xs">
-            Showing {paginatedItems.length} of {filtered.length} projects
-          </span>
-          <Pagination
-            currentPage={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
+      <ProjectTable
+        data={projects}
+        className={PANEL_TABLE_CLASS}
+        toolbar={
+          <DataTableToolbar
+            searchPlaceholder="Search projects..."
+            filters={[
+              {
+                key: "status",
+                label: "Filter projects by status",
+                allCount,
+                options: (Object.keys(projectStatusConfig) as ProjectStatus[]).map(
+                  (status) => ({
+                    value: status,
+                    label: projectStatusConfig[status].label,
+                    count: statusCounts[status],
+                  }),
+                ),
+              },
+            ]}
+            actions={
+              <Link href="/projects/new" className="shrink-0">
+                <CustomButton
+                  variant="primary"
+                  size="sm"
+                  className="h-9 gap-1.5 whitespace-nowrap @[640px]:h-8"
+                >
+                  <PlusIcon className="h-3.5 w-3.5" />
+                  New Project
+                </CustomButton>
+              </Link>
+            }
           />
-        </div>
-      )}
+        }
+        footer={
+          <DataTablePagination
+            page={page}
+            pageSize={pageSize}
+            total={total}
+            totalPages={totalPages}
+          />
+        }
+      />
     </div>
   );
 }

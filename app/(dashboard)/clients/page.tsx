@@ -5,7 +5,7 @@ import { PlusIcon, UsersIcon } from "lucide-react";
 import Link from "next/link";
 import { getClients } from "./queries";
 import { ClientsTable } from "./clients-table";
-import { clientStatusConfig } from "./client-status-config";
+import { clientStatusConfig, type ClientStatus } from "./client-status-config";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 
@@ -15,7 +15,7 @@ type ClientsPageProps = {
 
 export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const params = await searchParams;
-  const { clients, total, page, pageSize, totalPages } =
+  const { clients, total, page, pageSize, totalPages, statusCounts, allCount } =
     await getClients(params);
 
   return (
@@ -33,9 +33,13 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
           { label: "Dashboard", href: "/dashboard" },
           { label: "Clients" },
         ]}
+        mobileActions="inline"
         actions={
           <CustomButton variant="primary">
-            <Link href="/clients/new" className="flex items-center gap-2">
+            <Link
+              href="/clients/new"
+              className="mx-auto flex items-center gap-1 text-xs"
+            >
               <PlusIcon className="h-4 w-4" />
               <span>Add Client</span>
             </Link>
@@ -44,32 +48,36 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
       />
 
       <DashboardContainer>
-        <div className="flex flex-col gap-4">
-        <DataTableToolbar
-          searchPlaceholder="Search clients..."
-          filters={[
-            {
-              key: "status",
-              label: "All statuses",
-              options: Object.entries(clientStatusConfig).map(
-                ([value, config]) => ({
-                  value,
-                  label: config.label,
-                }),
-              ),
-            },
-          ]}
+        <ClientsTable
+          data={clients}
+          toolbar={
+            <DataTableToolbar
+              searchPlaceholder="Search clients..."
+              filters={[
+                {
+                  key: "status",
+                  label: "Filter clients by status",
+                  allCount,
+                  options: (Object.keys(clientStatusConfig) as ClientStatus[]).map(
+                    (status) => ({
+                      value: status,
+                      label: clientStatusConfig[status].label,
+                      count: statusCounts[status],
+                    }),
+                  ),
+                },
+              ]}
+            />
+          }
+          footer={
+            <DataTablePagination
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              totalPages={totalPages}
+            />
+          }
         />
-
-        <ClientsTable data={clients} />
-
-        <DataTablePagination
-          page={page}
-          pageSize={pageSize}
-          total={total}
-          totalPages={totalPages}
-        />
-        </div>
       </DashboardContainer>
     </>
   );

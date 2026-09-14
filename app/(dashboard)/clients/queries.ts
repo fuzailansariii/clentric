@@ -1,6 +1,8 @@
 import "server-only";
+import { unstable_rethrow } from "next/navigation";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
+import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
 import { clients, clientStatusEnum } from "@/src/db/schema/clients";
 import { and, count, desc, eq, ilike, isNull } from "drizzle-orm";
 import { db } from "@/src/db";
@@ -8,32 +10,46 @@ import { clientIdSchema, clientSearchParamsSchema } from "./schema";
 
 // Get all clients
 export async function getClients(rawParams: unknown) {
-  const user = await requireUser();
-
-  const { page, pageSize, search, status } = clientSearchParamsSchema.parse(
-    rawParams ?? {},
-  );
-
-  const offset = (page - 1) * pageSize;
-
-  const conditions = [eq(clients.userId, user.id), isNull(clients.deletedAt)];
-  if (status) conditions.push(eq(clients.status, status));
-  if (search) conditions.push(ilike(clients.name, `%${search}%`));
-
   try {
-    const [rows, [{ value: total }]] = await Promise.all([
+    const user = await requireUser();
+
+    const { page, pageSize, search, status } = clientSearchParamsSchema.parse(
+      rawParams ?? {},
+    );
+
+    const offset = (page - 1) * pageSize;
+
+    const baseConditions = [
+      eq(clients.userId, user.id),
+      isNull(clients.deletedAt),
+    ];
+    if (search) baseConditions.push(ilike(clients.name, `%${search}%`));
+
+    const listConditions = status
+      ? [...baseConditions, eq(clients.status, status)]
+      : baseConditions;
+
+    const [rows, statusRows] = await Promise.all([
       db
         .select()
         .from(clients)
-        .where(and(...conditions))
+        .where(and(...listConditions))
         .orderBy(desc(clients.createdAt))
         .limit(pageSize)
         .offset(offset),
       db
-        .select({ value: count() })
+        .select({ status: clients.status, value: count() })
         .from(clients)
-        .where(and(...conditions)),
+        .where(and(...baseConditions))
+        .groupBy(clients.status),
     ]);
+
+    const statusCounts = toStatusCounts(
+      clientStatusEnum.enumValues,
+      statusRows,
+    );
+    const allCount = sumStatusCounts(statusCounts);
+    const total = status ? statusCounts[status] : allCount;
 
     return {
       clients: rows,
@@ -41,10 +57,16 @@ export async function getClients(rawParams: unknown) {
       page,
       pageSize,
       totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      statusCounts,
+      allCount,
     };
   } catch (error) {
+    unstable_rethrow(error);
     logError("getClients", error);
-    throw new AppError("FETCH_FAILED", "could not load clients");
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError("FETCH_FAILED", "Could not load clients.");
   }
 }
 
@@ -71,6 +93,7 @@ export async function getClientById(clientId: string) {
       .limit(1);
     return client ?? null;
   } catch (error) {
+    unstable_rethrow(error);
     logError("clientByIdFetchFailed", error);
     if (error instanceof AppError) {
       throw error;
@@ -96,6 +119,7 @@ export async function getClientOptions() {
 
     return rows;
   } catch (error) {
+    unstable_rethrow(error);
     logError("getClientOptions", error);
     if (error instanceof AppError) {
       throw error;

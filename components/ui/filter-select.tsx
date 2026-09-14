@@ -29,7 +29,7 @@ export function FilterSelect<T extends string>({
 }: FilterSelectProps<T>) {
   return (
     <Select value={value} onValueChange={(v) => onChange(v as T | "all")}>
-      <SelectTrigger className="h-9 w-40" aria-label={ariaLabel}>
+      <SelectTrigger className="h-9 w-30" aria-label={ariaLabel}>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>

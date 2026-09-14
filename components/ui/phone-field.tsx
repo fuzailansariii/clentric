@@ -5,10 +5,10 @@ import {
   useEffect,
   forwardRef,
   useImperativeHandle,
+  useId,
 } from "react";
 import { countryOptions } from "@/lib/countries";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
-import { CustomButton } from "./custom-button";
 import { Check, ChevronsDown } from "lucide-react";
 import {
   Command,
@@ -54,6 +54,8 @@ export const PhoneField = forwardRef<PhoneFieldHandle, PhoneFieldProps>(
         countryOptions[0],
     );
     const listRef = useRef<HTMLDivElement>(null);
+    // Ties the dial-code combobox button to the country list (aria-controls).
+    const listId = useId();
     const userOverrodeRef = useRef(false);
 
     useImperativeHandle(ref, () => ({
@@ -101,6 +103,7 @@ export const PhoneField = forwardRef<PhoneFieldHandle, PhoneFieldProps>(
                 type="button"
                 role="combobox"
                 aria-expanded={open}
+                aria-controls={listId}
                 className="flex h-full shrink-0 items-center gap-1 px-3 text-sm font-medium focus-visible:outline-none"
               >
                 <span className="text-sm leading-none">{dialCountry.code}</span>
@@ -122,7 +125,7 @@ export const PhoneField = forwardRef<PhoneFieldHandle, PhoneFieldProps>(
                     });
                   }}
                 />
-                <CommandList ref={listRef}>
+                <CommandList ref={listRef} id={listId}>
                   <CommandEmpty>No Country Found.</CommandEmpty>
                   <CommandGroup>
                     {countryOptions.map((country) => (

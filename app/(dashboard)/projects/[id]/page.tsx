@@ -14,6 +14,7 @@ export default async function ProjectPage({
   const { id } = await params;
   const query = await searchParams;
 
+  // Independent reads — both check ownership themselves.
   const [project, milestones] = await Promise.all([
     getProjectById(id),
     getMilestonesByProjectId(id),
@@ -26,7 +27,7 @@ export default async function ProjectPage({
   return (
     <ProjectDetail
       project={project}
-      initialMilestones={milestones}
+      milestones={milestones}
       initialEdit={query.edit === "true"}
     />
   );

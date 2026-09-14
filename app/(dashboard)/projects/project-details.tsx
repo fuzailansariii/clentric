@@ -5,7 +5,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { CustomButton } from "@/components/ui/custom-button";
 import { formatDate, formatRelativeDate } from "@/lib/format-date";
 import { formatCurrency } from "@/lib/format-currency";
-import { Check, Folder, PencilIcon, TrashIcon, X } from "lucide-react";
+import { Check, Folder, PencilIcon, Trash2Icon, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { TabButton } from "@/components/ui/tab-button";
 import { DeleteDialog } from "@/components/delete-dialog";
@@ -20,8 +20,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { DeadlinePicker } from "@/components/deadline-picker";
-import { ProjectListItem } from "./queries";
+import { DatePickerField } from "@/components/date-picker-field";
+import type { MilestoneItem, ProjectListItem } from "./queries";
+import { MilestonesPanel } from "./milestones-panel";
 import { EditableProjectInput, editableProjectsSchema } from "./schema";
 import { projectStatusConfig } from "./project-status-config";
 import { deleteProjectAction, updateProjectAction } from "./actions";
@@ -29,8 +30,7 @@ import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 import { cn } from "@/lib/utils";
 import { Field } from "@/components/ui/input";
-import MilestonesPanel, { MilestoneListItem } from "./milestones-panel";
-import ProgressBar from "@/components/ui/progress-bar";
+import { StatsCards } from "@/components/ui/stats-cards";
 
 export function toProjectFormDefaults(
   project: ProjectListItem,
@@ -46,20 +46,18 @@ export function toProjectFormDefaults(
 
 export function ProjectDetail({
   project,
-  initialMilestones,
+  milestones,
   initialEdit = false,
 }: {
   project: ProjectListItem;
-  initialMilestones: MilestoneListItem[];
+  milestones: MilestoneItem[];
   initialEdit?: boolean;
 }) {
-  const [activeSection, setActiveSection] = useState<
-    "milestones" | "activities"
-  >("milestones");
+  const [activeSection, setActiveSection] =
+    useState<"milestones">("milestones");
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(initialEdit);
   const [formError, setFormError] = useState<string | null>(null);
-  const [liveProgress, setLiveProgress] = useState(project.progress);
 
   const router = useRouter();
   const config = projectStatusConfig[project.status];
@@ -83,14 +81,32 @@ export function ProjectDetail({
   const handleCancelClick = () => {
     reset(toProjectFormDefaults(project));
     setIsEditing(false);
-    router.replace(`/projects/${project.id}`);
+    // Cancel doesn't change any data, so there's nothing to refetch — just
+    // tidy the `?edit=true` out of the address bar. Using router.replace()
+    // here would ask Next.js to re-run this (dynamic) Server Component and
+    // re-query the DB on every single Cancel click for no reason. Writing
+    // straight to the History API updates the URL without going through
+    // Next's router/data-fetching at all.
+    window.history.replaceState(null, "", `/projects/${project.id}`);
   };
 
+  // Arriving with ?edit=true switches into edit mode — adjusted during render
+  // rather than in an effect, so the read-only view never flashes first.
+  const [prevInitialEdit, setPrevInitialEdit] = useState(initialEdit);
+  if (initialEdit !== prevInitialEdit) {
+    setPrevInitialEdit(initialEdit);
+    if (initialEdit) setIsEditing(true);
+  }
+
+  // Keyed on id + updatedAt rather than the project object: a milestone change
+  // re-renders this page with a fresh-but-identical project, which must not
+  // wipe an edit in progress. reset() writes to react-hook-form's own store.
+  const projectVersion = `${project.id}:${new Date(project.updatedAt).getTime()}`;
+
   useEffect(() => {
-    if (!initialEdit) return;
-    reset(toProjectFormDefaults(project));
-    setIsEditing(true);
-  }, [initialEdit, project, reset]);
+    if (initialEdit) reset(toProjectFormDefaults(project));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEdit, projectVersion, reset]);
 
   const onSubmit = handleSubmit(async (data) => {
     setFormError(null);
@@ -150,7 +166,7 @@ export function ProjectDetail({
                 onClick={() => setIsDeleteOpen(true)}
                 className="flex items-center gap-1"
               >
-                <TrashIcon className="h-3.5 w-3.5" /> Delete
+                <Trash2Icon className="h-3.5 w-3.5" /> Delete
               </CustomButton>
               <CustomButton
                 variant="primary"
@@ -165,7 +181,7 @@ export function ProjectDetail({
       />
 
       <DashboardContainer>
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="mb-4 space-y-4">
           {/* ========== MAIN CARD ========== */}
           <div
             className={cn(
@@ -263,7 +279,7 @@ export function ProjectDetail({
                     control={control}
                     name="deadline"
                     render={({ field }) => (
-                      <DeadlinePicker
+                      <DatePickerField
                         value={field.value}
                         onChange={field.onChange}
                         error={errors.deadline?.message}
@@ -275,59 +291,53 @@ export function ProjectDetail({
             )}
 
             {/* Metrics (always visible, single source of truth) */}
-            <div className="bg-border grid grid-cols-2 gap-px border-t sm:grid-cols-4">
-              <div className="bg-background px-5 py-4">
-                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-                  Budget
-                </p>
-                <p className="mt-1 text-lg font-semibold">
-                  {formatCurrency(project.budget)}
-                </p>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  Fixed price
-                </p>
-              </div>
-
-              <div className="bg-background px-5 py-4">
-                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-                  Deadline
-                </p>
-                <p className="mt-1 text-lg font-semibold text-amber-600">
-                  {project.deadline ? formatDate(project.deadline) : "—"}
-                </p>
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  {project.deadline ? "Upcoming" : "No deadline"}
-                </p>
-              </div>
-
-              <div className="bg-background px-5 py-4">
-                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-                  Progress
-                </p>
-                <p className="mt-1 text-lg font-semibold text-blue-600">
-                  {liveProgress}%
-                </p>
-                <ProgressBar value={liveProgress} className="mt-2" />
-                <p className="text-muted-foreground mt-0.5 text-xs">
-                  of project complete
-                </p>
-              </div>
-
-              <div className="bg-background px-5 py-4">
-                <p className="text-muted-foreground text-[11px] font-medium tracking-wider uppercase">
-                  Client
-                </p>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <AvatarInitials
-                    name={project.clientName ?? "?"}
-                    size="sm"
-                    shape="circle"
-                  />
-                  <p className="text-sm font-medium">
-                    {project.clientName ?? "—"}
-                  </p>
-                </div>
-              </div>
+            <div className="border-t">
+              <StatsCards
+                variant="divided"
+                items={[
+                  {
+                    label: "Budget",
+                    value: formatCurrency(project.budget),
+                    hint: "Fixed price",
+                  },
+                  {
+                    label: "Deadline",
+                    value: (
+                      <span className="text-amber-600">
+                        {project.deadline
+                          ? formatDate(project.deadline)
+                          : "—"}
+                      </span>
+                    ),
+                    hint: project.deadline ? "Upcoming" : "No deadline",
+                  },
+                  {
+                    label: "Progress",
+                    value: (
+                      <span className="text-blue-600">
+                        {project.progress}%
+                      </span>
+                    ),
+                    hint: "of project complete",
+                  },
+                  {
+                    label: "Client",
+                    value: (
+                      <div className="flex min-w-0 items-center gap-2">
+                        <AvatarInitials
+                          name={project.clientName ?? "?"}
+                          size="sm"
+                          shape="circle"
+                          className="shrink-0"
+                        />
+                        <span className="truncate text-sm font-medium">
+                          {project.clientName ?? "—"}
+                        </span>
+                      </div>
+                    ),
+                  },
+                ]}
+              />
             </div>
           </div>
 
@@ -378,8 +388,13 @@ export function ProjectDetail({
                   <dt className="text-muted-foreground text-xs uppercase">
                     Last updated
                   </dt>
-                  <dd className="mt-1 font-medium">
+                  {/* Relative time is read from the clock, so server and
+                      browser can disagree by a minute at render time. */}
+                  <dd className="mt-1 font-medium" suppressHydrationWarning>
                     {formatRelativeDate(project.updatedAt)}
+                  </dd>
+                  <dd className="text-muted-foreground mt-0.5 text-xs">
+                    {formatDate(project.updatedAt)}
                   </dd>
                 </div>
               </dl>
@@ -387,8 +402,8 @@ export function ProjectDetail({
           </div>
         </form>
 
-        {/* Milestones & Activities */}
-        <div className="border-border mt-4 rounded-xl border">
+        {/* Milestones (unchanged) */}
+        <div className="border-border rounded-xl border">
           <div
             role="tablist"
             className="border-border flex items-center gap-1 px-6"
@@ -396,27 +411,17 @@ export function ProjectDetail({
             <TabButton
               id="milestones-tab"
               label="Milestones"
-              count={project.totalMilestones}
+              count={milestones.length}
               isActive={activeSection === "milestones"}
               onClick={() => setActiveSection("milestones")}
             />
-            <TabButton
-              id="tablist"
-              label="Activities"
-              isActive={activeSection === "activities"}
-              onClick={() => setActiveSection("activities")}
-            />
           </div>
-          <div role="tabpanel" className="border-t">
-            {activeSection === "milestones" ? (
-              <MilestonesPanel
-                initialMilestones={initialMilestones}
-                projectId={project.id}
-                onProgressChange={setLiveProgress}
-              />
-            ) : (
-              activeSection === "activities" && <h2>Activities</h2>
-            )}
+          <div
+            role="tabpanel"
+            aria-labelledby="milestones-tab"
+            className="border-t"
+          >
+            <MilestonesPanel projectId={project.id} milestones={milestones} />
           </div>
         </div>
 

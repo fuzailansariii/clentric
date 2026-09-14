@@ -1,11 +1,13 @@
-import React from "react";
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { CustomButton } from "@/components/ui/custom-button";
 import { FolderKanbanIcon, PlusIcon } from "lucide-react";
 import Link from "next/link";
-import { projectStatusConfig } from "./project-status-config";
+import {
+  projectStatusConfig,
+  type ProjectStatus,
+} from "./project-status-config";
 import { getAllProjects } from "./queries";
 import ProjectTable from "./projects-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
@@ -18,8 +20,15 @@ type ProjectPageProps = {
 export default async function Projects({ searchParams }: ProjectPageProps) {
   const params = await searchParams;
 
-  const { projects, total, page, pageSize, totalPages } =
-    await getAllProjects(params);
+  const {
+    projects,
+    total,
+    page,
+    pageSize,
+    totalPages,
+    statusCounts,
+    allCount,
+  } = await getAllProjects(params);
 
   return (
     <>
@@ -31,9 +40,13 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
           { label: "Dashboard", href: "/dashboard" },
           { label: "Projects" },
         ]}
+        mobileActions="inline"
         actions={
           <CustomButton variant="primary">
-            <Link href="/projects/new" className="flex items-center gap-2">
+            <Link
+              href="/projects/new"
+              className="mx-auto flex items-center gap-1 text-xs"
+            >
               <PlusIcon className="h-4 w-4" />
               <span>Add Project</span>
             </Link>
@@ -43,62 +56,63 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
 
       <DashboardContainer>
         <div className="flex flex-col gap-4">
+          {/* Counts come from the database (search applied), not from the
+              current page of rows — so they stay right past page one. */}
           <StatsCards
             items={[
               {
                 label: "Total",
-                value: projects.length,
+                value: allCount,
                 hint: "All Projects",
               },
               {
                 label: "In Progress",
-                value: projects.filter((item) => item.status === "in_progress")
-                  .length,
+                value: statusCounts.in_progress,
                 hint: "Active Now",
               },
               {
                 label: "Completed",
-                value: projects.filter((item) => item.status === "completed")
-                  .length,
+                value: statusCounts.completed,
                 hint: "Delivered",
               },
               {
                 label: "On Hold",
-                value: projects.filter((item) => item.status === "on_hold")
-                  .length,
+                value: statusCounts.on_hold,
                 hint: "Paused",
               },
             ]}
           />
-          <div className="border-border flex flex-col rounded-xl border">
-            <DataTableToolbar
-              className="p-3"
-              searchPlaceholder="Search projects..."
-              filters={[
-                {
-                  key: "status",
-                  label: "Status",
-                  options: Object.entries(projectStatusConfig).map(
-                    ([value, config]) => ({
-                      label: config.label,
-                      value,
-                      dotColor: config.dotColor,
-                    }),
-                  ),
-                },
-              ]}
-            />
 
-            <ProjectTable data={projects} />
-
-            <DataTablePagination
-              className="border-none"
-              page={page}
-              pageSize={pageSize}
-              total={total}
-              totalPages={totalPages}
-            />
-          </div>
+          <ProjectTable
+            data={projects}
+            toolbar={
+              <DataTableToolbar
+                searchPlaceholder="Search projects..."
+                filters={[
+                  {
+                    key: "status",
+                    label: "Filter projects by status",
+                    allCount,
+                    options: (
+                      Object.keys(projectStatusConfig) as ProjectStatus[]
+                    ).map((status) => ({
+                      value: status,
+                      label: projectStatusConfig[status].label,
+                      count: statusCounts[status],
+                    })),
+                  },
+                ]}
+              />
+            }
+            footer={
+              <DataTablePagination
+                page={page}
+                pageSize={pageSize}
+                total={total}
+                totalPages={totalPages}
+              />
+            }
+          />
         </div>
       </DashboardContainer>
     </>

@@ -13,7 +13,10 @@ export const createClient = async () => {
           cookiesToSet.forEach(({ name, value, options }) =>
             cookieStore.set(name, value, options),
           );
-        } catch (error) {}
+        } catch {
+          // Called from a Server Component, where cookies are read-only.
+          // Safe to ignore: the proxy (middleware) refreshes the session cookie.
+        }
       },
     },
   });

@@ -4,9 +4,16 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { CustomButton } from "@/components/ui/custom-button";
 import { formatPhone } from "@/lib/format-phone";
 import { formatDate, formatRelativeDate } from "@/lib/format-date";
+import { cn } from "@/lib/utils";
 import { clientStatusConfig } from "../client-status-config";
-import { Check, PencilIcon, RefreshCw, TrashIcon, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { Check, PencilIcon, Trash2Icon, X } from "lucide-react";
+import {
+  useEffect,
+  useOptimistic,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { TabButton } from "@/components/ui/tab-button";
 import { ProjectsPanel } from "./projects-panel";
 import { InvoicesPanel } from "./invoices-panel";
@@ -14,7 +21,7 @@ import { DeleteDialog } from "@/components/delete-dialog";
 import { deleteClientAction, updateClientAction } from "../actions";
 import { useRouter } from "next/navigation";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { ClientInput, clientSchema } from "../schema";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ClientRow } from "@/src/db/schema/clients";
@@ -29,22 +36,36 @@ import {
 } from "@/components/ui/select";
 import { PhoneField, PhoneFieldHandle } from "@/components/ui/phone-field";
 import { CountryCombobox } from "@/components/ui/country-combobox";
-import { ProjectListItem } from "../../projects/queries";
+import type { ProjectListResult } from "../../projects/queries";
+import type { InvoiceListResult } from "../../invoices/queries";
 import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 
+type ClientDetailSection = "projects" | "invoices";
+
+// Params that belong to the open tab's list, dropped when switching tabs.
+const LIST_PARAMS = ["search", "status", "page"];
+
 export function ClientDetail({
   client,
+  section,
   projects,
+  invoices,
+  projectCount,
+  invoiceCount,
   initialEdit = false,
 }: {
   client: ClientRow;
-  projects: ProjectListItem[];
+  section: ClientDetailSection;
+  projects: ProjectListResult | null;
+  invoices: InvoiceListResult | null;
+  projectCount: number;
+  invoiceCount: number;
   initialEdit?: boolean;
 }) {
-  const [activeSection, setActiveSection] = useState<"projects" | "invoices">(
-    "projects",
-  );
+  const [activeSection, setOptimisticSection] = useOptimistic(section);
+  const [isSectionPending, startSectionTransition] = useTransition();
+
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(initialEdit);
   const [formError, setFormError] = useState<string | null>(null);
@@ -59,14 +80,20 @@ export function ClientDetail({
     setValue,
     formState: { isSubmitting, errors },
     reset,
-    watch,
   } = useForm<ClientInput>({
     resolver: zodResolver(clientSchema),
     defaultValues: toClientFormsDefault(client),
   });
 
   const phoneFieldRef = useRef<PhoneFieldHandle>(null);
-  const countryValue = watch("country");
+  const countryValue = useWatch({ control, name: "country" });
+
+  const currentUrlWithout = (keys: string[]) => {
+    const params = new URLSearchParams(window.location.search);
+    for (const key of keys) params.delete(key);
+    const query = params.toString();
+    return `/clients/${client.id}${query ? `?${query}` : ""}`;
+  };
 
   const handleEditClick = () => {
     reset(toClientFormsDefault(client));
@@ -76,17 +103,40 @@ export function ClientDetail({
   const handleCancelClick = () => {
     reset(toClientFormsDefault(client));
     setIsEditing(false);
-    router.replace(`/clients/${client.id}`);
+    window.history.replaceState(null, "", currentUrlWithout(["edit"]));
   };
 
-  useEffect(() => {
-    if (!initialEdit) {
-      return;
-    }
+  const handleSectionChange = (next: ClientDetailSection) => {
+    if (next === activeSection) return;
 
-    reset(toClientFormsDefault(client));
-    setIsEditing(true);
-  }, [initialEdit, client, reset]);
+    const params = new URLSearchParams(window.location.search);
+    for (const key of LIST_PARAMS) params.delete(key);
+    if (next === "projects") {
+      params.delete("section");
+    } else {
+      params.set("section", next);
+    }
+    const query = params.toString();
+
+    startSectionTransition(() => {
+      setOptimisticSection(next);
+      router.replace(`/clients/${client.id}${query ? `?${query}` : ""}`, {
+        scroll: false,
+      });
+    });
+  };
+
+  const [prevInitialEdit, setPrevInitialEdit] = useState(initialEdit);
+  if (initialEdit !== prevInitialEdit) {
+    setPrevInitialEdit(initialEdit);
+    if (initialEdit) setIsEditing(true);
+  }
+  const clientVersion = `${client.id}:${new Date(client.updatedAt).getTime()}`;
+
+  useEffect(() => {
+    if (initialEdit) reset(toClientFormsDefault(client));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialEdit, clientVersion, reset]);
 
   const onSubmit = handleSubmit(async (data: ClientInput) => {
     setFormError(null);
@@ -95,7 +145,7 @@ export function ClientDetail({
       success: "Client updated.",
       onSuccess: () => {
         setIsEditing(false);
-        router.replace(`/clients/${client.id}`);
+        router.replace(currentUrlWithout(["edit"]), { scroll: false });
       },
       onError: setFormError,
     });
@@ -149,7 +199,7 @@ export function ClientDetail({
                 onClick={() => setIsDeleteOpen(true)}
                 className="flex items-center gap-1"
               >
-                <TrashIcon className="h-3.5 w-3.5" /> Delete
+                <Trash2Icon className="h-3.5 w-3.5" /> Delete
               </CustomButton>
               <CustomButton
                 variant="primary"
@@ -363,16 +413,16 @@ export function ClientDetail({
               <TabButton
                 id="project-tab"
                 label="Projects"
-                count={projects.length}
+                count={projectCount}
                 isActive={activeSection === "projects"}
-                onClick={() => setActiveSection("projects")}
+                onClick={() => handleSectionChange("projects")}
               />
               <TabButton
                 id="invoices-tab"
                 label="Invoices"
-                count={0}
+                count={invoiceCount}
                 isActive={activeSection === "invoices"}
-                onClick={() => setActiveSection("invoices")}
+                onClick={() => handleSectionChange("invoices")}
               />
             </div>
             <div
@@ -381,12 +431,22 @@ export function ClientDetail({
               aria-labelledby={
                 activeSection === "projects" ? "project-tab" : "invoices-tab"
               }
-              className="border-t"
+              aria-busy={isSectionPending}
+              className={cn(
+                "border-t transition-opacity",
+                isSectionPending && "pointer-events-none opacity-60",
+              )}
             >
               {activeSection === "projects" ? (
-                <ProjectsPanel projects={projects} className={"border-none"} />
+                projects ? (
+                  <ProjectsPanel result={projects} />
+                ) : (
+                  <PanelLoading />
+                )
+              ) : invoices ? (
+                <InvoicesPanel clientId={client.id} result={invoices} />
               ) : (
-                <InvoicesPanel className="border-none" />
+                <PanelLoading />
               )}
             </div>
           </div>
@@ -409,5 +469,13 @@ export function ClientDetail({
         </div>
       </DashboardContainer>
     </>
+  );
+}
+
+function PanelLoading() {
+  return (
+    <p className="text-muted-foreground px-6 py-12 text-center text-sm">
+      Loading…
+    </p>
   );
 }

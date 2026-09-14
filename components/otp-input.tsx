@@ -25,6 +25,15 @@ export type OtpInputHandle = {
   focusFirst: () => void;
 };
 
+// The first unfilled box — the furthest the user may move focus to. Outside
+// the component so it isn't a changing dependency of emitChange.
+function getFirstEmptyIndex(value: string, length: number) {
+  for (let i = 0; i < length; i++) {
+    if (!value[i]) return i;
+  }
+  return length - 1;
+}
+
 export const OtpInput = forwardRef<OtpInputHandle, OTPInputProps>(
   (
     {
@@ -48,16 +57,9 @@ export const OtpInput = forwardRef<OtpInputHandle, OTPInputProps>(
     const value = controlledValue ?? internalValue;
     const digits = Array.from({ length }, (_, i) => value[i] ?? "");
 
-    const getFirstEmptyIndex = (str: string) => {
-      for (let i = 0; i < length; i++) {
-        if (!str[i]) return i;
-      }
-      return length - 1;
-    };
-
     const emitChange = useCallback(
       (next: string) => {
-        maxReachableIndexRef.current = getFirstEmptyIndex(next);
+        maxReachableIndexRef.current = getFirstEmptyIndex(next, length);
         setInternalValue(next);
         onChange?.(next);
         if (next.length === length) {

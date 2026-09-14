@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { projectStatusEnum as projectStatusPgEnum } from "@/src/db/schema/projects";
+import { milestoneStatusEnum as milestoneStatusPgEnum } from "@/src/db/schema/milestones";
 
 export const projectStatusEnum = z.enum(projectStatusPgEnum.enumValues);
 
@@ -42,6 +43,24 @@ export const projectSearchParamsSchema = z.object({
 
 export const projectIdSchema = z.uuid();
 export const projectClientIdSchema = z.uuid();
+
+export const milestoneIdSchema = z.uuid();
+export const milestoneStatusEnum = z.enum(milestoneStatusPgEnum.enumValues);
+
+// Plain object schema (no .refine) so the update schema can .partial() it.
+export const milestoneSchema = z.object({
+  title: z
+    .string()
+    .trim()
+    .min(1, "Give the milestone a title")
+    .max(200, "Keep the title under 200 characters"),
+  // "" = no due date (the picker was cleared).
+  dueDate: z.union([z.iso.date("Invalid due date"), z.literal("")]).optional(),
+});
+
+export const updateMilestoneSchema = milestoneSchema.partial();
+
+export type MilestoneInput = z.input<typeof milestoneSchema>;
 
 export const editableProjectsSchema = projectSchema
   .omit({ clientId: true })
