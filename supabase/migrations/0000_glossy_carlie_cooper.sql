@@ -2,10 +2,12 @@ CREATE TYPE "public"."client_status" AS ENUM('lead', 'active', 'inactive', 'arch
 CREATE TYPE "public"."project_status_enum" AS ENUM('not_started', 'in_progress', 'on_hold', 'completed');--> statement-breakpoint
 CREATE TYPE "public"."milestone_status" AS ENUM('pending', 'completed');--> statement-breakpoint
 CREATE TYPE "public"."invoice_status" AS ENUM('draft', 'sent', 'paid', 'overdue');--> statement-breakpoint
+CREATE TYPE "public"."invoice_item_unit" AS ENUM('item', 'hour', 'day');--> statement-breakpoint
 CREATE TYPE "public"."proposal_status" AS ENUM('draft', 'sent', 'viewed', 'accepted', 'rejected');--> statement-breakpoint
 CREATE TYPE "public"."subscription_plan" AS ENUM('free', 'pro', 'agency');--> statement-breakpoint
 CREATE TYPE "public"."subscription_status" AS ENUM('active', 'trialing', 'past_due', 'canceled', 'incomplete');--> statement-breakpoint
 CREATE TYPE "public"."team_member_role" AS ENUM('owner', 'admin', 'member');--> statement-breakpoint
+CREATE TYPE "public"."waitlist_source" AS ENUM('x', 'reddit', 'direct', 'other');--> statement-breakpoint
 CREATE TABLE "users" (
 	"id" uuid PRIMARY KEY NOT NULL,
 	"email" text NOT NULL,
@@ -31,6 +33,7 @@ CREATE TABLE "clients" (
 	"country" text,
 	"status" "client_status" DEFAULT 'active' NOT NULL,
 	"notes" text,
+	"hourly_rate" numeric(12, 2),
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"deleted_at" timestamp with time zone
@@ -43,6 +46,7 @@ CREATE TABLE "projects" (
 	"title" text NOT NULL,
 	"description" text,
 	"budget" numeric(12, 2) NOT NULL,
+	"hourly_rate" numeric(12, 2),
 	"deadline" date,
 	"status" "project_status_enum" DEFAULT 'not_started' NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -90,6 +94,7 @@ CREATE TABLE "invoice_items" (
 	"quantity" numeric(10, 2) DEFAULT '1' NOT NULL,
 	"rate" numeric(12, 2) NOT NULL,
 	"amount" numeric(12, 2) NOT NULL,
+	"unit" "invoice_item_unit" DEFAULT 'item' NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -186,6 +191,15 @@ CREATE TABLE "invoice_counters" (
 	"last_number" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "waitlist_emails" (
+	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+	"email" text NOT NULL,
+	"source" "waitlist_source" DEFAULT 'direct',
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"unsubscribed_at" timestamp with time zone,
+	CONSTRAINT "waitlist_emails_email_unique" UNIQUE("email")
+);
+--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_id_users_id_fk" FOREIGN KEY ("id") REFERENCES "auth"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "clients" ADD CONSTRAINT "clients_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "projects" ADD CONSTRAINT "projects_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -205,13 +219,16 @@ ALTER TABLE "subscriptions" ADD CONSTRAINT "subscriptions_user_id_users_id_fk" F
 ALTER TABLE "team_members" ADD CONSTRAINT "team_members_owner_id_users_id_fk" FOREIGN KEY ("owner_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "invoice_counters" ADD CONSTRAINT "invoice_counters_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX "idx_clients_user_id" ON "clients" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "idx_clients_user_created" ON "clients" USING btree ("user_id","created_at" DESC NULLS LAST) WHERE deleted_at is null;--> statement-breakpoint
 CREATE INDEX "idx_projects_user_id" ON "projects" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "idx_project_client_id" ON "projects" USING btree ("client_id");--> statement-breakpoint
+CREATE INDEX "idx_projects_user_created" ON "projects" USING btree ("user_id","created_at" DESC NULLS LAST) WHERE deleted_at is null;--> statement-breakpoint
 CREATE INDEX "idx_milestones_project_id" ON "milestones" USING btree ("project_id");--> statement-breakpoint
 CREATE INDEX "idx_invoices_user_id" ON "invoices" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "idx_invoices_client_id" ON "invoices" USING btree ("client_id");--> statement-breakpoint
 CREATE INDEX "idx_invoices_project_id" ON "invoices" USING btree ("project_id");--> statement-breakpoint
 CREATE INDEX "idx_invoices_status" ON "invoices" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "idx_invoices_user_created" ON "invoices" USING btree ("user_id","created_at" DESC NULLS LAST) WHERE deleted_at is null;--> statement-breakpoint
 CREATE INDEX "idx_invoice_items_invoice_id" ON "invoice_items" USING btree ("invoice_id");--> statement-breakpoint
 CREATE INDEX "idx_proposals_user_id " ON "proposals" USING btree ("user_id");--> statement-breakpoint
 CREATE INDEX "idx_proposals_client_id" ON "proposals" USING btree ("client_id");--> statement-breakpoint
