@@ -36,7 +36,7 @@ export function StatusBadge({
           "inline-flex items-center gap-1.5 rounded-full font-medium whitespace-nowrap before:size-1.5 before:shrink-0 before:rounded-full before:bg-current",
           size === "sm"
             ? "h-5 pr-2 pl-1.5 text-[11px]"
-            : "h-[22px] pr-2.5 pl-2 text-xs",
+            : "h-5.5 pr-2.5 pl-2 text-xs",
           statusToneStyles[status],
           className,
         )}
