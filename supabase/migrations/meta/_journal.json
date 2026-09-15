@@ -15,6 +15,13 @@
       "when": 1784703071093,
       "tag": "0001_cloudy_living_lightning",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789494224123,
+      "tag": "0002_true_loa",
+      "breakpoints": true
     }
   ]
 }
