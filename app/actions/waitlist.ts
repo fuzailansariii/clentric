@@ -158,8 +158,10 @@ export async function unsubscribeFromWaitlist(input: {
 
 /** Real, currently-subscribed signup count for the landing page's
  * social-proof line — never a made-up number, and never counts someone who
- * unsubscribed. */
-export async function getWaitlistCount(): Promise<number> {
+ * unsubscribed. Returns null when the read fails: the page must still render,
+ * but a failed read must not show up as "0 people" (that's what had the page
+ * saying "Be one of the first" while signups existed). */
+export async function getWaitlistCount(): Promise<number | null> {
   try {
     const [row] = await db
       .select({ value: count() })
@@ -168,8 +170,6 @@ export async function getWaitlistCount(): Promise<number> {
     return row?.value ?? 0;
   } catch (error) {
     logError("getWaitlistCount", error);
-    // The landing page still has to render for every visitor even if this
-    // one read fails — fall back to "no count yet" rather than a 500.
-    return 0;
+    return null;
   }
 }
