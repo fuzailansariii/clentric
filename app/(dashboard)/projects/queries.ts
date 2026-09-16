@@ -1,5 +1,3 @@
-// Rethrows Next's own control-flow errors (dynamic rendering bail-out,
-// redirect, notFound) so the catch blocks below only handle real failures.
 import { unstable_rethrow } from "next/navigation";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
@@ -50,26 +48,23 @@ export type MilestoneItem = {
   createdAt: Date;
 };
 
-const daysUntilDeadline = sql<number>`(${projects.deadline} - current_date)`.mapWith(
-  Number,
-);
+const daysUntilDeadline =
+  sql<number>`(${projects.deadline} - current_date)`.mapWith(Number);
 
-const deadlineSpanDays = sql<number>`(${projects.deadline} - (${projects.createdAt})::date)`.mapWith(
-  Number,
-);
+const deadlineSpanDays =
+  sql<number>`(${projects.deadline} - (${projects.createdAt})::date)`.mapWith(
+    Number,
+  );
 
-// Correlated subqueries instead of LEFT JOIN milestones + GROUP BY: the join
-// version aggregated milestones for every one of the user's matching projects
-// before the LIMIT picked a page. As plain target-list subqueries, Postgres
-// can defer them past the sort + LIMIT, so only the rows on the page are
-// counted — each an index lookup on idx_milestones_project_id.
-const totalMilestones = sql<number>`(select count(*)::int from ${milestones} where ${milestones.projectId} = ${projects.id})`.mapWith(
-  Number,
-);
+const totalMilestones =
+  sql<number>`(select count(*)::int from ${milestones} where ${milestones.projectId} = ${projects.id})`.mapWith(
+    Number,
+  );
 
-const completedMilestones = sql<number>`(select count(*)::int from ${milestones} where ${milestones.projectId} = ${projects.id} and ${milestones.status} = 'completed')`.mapWith(
-  Number,
-);
+const completedMilestones =
+  sql<number>`(select count(*)::int from ${milestones} where ${milestones.projectId} = ${projects.id} and ${milestones.status} = 'completed')`.mapWith(
+    Number,
+  );
 
 const projectListFields = {
   id: projects.id,
@@ -296,30 +291,37 @@ export async function getMilestonesByProjectId(
 
     const user = await requireUser();
 
-    const rows = await db
-      .select({
-        id: milestones.id,
-        title: milestones.title,
-        status: milestones.status,
-        dueDate: milestones.dueDate,
-        daysUntilDue:
-          sql<number>`(${milestones.dueDate} - current_date)`.mapWith(Number),
-        createdAt: milestones.createdAt,
-      })
-      .from(milestones)
-      .innerJoin(projects, eq(milestones.projectId, projects.id))
-      .where(
-        and(
-          eq(milestones.projectId, parsed.data),
-          eq(projects.userId, user.id),
-          isNull(projects.deletedAt),
-        ),
-      )
-      // Creation order is the plan order people typed; id breaks ties so the
-      // list never reshuffles between renders.
-      .orderBy(asc(milestones.createdAt), asc(milestones.id));
+    // The project row is fetched only to prove ownership; its milestones come
+    // back on the same query, so an unowned project yields nothing.
+    const project = await db.query.projects.findFirst({
+      where: and(
+        eq(projects.id, parsed.data),
+        eq(projects.userId, user.id),
+        isNull(projects.deletedAt),
+      ),
+      columns: { id: true },
+      with: {
+        milestones: {
+          columns: {
+            id: true,
+            title: true,
+            status: true,
+            dueDate: true,
+            createdAt: true,
+          },
+          extras: {
+            daysUntilDue: sql`(${milestones.dueDate} - current_date)`
+              .mapWith(Number)
+              .as("days_until_due"),
+          },
+          // Creation order is the plan order people typed; id breaks ties so
+          // the list never reshuffles between renders.
+          orderBy: [asc(milestones.createdAt), asc(milestones.id)],
+        },
+      },
+    });
 
-    return rows;
+    return project?.milestones ?? [];
   } catch (error) {
     unstable_rethrow(error);
     logError("getMilestonesByProjectId", error);

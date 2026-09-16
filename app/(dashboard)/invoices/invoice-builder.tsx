@@ -16,7 +16,7 @@ import { ClientOption } from "@/components/client-combobox";
 import { ProjectOption } from "@/components/project-combobox";
 import { dateToFormValue } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
-import { calculateInvoiceTotals } from "@/lib/calculate-invoice-totals";
+import { calculateInvoiceTotals } from "@/lib/calculate-totals";
 import InvoicePreview from "@/components/preview/invoice-preview";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { cn } from "@/lib/utils";

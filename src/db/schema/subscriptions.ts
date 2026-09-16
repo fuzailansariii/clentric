@@ -7,12 +7,8 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
-
-export const subscriptionPlanEnum = pgEnum("subscription_plan", [
-  "free",
-  "pro",
-  "agency",
-]);
+// Shared with `users.plan` — declared once so drizzle-kit sees a single type.
+import { subscriptionPlanEnum } from "./enums";
 
 export const subscriptionStatusEnum = pgEnum("subscription_status", [
   "active",

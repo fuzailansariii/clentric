@@ -1,14 +1,6 @@
-import {
-  pgEnum,
-  pgTable,
-  text,
-  timestamp,
-  uuid,
-  boolean,
-} from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, uuid, boolean } from "drizzle-orm/pg-core";
 import { authUsers } from "drizzle-orm/supabase";
-
-const planEnum = pgEnum("subscription_plan", ["free", "pro", "agency"]);
+import { subscriptionPlanEnum } from "./enums";
 
 export const users = pgTable("users", {
   id: uuid("id")
@@ -18,7 +10,7 @@ export const users = pgTable("users", {
   name: text("name"),
   avatar: text("avatar"),
   profession: text("profession"),
-  plan: planEnum("plan").notNull().default("free"),
+  plan: subscriptionPlanEnum("plan").notNull().default("free"),
   onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
   timezone: text("timezone").default("UTC"),
   createdAt: timestamp("created_at", { withTimezone: true })

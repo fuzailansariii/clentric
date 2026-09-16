@@ -197,16 +197,6 @@ export default function NewClientPage() {
                 />
 
                 <Field
-                  {...register("hourlyRate")}
-                  label="Default hourly rate"
-                  placeholder="Optional"
-                  prefix="$"
-                  suffix="/hr"
-                  inputMode="decimal"
-                  error={errors.hourlyRate?.message}
-                />
-
-                <Field
                   {...register("notes")}
                   label="Notes"
                   placeholder="Add any useful context about this client..."

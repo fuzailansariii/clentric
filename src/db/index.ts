@@ -2,6 +2,7 @@ import "server-only";
 import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import * as schema from "./schema/schema";
 
 config({ path: ".env" });
 
@@ -20,5 +21,7 @@ if (process.env.NODE_ENV !== "production") {
   globalForDb.client = client;
 }
 
-export const db = drizzle({ client });
+// The schema (tables + relations) is what powers `db.query.*`. Without it,
+// `db.query` is an empty object.
+export const db = drizzle({ client, schema });
 export type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];

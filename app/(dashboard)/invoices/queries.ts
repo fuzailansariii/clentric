@@ -1,5 +1,3 @@
-// Rethrows Next's own control-flow errors (dynamic rendering bail-out,
-// redirect, notFound) so the catch blocks below only handle real failures.
 import { unstable_rethrow } from "next/navigation";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
@@ -7,16 +5,7 @@ import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
 import { invoices, invoiceStatusEnum } from "@/src/db/schema/invoices";
-import {
-  and,
-  asc,
-  count,
-  desc,
-  eq,
-  getTableColumns,
-  isNull,
-  sql,
-} from "drizzle-orm";
+import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { invoiceIdSchema, invoiceSearchParamsSchema } from "./schema";
 import {
   invoiceItems,
@@ -28,7 +17,6 @@ import {
   InvoiceDisplayStatus,
 } from "@/lib/get-invoice-display-status";
 import { projects } from "@/src/db/schema/projects";
-import { users } from "@/src/db/schema/users";
 
 export type InvoiceListItem = {
   id: string;
@@ -201,48 +189,28 @@ export async function getInvoiceById(invoiceId: string) {
 
     const user = await requireUser();
 
-    const [invoiceRows, items, issuerRows] = await Promise.all([
-      db
-        .select({
-          ...getTableColumns(invoices),
-          daysUntilDue,
-        })
-        .from(invoices)
-        .where(
-          and(
-            eq(invoices.userId, user.id),
-            eq(invoices.id, parsed.data),
-            isNull(invoices.deletedAt),
-          ),
-        )
-        .limit(1),
+    // One query: the ownership check on the invoice gates the line items and
+    // the issuer, so they can't come back for an invoice this user doesn't own.
+    const row = await db.query.invoices.findFirst({
+      where: and(
+        eq(invoices.userId, user.id),
+        eq(invoices.id, parsed.data),
+        isNull(invoices.deletedAt),
+      ),
+      extras: { daysUntilDue: daysUntilDue.as("days_until_due") },
+      with: {
+        lineItems: { orderBy: [asc(invoiceItems.sortOrder)] },
+        user: {
+          columns: { name: true, email: true, profession: true },
+        },
+      },
+    });
 
-      db
-        .select()
-        .from(invoiceItems)
-        .where(eq(invoiceItems.invoiceId, parsed.data))
-        .orderBy(asc(invoiceItems.sortOrder)),
+    if (!row) return null;
 
-      db
-        .select({
-          name: users.name,
-          email: users.email,
-          profession: users.profession,
-        })
-        .from(users)
-        .where(eq(users.id, user.id))
-        .limit(1),
-    ]);
+    const { user: issuer, ...invoice } = row;
 
-    const [invoice] = invoiceRows;
-
-    // Items are only returned alongside an invoice that passed the ownership
-    // check above.
-    if (!invoice) return null;
-
-    const [issuer] = issuerRows;
-
-    return { ...invoice, lineItems: items, issuer: issuer ?? null };
+    return { ...invoice, issuer: issuer ?? null };
   } catch (error) {
     unstable_rethrow(error);
     logError("getInvoiceById", error);
@@ -300,77 +268,69 @@ export async function getInvoiceForPdf(
 
     const user = await requireUser();
 
-    const [invoiceRows, [profileRows]] = await Promise.all([
-      db
-        .select({
-          id: invoices.id,
-          invoiceNumber: invoices.invoiceNumber,
-          status: invoices.status,
-          issueDate: invoices.issueDate,
-          dueDate: invoices.dueDate,
-          paidAt: invoices.paidAt,
-          subTotal: invoices.subTotal,
-          taxRate: invoices.taxRate,
-          taxAmount: invoices.taxAmount,
-          total: invoices.total,
-          paymentDetails: invoices.paymentDetails,
-          clientName: clients.name,
-          clientEmail: clients.email,
-          clientCompany: clients.company,
-          clientCountry: clients.country,
-          projectTitle: projects.title,
-        })
-        .from(invoices)
-        .innerJoin(clients, eq(invoices.clientId, clients.id))
-        .leftJoin(
-          projects,
-          and(eq(invoices.projectId, projects.id), isNull(projects.deletedAt)),
-        )
-        .where(
-          and(
-            eq(invoices.id, parsed.data),
-            eq(invoices.userId, user.id),
-            isNull(invoices.deletedAt),
-          ),
-        )
-        .limit(1),
+    // Everything the PDF needs in a single round trip. The line items used to
+    // be fetched in a second, sequential await after this lookup resolved.
+    const row = await db.query.invoices.findFirst({
+      where: and(
+        eq(invoices.id, parsed.data),
+        eq(invoices.userId, user.id),
+        isNull(invoices.deletedAt),
+      ),
+      columns: {
+        id: true,
+        invoiceNumber: true,
+        status: true,
+        issueDate: true,
+        dueDate: true,
+        paidAt: true,
+        subTotal: true,
+        taxRate: true,
+        taxAmount: true,
+        total: true,
+        paymentDetails: true,
+      },
+      with: {
+        client: {
+          columns: { name: true, email: true, company: true, country: true },
+        },
+        // `where` is only supported on many() relations, so the soft-delete
+        // check happens below — a deleted project reads as no project.
+        project: {
+          columns: { title: true, deletedAt: true },
+        },
+        lineItems: {
+          columns: {
+            id: true,
+            description: true,
+            quantity: true,
+            rate: true,
+            amount: true,
+            unit: true,
+          },
+          orderBy: [asc(invoiceItems.sortOrder), asc(invoiceItems.id)],
+        },
+        user: {
+          columns: { name: true, email: true, profession: true },
+        },
+      },
+    });
 
-      // Independent of the invoice lookup — runs alongside it, not after.
-      Promise.all([
-        db
-          .select({
-            name: users.name,
-            email: users.email,
-            profession: users.profession,
-          })
-          .from(users)
-          .where(eq(users.id, user.id))
-          .limit(1),
-      ]),
-    ]);
+    if (!row) return null;
 
-    const [invoiceRow] = invoiceRows;
-    if (!invoiceRow) return null;
-
-    const items = await db
-      .select({
-        id: invoiceItems.id,
-        description: invoiceItems.description,
-        quantity: invoiceItems.quantity,
-        rate: invoiceItems.rate,
-        amount: invoiceItems.amount,
-        unit: invoiceItems.unit,
-      })
-      .from(invoiceItems)
-      .where(eq(invoiceItems.invoiceId, parsed.data))
-      .orderBy(asc(invoiceItems.sortOrder), asc(invoiceItems.id));
-
-    const [profile] = profileRows;
+    const { client, project, lineItems, user: profile, ...invoice } = row;
     if (!profile) throw new AppError("NOT_FOUND", "Profile not found.");
 
     return {
-      invoice: { ...invoiceRow, status: getDisplayStatus(invoiceRow) },
-      items,
+      invoice: {
+        ...invoice,
+        status: getDisplayStatus(invoice),
+        clientName: client.name,
+        clientEmail: client.email,
+        clientCompany: client.company,
+        clientCountry: client.country,
+        projectTitle: project && !project.deletedAt ? project.title : null,
+      },
+      items: lineItems,
       profile,
     };
   } catch (error) {
