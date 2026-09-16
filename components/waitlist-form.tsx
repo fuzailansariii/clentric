@@ -18,11 +18,14 @@ type WaitlistFormProps = {
   /** "start" for a left-aligned hero, "center" for a centered call-to-action. */
   align?: "start" | "center";
   className?: string;
+  /** Called once a signup succeeds — lets the page bump its waiting count. */
+  onJoined?: () => void;
 };
 
 export default function WaitlistForm({
   align = "start",
   className,
+  onJoined,
 }: WaitlistFormProps) {
   const [email, setEmail] = useState("");
   const [source, setSource] = useState<Source | "">("");
@@ -45,6 +48,7 @@ export default function WaitlistForm({
       });
       if (result.success) {
         setSubmitted(true);
+        onJoined?.();
       } else {
         setError(result.error);
       }
