@@ -377,17 +377,25 @@ function HeroInvoice() {
 }
 
 export default function ComingSoon({
-  waitlistCount = 0,
+  waitlistCount = null,
 }: {
-  /** Real, currently-subscribed signups — never a placeholder number. */
-  waitlistCount?: number;
+  /** Real, currently-subscribed signups. null when the count couldn't be
+   * read — the page then says nothing rather than claiming zero. */
+  waitlistCount?: number | null;
 }) {
+  // Starts from the server's number and goes up by one when someone joins on
+  // this page, so the line reflects their own signup without a reload.
+  const [count, setCount] = useState(waitlistCount);
+  const onJoined = () => setCount((c) => (c === null ? c : c + 1));
+
   const waitingText =
-    waitlistCount === 0
-      ? "Be one of the first on the list"
-      : waitlistCount === 1
-        ? "1 freelancer is already waiting"
-        : `${formatUsd(waitlistCount)} freelancers are already waiting`;
+    count === null
+      ? null
+      : count === 0
+        ? "Be one of the first on the list"
+        : count === 1
+          ? "1 freelancer is already waiting"
+          : `${formatUsd(count)} freelancers are already waiting`;
 
   return (
     <MotionConfig reducedMotion="user">
@@ -479,11 +487,15 @@ export default function ComingSoon({
                   variants={rise}
                   className="mt-8 max-w-lg scroll-mt-24"
                 >
-                  <WaitlistForm align="start" />
+                  <WaitlistForm align="start" onJoined={onJoined} />
                   <p className="text-muted-foreground mt-4 text-sm">
-                    <span className="text-foreground font-medium">
-                      {waitingText}.
-                    </span>{" "}
+                    {waitingText && (
+                      <>
+                        <span className="text-foreground font-medium">
+                          {waitingText}.
+                        </span>{" "}
+                      </>
+                    )}
                     No card, no demo call.
                   </p>
                 </motion.div>
@@ -777,6 +789,7 @@ export default function ComingSoon({
                 <WaitlistForm
                   align="center"
                   className="mx-auto mt-8 max-w-lg text-left"
+                  onJoined={onJoined}
                 />
               </div>
             </Reveal>
