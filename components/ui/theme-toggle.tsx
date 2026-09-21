@@ -1,14 +1,14 @@
 "use client";
 import { useTheme } from "next-themes";
-import { useEffect, useState } from "react";
+import { useHydrated } from "@/hooks/use-hydrated";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  // The resolved theme is only known in the browser, so the first paint has to
+  // match the server's. useHydrated keeps that check out of an effect.
+  const hydrated = useHydrated();
 
-  useEffect(() => setMounted(true), []);
-
-  if (!mounted) {
+  if (!hydrated) {
     return <button className="w-9 h-9" />; // placeholder, same size, no icon yet
   }
 

@@ -23,6 +23,7 @@ import {
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { StatusBadge } from "@/components/ui/status-badge";
 import WaitlistForm from "@/components/waitlist-form";
+import { LegalFooter } from "@/components/legal/legal-footer";
 import { cn } from "@/lib/utils";
 
 // Visual direction: a freelancer's ledger — ruled paper, monospaced figures,
@@ -796,22 +797,14 @@ export default function ComingSoon({
           </section>
         </main>
 
-        <footer className="border-border border-t">
-          <div className="text-muted-foreground mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-5 py-8 text-sm sm:flex-row">
-            <div className="flex items-center gap-3">
-              <span className="bg-primary text-primary-foreground font-space flex size-6 items-center justify-center rounded text-xs font-bold">
-                C
-              </span>
-              <span>© 2026 Clentric · Built with care.</span>
-            </div>
-            <Link
-              href="/unsubscribe"
-              className="hover:text-foreground underline-offset-4 hover:underline"
-            >
-              Unsubscribe
-            </Link>
-          </div>
-        </footer>
+        <LegalFooter>
+          <Link
+            href="/unsubscribe"
+            className="hover:text-foreground focus-visible:ring-ring rounded-sm underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+          >
+            Unsubscribe
+          </Link>
+        </LegalFooter>
       </div>
     </MotionConfig>
   );

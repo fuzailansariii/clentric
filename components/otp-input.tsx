@@ -48,12 +48,15 @@ export const OtpInput = forwardRef<OtpInputHandle, OTPInputProps>(
     const value = controlledValue ?? internalValue;
     const digits = Array.from({ length }, (_, i) => value[i] ?? "");
 
-    const getFirstEmptyIndex = (str: string) => {
-      for (let i = 0; i < length; i++) {
-        if (!str[i]) return i;
-      }
-      return length - 1;
-    };
+    const getFirstEmptyIndex = useCallback(
+      (str: string) => {
+        for (let i = 0; i < length; i++) {
+          if (!str[i]) return i;
+        }
+        return length - 1;
+      },
+      [length],
+    );
 
     const emitChange = useCallback(
       (next: string) => {
@@ -64,7 +67,7 @@ export const OtpInput = forwardRef<OtpInputHandle, OTPInputProps>(
           onComplete?.(next);
         }
       },
-      [onChange, onComplete, length],
+      [onChange, onComplete, length, getFirstEmptyIndex],
     );
 
     const focusInput = (index: number) => {

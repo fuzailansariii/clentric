@@ -102,7 +102,7 @@ export default function AuthBrandPanel({
       {testimonial && (
         <div className="max-w-xs rounded-xl border border-border bg-muted/50 p-4">
           <p className="font-sans text-sm italic leading-relaxed text-foreground">
-            "{testimonial.quote}"
+            &ldquo;{testimonial.quote}&rdquo;
           </p>
           <div className="mt-3 flex items-center gap-2.5">
             <div className="flex size-7 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground">

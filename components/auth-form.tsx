@@ -53,6 +53,12 @@ export default function AuthForm({
     return () => clearTimeout(t);
   }, [resendIn]);
 
+  // Restores a half-finished verification after a refresh. This is a one-shot
+  // read of an external store (sessionStorage) that is only available in the
+  // browser, so it cannot move into a state initialiser without breaking
+  // hydration. set-state-in-effect cannot tell that case apart from the
+  // cascading-render pattern it exists to catch.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const savedStep = sessionStorage.getItem(`auth_${mode}_step`);
     const savedEmail = sessionStorage.getItem(`auth_${mode}_email`);
@@ -68,6 +74,7 @@ export default function AuthForm({
       setResendIn(remaining > 0 ? remaining : 0);
     }
   }, [mode]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // RHF + Schema
   const schema = mode === "register" ? registerSchema : loginSchema;
@@ -82,6 +89,11 @@ export default function AuthForm({
 
   // HANDLERS
   // Form submit handler
+  // react-hook-form's handleSubmit() is called during render by design — it
+  // returns the event handler the <form> uses. The rule reads the callback
+  // body as render code because of that, which is why the otpRef access below
+  // looks like a ref read during render when it only ever runs on submit.
+  // eslint-disable-next-line react-hooks/refs
   const onSubmit = handleSubmit(async (data) => {
     setError(null);
     setLoading(true);
@@ -93,6 +105,8 @@ export default function AuthForm({
       // session storage for percistant data
       sessionStorage.setItem(`auth_${mode}_email`, data.email);
       sessionStorage.setItem(`auth_${mode}_step`, "verify");
+      // Same reason as above: this runs on submit, never during render.
+      // eslint-disable-next-line react-hooks/purity
       sessionStorage.setItem(`auth_${mode}_sentAt`, Date.now().toString());
       setTimeout(() => otpRef.current?.focusFirst(), 50);
     } catch (error) {
