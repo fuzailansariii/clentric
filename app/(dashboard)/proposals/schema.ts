@@ -24,6 +24,20 @@ export const lineItemSchema = z.object({
   rate: z.coerce.number().nonnegative("Rate cannot be negative"),
 });
 
+export const milestoneSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1, "Milestone name is required")
+    .max(200, "Milestone name must be 200 characters or fewer"),
+  description: z
+    .string()
+    .trim()
+    .max(2000, "Milestone description is too long")
+    .optional(),
+  items: z.array(lineItemSchema).min(1, "Add at least one line item"),
+});
+
 /**
  * Plain object schema, kept separate from anything refined so it stays
  * .extend()/.pick()-able — .refine() would strip those off.
@@ -46,6 +60,12 @@ export const proposalObjectSchema = z.object({
     .min(0, "Tax rate cannot be negative")
     .max(100, "Tax rate cannot exceed 100")
     .default(0),
+  /** 0 means no deposit is asked for. */
+  depositPercent: z.coerce
+    .number()
+    .min(0, "Deposit cannot be negative")
+    .max(100, "Deposit cannot exceed 100%")
+    .default(0),
   /**
    * How long the public link stays openable, in days. 0 means no expiry.
    * Stored as an absolute expiresAt, but the window is what the user chose,
@@ -57,12 +77,27 @@ export const proposalObjectSchema = z.object({
     .min(0)
     .max(365, "Expiry cannot be more than a year")
     .default(EXPIRY_DEFAULT_DAYS),
-  items: z.array(lineItemSchema).min(1, "Add at least one line item"),
+  milestones: z
+    .array(milestoneSchema)
+    .min(1, "Add at least one milestone")
+    .max(20, "That is a lot of milestones — 20 is the limit"),
 });
 
 export const createProposalSchema = proposalObjectSchema;
 
 export const updateProposalSchema = proposalObjectSchema.extend({
+  proposalId: proposalIdSchema,
+});
+
+export const sendProposalSchema = z.object({
+  proposalId: proposalIdSchema,
+});
+
+export const revokeProposalSchema = z.object({
+  proposalId: proposalIdSchema,
+});
+
+export const duplicateProposalSchema = z.object({
   proposalId: proposalIdSchema,
 });
 
@@ -82,11 +117,3 @@ export type ProposalFormOutput = z.output<typeof createProposalSchema>;
 
 export type UpdateProposalFormInput = z.input<typeof updateProposalSchema>;
 export type UpdateProposalFormOutput = z.output<typeof updateProposalSchema>;
-
-export const sendProposalSchema = z.object({
-  proposalId: proposalIdSchema,
-});
-
-export const revokeProposalSchema = z.object({
-  proposalId: proposalIdSchema,
-});

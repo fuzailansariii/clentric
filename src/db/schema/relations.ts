@@ -26,6 +26,7 @@ import { milestones } from "./milestones";
 import { notifications } from "./notifications";
 import { projects } from "./projects";
 import { proposalItems } from "./proposal-items";
+import { proposalMilestones } from "./proposal-milestones";
 import { proposals } from "./proposals";
 import { subscriptions } from "./subscriptions";
 import { teamMembers } from "./team-members";
@@ -105,13 +106,30 @@ export const proposalsRelations = relations(proposals, ({ one, many }) => ({
     references: [clients.id],
   }),
   items: many(proposalItems),
+  milestones: many(proposalMilestones),
 }));
+
+// A proposal's stages, each owning the line items quoted under it.
+export const proposalMilestonesRelations = relations(
+  proposalMilestones,
+  ({ one, many }) => ({
+    proposal: one(proposals, {
+      fields: [proposalMilestones.proposalId],
+      references: [proposals.id],
+    }),
+    items: many(proposalItems),
+  }),
+);
 
 // Cascade-deleted with its proposal; only ever fetched alongside one.
 export const proposalItemsRelations = relations(proposalItems, ({ one }) => ({
   proposal: one(proposals, {
     fields: [proposalItems.proposalId],
     references: [proposals.id],
+  }),
+  milestone: one(proposalMilestones, {
+    fields: [proposalItems.milestoneId],
+    references: [proposalMilestones.id],
   }),
 }));
 

@@ -5,13 +5,20 @@ type ProposalPreviewProps = {
   clientName?: string;
   clientCompany?: string | null;
   content?: string;
-  items: { description?: string; quantity?: unknown; rate?: unknown }[];
+  milestones: {
+    name?: string;
+    description?: string;
+    items?: { description?: string; quantity?: unknown; rate?: unknown }[];
+  }[];
   subtotal: number;
   taxRate: number;
   taxAmount: number;
   total: number;
   /** 0 means the link never expires. */
   expiresInDays: number;
+  /** 0 means no deposit is asked for. */
+  depositPercent: number;
+  depositAmount: number;
 };
 
 /**
@@ -27,16 +34,27 @@ export default function ProposalPreview({
   clientName,
   clientCompany,
   content,
-  items,
+  milestones,
   subtotal,
   taxRate,
   taxAmount,
   total,
   expiresInDays,
+  depositPercent,
+  depositAmount,
 }: ProposalPreviewProps) {
-  const filledItems = items.filter(
-    (item) => item.description?.trim() || Number(item.rate ?? 0) > 0,
-  );
+  // A milestone earns a place in the preview once it has a name or a line
+  // worth showing — an untouched empty card should not render as a heading.
+  const filledMilestones = milestones
+    .map((milestone) => ({
+      ...milestone,
+      items: (milestone.items ?? []).filter(
+        (item) => item.description?.trim() || Number(item.rate ?? 0) > 0,
+      ),
+    }))
+    .filter(
+      (milestone) => milestone.name?.trim() || milestone.items.length > 0,
+    );
 
   return (
     <div className="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
@@ -79,37 +97,65 @@ export default function ProposalPreview({
           </div>
         )}
 
-        <div className="border-border border-t pt-4">
-          {filledItems.length === 0 ? (
+        <div className="border-border flex flex-col gap-4 border-t pt-4">
+          {filledMilestones.length === 0 ? (
             <p className="text-muted-foreground/60 text-[13px]">
-              Line items will appear here.
+              Milestones and line items will appear here.
             </p>
           ) : (
-            <ul className="flex flex-col gap-2.5">
-              {filledItems.map((item, index) => {
-                const quantity = Number(item.quantity ?? 0);
-                const rate = Number(item.rate ?? 0);
-                return (
-                  <li
-                    key={index}
-                    className="flex items-baseline justify-between gap-4 text-[13px]"
-                  >
-                    <span className="min-w-0">
-                      <span className="block truncate">
-                        {item.description?.trim() || "Untitled item"}
-                      </span>
-                      <span className="text-muted-foreground text-xs tabular-nums">
-                        {formatNumber(quantity)} ×{" "}
-                        {formatCurrency(String(rate))}
-                      </span>
-                    </span>
-                    <span className="shrink-0 font-medium tabular-nums">
-                      {formatCurrency(String(quantity * rate))}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+            filledMilestones.map((milestone, milestoneIndex) => {
+              const milestoneSubtotal = milestone.items.reduce(
+                (sum, item) =>
+                  sum + Number(item.quantity ?? 0) * Number(item.rate ?? 0),
+                0,
+              );
+
+              return (
+                <section key={milestoneIndex}>
+                  <h3 className="text-[13px] font-semibold">
+                    {milestone.name?.trim() ||
+                      `Milestone ${milestoneIndex + 1}`}
+                  </h3>
+                  {milestone.description?.trim() && (
+                    <p className="text-muted-foreground mt-0.5 text-xs">
+                      {milestone.description}
+                    </p>
+                  )}
+
+                  <ul className="mt-2 flex flex-col gap-2">
+                    {milestone.items.map((item, itemIndex) => {
+                      const quantity = Number(item.quantity ?? 0);
+                      const rate = Number(item.rate ?? 0);
+                      return (
+                        <li
+                          key={itemIndex}
+                          className="flex items-baseline justify-between gap-4 text-[13px]"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate">
+                              {item.description?.trim() || "Untitled item"}
+                            </span>
+                            <span className="text-muted-foreground text-xs tabular-nums">
+                              {formatNumber(quantity)} ×{" "}
+                              {formatCurrency(String(rate))}
+                            </span>
+                          </span>
+                          <span className="shrink-0 font-medium tabular-nums">
+                            {formatCurrency(String(quantity * rate))}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+
+                  {milestone.items.length > 0 && (
+                    <p className="text-muted-foreground mt-2 text-right text-xs tabular-nums">
+                      Stage subtotal {formatCurrency(String(milestoneSubtotal))}
+                    </p>
+                  )}
+                </section>
+              );
+            })
           )}
         </div>
 
@@ -135,6 +181,22 @@ export default function ProposalPreview({
         {/* The window, not a date. Sending re-bases expiry off the send
             time, so an absolute date shown while drafting would be wrong for
             any proposal not sent the same day. */}
+        {depositPercent > 0 && (
+          <div className="border-border bg-muted/40 rounded-lg border px-3 py-2.5">
+            <p className="flex items-baseline justify-between gap-3 text-[13px]">
+              <span className="font-medium">
+                Deposit to begin ({formatNumber(depositPercent)}%)
+              </span>
+              <span className="font-semibold tabular-nums">
+                {formatCurrency(String(depositAmount))}
+              </span>
+            </p>
+            <p className="text-muted-foreground mt-1 text-xs">
+              Invoiced to your own payment details. Clentric never handles it.
+            </p>
+          </div>
+        )}
+
         <p className="text-muted-foreground border-border border-t pt-4 text-xs">
           {expiresInDays > 0
             ? `Link expires ${expiresInDays} days after sending`

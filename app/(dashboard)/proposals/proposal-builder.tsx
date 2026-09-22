@@ -25,7 +25,7 @@ import { calculateTotals } from "@/lib/calculate-totals";
 import { formatCurrency } from "@/lib/format-currency";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { createProposalAction } from "./actions";
-import ProposalLineItems from "./proposal-line-items";
+import ProposalMilestoneCard from "./proposal-milestone-card";
 import {
   createProposalSchema,
   EXPIRY_DEFAULT_DAYS,
@@ -56,8 +56,15 @@ export default function ProposalBuilder({
       content: "",
       currency: "USD",
       taxRate: 0,
+      depositPercent: 0,
       expiresInDays: EXPIRY_DEFAULT_DAYS,
-      items: [{ description: "", quantity: 1, rate: 0 }],
+      milestones: [
+        {
+          name: "",
+          description: "",
+          items: [{ description: "", quantity: 1, rate: 0 }],
+        },
+      ],
     },
   });
 
@@ -68,13 +75,18 @@ export default function ProposalBuilder({
     formState: { errors, isSubmitting },
   } = form;
 
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const {
+    fields: milestoneFields,
+    append: appendMilestone,
+    remove: removeMilestone,
+  } = useFieldArray({ control, name: "milestones" });
 
   // Watched per field rather than useWatch({ control }): the whole-form form
   // returns a deep partial, which loses the field types the preview and the
   // line-item editor are typed against.
-  const watchedItems = useWatch({ control, name: "items" }) ?? [];
+  const watchedMilestones = useWatch({ control, name: "milestones" }) ?? [];
   const watchedTaxRate = useWatch({ control, name: "taxRate" });
+  const watchedDeposit = useWatch({ control, name: "depositPercent" });
   const watchedTitle = useWatch({ control, name: "title" });
   const watchedContent = useWatch({ control, name: "content" });
   const watchedClientId = useWatch({ control, name: "clientId" });
@@ -82,10 +94,17 @@ export default function ProposalBuilder({
 
   // Preview only. The figures that get stored are recomputed by the server
   // action, which never trusts anything sent from here.
+  // Flattened across milestones: the totals are a property of the proposal,
+  // not of any one stage.
+  const flatItems = watchedMilestones.flatMap(
+    (milestone) => milestone?.items ?? [],
+  );
   const { subtotal, taxRate, taxAmount, total } = calculateTotals(
-    watchedItems,
+    flatItems,
     watchedTaxRate,
   );
+  const depositPercent = Number(watchedDeposit ?? 0);
+  const depositAmount = Math.round(total * (depositPercent / 100) * 100) / 100;
 
   const selectedClient = clients.find(
     (client) => client.id === watchedClientId,
@@ -164,34 +183,44 @@ export default function ProposalBuilder({
                 <FormSection
                   step="02 Pricing"
                   title="What are you quoting?"
-                  description="Add a line for each piece of work. Totals are calculated for you."
+                  description="Group the work into stages. Each milestone has its own line items."
                 >
-                  <ProposalLineItems
-                    fields={fields}
-                    register={register}
-                    errors={errors}
-                    watchedItems={watchedItems}
-                    remove={remove}
-                  />
+                  <div className="flex flex-col gap-3">
+                    {milestoneFields.map((field, index) => (
+                      <ProposalMilestoneCard
+                        key={field.id}
+                        index={index}
+                        control={control}
+                        register={register}
+                        errors={errors}
+                        canRemove={milestoneFields.length > 1}
+                        onRemove={() => removeMilestone(index)}
+                      />
+                    ))}
+                  </div>
 
-                  {errors.items?.message && (
+                  {errors.milestones?.message && (
                     <p className="text-danger-600 mt-2 text-xs">
-                      {errors.items.message}
+                      {errors.milestones.message}
                     </p>
                   )}
 
                   <button
                     type="button"
                     onClick={() =>
-                      append({ description: "", quantity: 1, rate: 0 })
+                      appendMilestone({
+                        name: "",
+                        description: "",
+                        items: [{ description: "", quantity: 1, rate: 0 }],
+                      })
                     }
-                    className="text-primary focus-visible:ring-ring mt-4 inline-flex items-center gap-1.5 rounded-sm text-sm font-medium underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                    className="border-border text-foreground hover:bg-muted focus-visible:ring-ring mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed px-3 py-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none @[560px]:w-auto"
                   >
                     <Plus className="h-4 w-4" />
-                    Add line item
+                    Add milestone
                   </button>
 
-                  <div className="border-border mt-8 grid gap-5 border-t pt-6 @[560px]:grid-cols-2">
+                  <div className="border-border mt-8 grid gap-5 border-t pt-6 @[560px]:grid-cols-3">
                     <Field
                       {...register("taxRate")}
                       label="Tax rate"
@@ -202,6 +231,18 @@ export default function ProposalBuilder({
                       placeholder="0"
                       suffix="%"
                       error={errors.taxRate?.message}
+                    />
+
+                    <Field
+                      {...register("depositPercent")}
+                      label="Deposit"
+                      type="number"
+                      min="0"
+                      max="100"
+                      step="1"
+                      placeholder="0"
+                      suffix="%"
+                      error={errors.depositPercent?.message}
                     />
 
                     <Controller
@@ -275,12 +316,14 @@ export default function ProposalBuilder({
                 clientName={selectedClient?.name}
                 clientCompany={selectedClient?.company}
                 content={watchedContent}
-                items={watchedItems}
+                milestones={watchedMilestones}
                 subtotal={subtotal}
                 taxRate={taxRate}
                 taxAmount={taxAmount}
                 total={total}
                 expiresInDays={Number(watchedExpiry ?? EXPIRY_DEFAULT_DAYS)}
+                depositPercent={depositPercent}
+                depositAmount={depositAmount}
               />
 
               <div className="flex flex-col-reverse gap-3 @[560px]:flex-row @[560px]:justify-end @[900px]:flex-col-reverse">

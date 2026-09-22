@@ -10,6 +10,7 @@ import {
 import { sql } from "drizzle-orm";
 import { users } from "./users";
 import { clients } from "./clients";
+import { invoices } from "./invoices";
 
 export const proposalStatusEnum = pgEnum("proposal_status", [
   "draft",
@@ -41,6 +42,12 @@ export const proposals = pgTable(
       .notNull()
       .default("0"),
     tax: decimal("tax", { precision: 12, scale: 2 }).notNull().default("0"),
+    // The rate the tax amount came from. Stored rather than derived so an
+    // edit screen can prefill it and the client page can print "Tax (18%)"
+    // without dividing money by money.
+    taxRate: decimal("tax_rate", { precision: 5, scale: 2 })
+      .notNull()
+      .default("0"),
     total: decimal("total", { precision: 12, scale: 2 }).notNull().default("0"),
 
     status: proposalStatusEnum("status").notNull().default("draft"),
@@ -54,7 +61,24 @@ export const proposals = pgTable(
     viewedAt: timestamp("viewed_at", { withTimezone: true }),
     acceptedAt: timestamp("accepted_at", { withTimezone: true }),
     rejectedAt: timestamp("rejected_at", { withTimezone: true }),
+    /** Optional free text the client may leave when declining. */
+    declineReason: text("decline_reason"),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
+
+    /**
+     * Percentage of the total asked for up front, 0 when no deposit is
+     * required. Accepting a proposal with a deposit raises an invoice for
+     * total x depositPercent / 100 against the freelancer's own payment
+     * details — Clentric never handles that money.
+     */
+    depositPercent: decimal("deposit_percent", { precision: 5, scale: 2 })
+      .notNull()
+      .default("0"),
+    // set null rather than cascade: deleting the deposit invoice must never
+    // take the accepted proposal with it.
+    depositInvoiceId: uuid("deposit_invoice_id").references(() => invoices.id, {
+      onDelete: "set null",
+    }),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

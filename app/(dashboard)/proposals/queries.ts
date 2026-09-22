@@ -8,6 +8,8 @@ import { clients } from "@/src/db/schema/clients";
 import { proposals, proposalStatusEnum } from "@/src/db/schema/proposals";
 import { proposalIdSchema, proposalSearchParamsSchema } from "./schema";
 import { proposalItems } from "@/src/db/schema/proposal-items";
+import { proposalMilestones } from "@/src/db/schema/proposal-milestones";
+import { invoices } from "@/src/db/schema/invoices";
 import type { ProposalStatus } from "./proposal-status-config";
 
 export type ProposalListItem = {
@@ -22,6 +24,10 @@ export type ProposalListItem = {
   viewedAt: Date | null;
   acceptedAt: Date | null;
   createdAt: Date;
+  milestoneCount: number;
+  depositPercent: string;
+  /** null when no deposit invoice has been raised yet. */
+  depositPaid: boolean | null;
 };
 
 export type ProposalSummary = {
@@ -41,6 +47,13 @@ export type ProposalSummary = {
  * reads as overdue. Computed in SQL so filtering and counting agree with what
  * the table renders.
  */
+// Counted in the list query rather than by fetching milestones: the list
+// only ever shows "2 of 2", never the stages themselves.
+const milestoneCount =
+  sql<number>`(select count(*) from ${proposalMilestones} where ${proposalMilestones.proposalId} = ${proposals.id})`.mapWith(
+    Number,
+  );
+
 const displayStatus = sql<ProposalStatus>`case when ${proposals.status} in ('sent', 'viewed') and ${proposals.expiresAt} is not null and ${proposals.expiresAt} <= now() then 'expired' else ${proposals.status}::text end`;
 
 /** Applies the same expiry rule to an already-fetched row. */
@@ -95,9 +108,13 @@ export async function getProposalsByUserId(rawParams: unknown) {
           createdAt: proposals.createdAt,
           clientName: clients.name,
           clientCompany: clients.company,
+          milestoneCount,
+          depositPercent: proposals.depositPercent,
+          depositInvoiceStatus: invoices.status,
         })
         .from(proposals)
         .innerJoin(clients, eq(proposals.clientId, clients.id))
+        .leftJoin(invoices, eq(proposals.depositInvoiceId, invoices.id))
         .where(and(...listConditions))
         .orderBy(desc(proposals.createdAt))
         .limit(pageSize)
@@ -150,9 +167,15 @@ export async function getProposalsByUserId(rawParams: unknown) {
     };
 
     return {
-      proposals: rows.map((row) => ({
+      proposals: rows.map(({ depositInvoiceStatus, ...row }) => ({
         ...row,
         status: getProposalDisplayStatus(row),
+        // Only the freelancer's own "Mark as paid" click sets an invoice to
+        // paid, so this badge reflects that and nothing the client clicked.
+        depositPaid:
+          depositInvoiceStatus === undefined || depositInvoiceStatus === null
+            ? null
+            : depositInvoiceStatus === "paid",
       })),
       total,
       page,
@@ -195,12 +218,25 @@ export async function getProposalById(proposalId: string) {
         items: {
           columns: {
             id: true,
+            milestoneId: true,
             description: true,
             quantity: true,
             rate: true,
             amount: true,
           },
           orderBy: [asc(proposalItems.sortOrder), asc(proposalItems.id)],
+        },
+        milestones: {
+          columns: {
+            id: true,
+            name: true,
+            description: true,
+            sortOrder: true,
+          },
+          orderBy: [
+            asc(proposalMilestones.sortOrder),
+            asc(proposalMilestones.id),
+          ],
         },
       },
     });

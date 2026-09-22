@@ -5,6 +5,7 @@ import PageHeader from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency, formatNumber } from "@/lib/format-currency";
 import { formatDate } from "@/lib/format-date";
+import { cn } from "@/lib/utils";
 import { proposalStatusConfig } from "../proposal-status-config";
 import type { ProposalDetail } from "../queries";
 import { ProposalActions } from "./proposal-actions";
@@ -26,11 +27,34 @@ function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
 export function ProposalDetailView({ proposal }: ProposalDetailViewProps) {
   const config = proposalStatusConfig[proposal.status];
 
-  // Only the tax amount is stored, not the rate it came from, so the
-  // percentage is derived for display. Exact for any rate that produced a
-  // clean amount; it is a label, never used to recompute money.
-  const subtotal = Number(proposal.subtotal);
-  const taxRate = subtotal > 0 ? (Number(proposal.tax) / subtotal) * 100 : 0;
+  const taxRate = Number(proposal.taxRate);
+  const depositPercent = Number(proposal.depositPercent);
+  const depositAmount =
+    Math.round(Number(proposal.total) * (depositPercent / 100) * 100) / 100;
+
+  // Items carry their milestone id, so grouping happens here rather than in
+  // a second query. Anything without a milestone (written before stages
+  // existed) falls into a trailing unnamed group instead of vanishing.
+  const grouped = proposal.milestones.map((milestone) => ({
+    id: milestone.id,
+    name: milestone.name,
+    description: milestone.description,
+    items: proposal.items.filter((item) => item.milestoneId === milestone.id),
+  }));
+
+  const ungrouped = proposal.items.filter((item) => !item.milestoneId);
+  const sections =
+    ungrouped.length > 0
+      ? [
+          ...grouped,
+          {
+            id: "ungrouped",
+            name: null,
+            description: null,
+            items: ungrouped,
+          },
+        ]
+      : grouped;
 
   return (
     <>
@@ -89,52 +113,67 @@ export function ProposalDetailView({ proposal }: ProposalDetailViewProps) {
               )}
 
               <div className="px-6 py-6 sm:px-8">
-                <table className="w-full text-left text-sm">
-                  <caption className="sr-only">
-                    Line items for {proposal.title}
-                  </caption>
-                  <thead>
-                    <tr className="border-border text-muted-foreground border-b">
-                      <th scope="col" className="pb-2 font-medium">
-                        Description
-                      </th>
-                      <th
-                        scope="col"
-                        className="pb-2 text-right font-medium whitespace-nowrap"
-                      >
-                        Qty
-                      </th>
-                      <th
-                        scope="col"
-                        className="hidden pb-2 text-right font-medium whitespace-nowrap @[520px]:table-cell"
-                      >
-                        Rate
-                      </th>
-                      <th
-                        scope="col"
-                        className="pb-2 text-right font-medium whitespace-nowrap"
-                      >
-                        Amount
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {proposal.items.map((item) => (
-                      <tr key={item.id} className="border-border border-b">
-                        <td className="py-3 pr-4">{item.description}</td>
-                        <td className="py-3 text-right tabular-nums">
-                          {formatNumber(Number(item.quantity))}
-                        </td>
-                        <td className="hidden py-3 text-right tabular-nums @[520px]:table-cell">
-                          {formatCurrency(item.rate)}
-                        </td>
-                        <td className="py-3 text-right font-medium tabular-nums">
-                          {formatCurrency(item.amount)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="flex flex-col gap-7">
+                  {sections.map((section) => {
+                    const stageSubtotal = section.items.reduce(
+                      (sum, item) => sum + Number(item.amount),
+                      0,
+                    );
+
+                    return (
+                      <section key={section.id}>
+                        {section.name && (
+                          <h3 className="font-space text-base font-semibold">
+                            {section.name}
+                          </h3>
+                        )}
+                        {section.description && (
+                          <p className="text-muted-foreground mt-1 text-sm">
+                            {section.description}
+                          </p>
+                        )}
+
+                        {/* No table here on purpose: at phone width a
+                            four-column table either scrolls sideways or
+                            crushes the description. Each line is its own row
+                            that wraps naturally, amount always right. */}
+                        <ul
+                          className={cn(
+                            "flex flex-col",
+                            (section.name || section.description) && "mt-3",
+                          )}
+                        >
+                          {section.items.map((item) => (
+                            <li
+                              key={item.id}
+                              className="border-border flex items-baseline justify-between gap-4 border-b py-3 text-sm last:border-b-0"
+                            >
+                              <span className="min-w-0">
+                                <span className="block">
+                                  {item.description}
+                                </span>
+                                <span className="text-muted-foreground text-xs tabular-nums">
+                                  {formatNumber(Number(item.quantity))} ×{" "}
+                                  {formatCurrency(item.rate)}
+                                </span>
+                              </span>
+                              <span className="shrink-0 font-medium tabular-nums">
+                                {formatCurrency(item.amount)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+
+                        {section.items.length > 0 && (
+                          <p className="text-muted-foreground mt-2 text-right text-xs tabular-nums">
+                            Stage subtotal{" "}
+                            {formatCurrency(String(stageSubtotal))}
+                          </p>
+                        )}
+                      </section>
+                    );
+                  })}
+                </div>
 
                 <dl className="mt-5 ml-auto flex max-w-xs flex-col gap-1.5 text-sm">
                   <div className="text-muted-foreground flex justify-between">
@@ -157,6 +196,16 @@ export function ProposalDetailView({ proposal }: ProposalDetailViewProps) {
                       {formatCurrency(proposal.total)}
                     </dd>
                   </div>
+                  {depositPercent > 0 && (
+                    <div className="text-muted-foreground mt-2 flex justify-between text-[13px]">
+                      <dt>
+                        Deposit to begin ({formatNumber(depositPercent)}%)
+                      </dt>
+                      <dd className="tabular-nums">
+                        {formatCurrency(String(depositAmount))}
+                      </dd>
+                    </div>
+                  )}
                 </dl>
               </div>
             </article>
@@ -200,6 +249,16 @@ export function ProposalDetailView({ proposal }: ProposalDetailViewProps) {
                       label="Declined"
                       value={formatDate(proposal.rejectedAt)}
                     />
+                  )}
+                  {proposal.declineReason && (
+                    <div className="border-border mt-1 border-t pt-2.5">
+                      <p className="text-muted-foreground text-xs">
+                        Reason given
+                      </p>
+                      <p className="mt-1 text-[13px] whitespace-pre-line">
+                        {proposal.declineReason}
+                      </p>
+                    </div>
                   )}
                   {proposal.revokedAt && (
                     <MetaRow

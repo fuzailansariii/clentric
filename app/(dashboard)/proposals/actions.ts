@@ -10,6 +10,7 @@ import { isRateLimited } from "@/lib/rate-limit";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
 import { proposalItems } from "@/src/db/schema/proposal-items";
+import { proposalMilestones } from "@/src/db/schema/proposal-milestones";
 import { proposals } from "@/src/db/schema/proposals";
 import {
   createProposalSchema,
@@ -155,14 +156,21 @@ export async function createProposalAction(
     // Money is computed here and only here — a client-sent total is never
     // trusted. Rounded per line first so the stored figures add up exactly
     // the way the line items read on screen.
-    const itemsWithAmounts = parsed.data.items.map((item) => ({
-      ...item,
-      amount: Math.round(item.quantity * item.rate * 100) / 100,
+    const milestonesWithAmounts = parsed.data.milestones.map((milestone) => ({
+      ...milestone,
+      items: milestone.items.map((item) => ({
+        ...item,
+        amount: Math.round(item.quantity * item.rate * 100) / 100,
+      })),
     }));
 
     const subtotal =
       Math.round(
-        itemsWithAmounts.reduce((sum, item) => sum + item.amount, 0) * 100,
+        milestonesWithAmounts.reduce(
+          (sum, milestone) =>
+            sum + milestone.items.reduce((s, item) => s + item.amount, 0),
+          0,
+        ) * 100,
       ) / 100;
     const taxAmount =
       Math.round(subtotal * (parsed.data.taxRate / 100) * 100) / 100;
@@ -175,7 +183,7 @@ export async function createProposalAction(
         ? new Date(Date.now() + parsed.data.expiresInDays * 86_400_000)
         : null;
 
-    // The proposal and its line items have to land together — a proposal with
+    // Proposal, milestones and items have to land together — a proposal with
     // no items would show an empty quote at a public URL.
     const created = await db.transaction(async (tx) => {
       const [client] = await tx
@@ -204,7 +212,9 @@ export async function createProposalAction(
           currency: parsed.data.currency,
           subtotal: subtotal.toFixed(2),
           tax: taxAmount.toFixed(2),
+          taxRate: parsed.data.taxRate.toFixed(2),
           total: total.toFixed(2),
+          depositPercent: parsed.data.depositPercent.toFixed(2),
           token: generateProposalToken(),
           expiresAt,
         })
@@ -214,15 +224,41 @@ export async function createProposalAction(
         throw new AppError("INSERT_FAILED", "Failed to create proposal");
       }
 
+      // One insert for every milestone, then one for every line across all
+      // of them — two round trips regardless of how many stages there are.
+      const milestoneRows = await tx
+        .insert(proposalMilestones)
+        .values(
+          milestonesWithAmounts.map((milestone, index) => ({
+            proposalId: row.proposalId,
+            name: milestone.name,
+            description: milestone.description,
+            sortOrder: index,
+          })),
+        )
+        .returning({
+          id: proposalMilestones.id,
+          sortOrder: proposalMilestones.sortOrder,
+        });
+
+      const bySortOrder = new Map(
+        milestoneRows.map((milestone) => [milestone.sortOrder, milestone.id]),
+      );
+
       await tx.insert(proposalItems).values(
-        itemsWithAmounts.map((item, index) => ({
-          proposalId: row.proposalId,
-          description: item.description,
-          quantity: item.quantity.toFixed(2),
-          rate: item.rate.toFixed(2),
-          amount: item.amount.toFixed(2),
-          sortOrder: index,
-        })),
+        milestonesWithAmounts.flatMap((milestone, milestoneIndex) =>
+          milestone.items.map((item, itemIndex) => ({
+            proposalId: row.proposalId,
+            milestoneId: bySortOrder.get(milestoneIndex),
+            description: item.description,
+            quantity: item.quantity.toFixed(2),
+            rate: item.rate.toFixed(2),
+            amount: item.amount.toFixed(2),
+            // Kept unique across the whole proposal so a flat ordering still
+            // reads correctly if milestones are ever collapsed away.
+            sortOrder: milestoneIndex * 1000 + itemIndex,
+          })),
+        ),
       );
 
       return row;

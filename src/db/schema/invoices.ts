@@ -49,6 +49,13 @@ export const invoices = pgTable(
     dueDate: date("due_date").notNull(),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paymentDetails: text("payment_details"),
+    /**
+     * Set when a client presses "I've sent payment". A nudge and nothing
+     * more: it never changes `status`, which only the freelancer's own
+     * "Mark as paid" click can do.
+     */
+    paymentClaimedAt: timestamp("payment_claimed_at", { withTimezone: true }),
+    paymentClaimedNote: text("payment_claimed_note"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     lastReminderSentAt: timestamp("last_reminder_sent_at", {

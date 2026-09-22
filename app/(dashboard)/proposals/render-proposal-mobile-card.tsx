@@ -12,6 +12,7 @@ import {
   proposalStatusConfig,
 } from "./proposal-status-config";
 import type { ProposalListItem } from "./queries";
+import { DepositBadge } from "./proposals-columns";
 
 // Mobile shows: title, client · created, amount, status. Expiry stays on the
 // wider table, where there is room for a date that is usually empty.
@@ -26,9 +27,18 @@ export function renderProposalMobileCard(proposal: ProposalListItem) {
         </IconTile>
       }
       title={proposal.title}
+      titleClassName="truncate"
       subtitle={
         <>
-          {proposal.clientCompany ?? proposal.clientName} ·{" "}
+          {proposal.clientCompany ?? proposal.clientName}
+          {proposal.milestoneCount > 0 && (
+            <>
+              {" · "}
+              {proposal.milestoneCount}{" "}
+              {proposal.milestoneCount === 1 ? "stage" : "stages"}
+            </>
+          )}
+          {" · "}
           {formatDate(proposal.createdAt)}
         </>
       }
@@ -50,6 +60,9 @@ export function renderProposalMobileCard(proposal: ProposalListItem) {
           >
             {config.label}
           </StatusBadge>
+          {Number(proposal.depositPercent) > 0 && (
+            <DepositBadge row={proposal} />
+          )}
         </>
       }
     />

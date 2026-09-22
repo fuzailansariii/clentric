@@ -9,6 +9,7 @@ const PROTECTED_PREFIXES = [
   "/projects",
   "/invoices",
   "/proposals",
+  "/settings",
 ];
 
 const AUTH_ROUTES = ["/register", "/login"];
