@@ -3,6 +3,7 @@ import { Inter, Roboto_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "next-themes";
+import { LEGAL } from "@/lib/legal-config";
 
 // Fonts
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
@@ -16,6 +17,9 @@ export const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
+  // Without a metadataBase, the relative `alternates.canonical` values on the
+  // public policy pages cannot resolve into absolute URLs.
+  metadataBase: new URL(LEGAL.siteUrl),
   title: "Clentri",
   description: "Freelance Workspace",
 };
