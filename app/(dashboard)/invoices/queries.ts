@@ -24,6 +24,7 @@ export type InvoiceListItem = {
   clientName: string | null;
   projectTitle: string | null; // from the linked project, for the description line
   total: string; // decimal(12,2) comes back as string from drizzle
+  currency: string;
   status: InvoiceDisplayStatus;
   issueDate: string; // drizzle `date` returns "yyyy-mm-dd" string
   dueDate: string;
@@ -104,6 +105,7 @@ export async function getInvoicesByUserId(
           dueDate: invoices.dueDate,
           daysUntilDue,
           total: invoices.total,
+          currency: invoices.currency,
           clientName: clients.name,
           projectTitle: projects.title,
           createdAt: invoices.createdAt,
@@ -132,13 +134,14 @@ export async function getInvoicesByUserId(
         .groupBy(sql`rollup(${displayStatus})`),
     ]);
 
+    const amountFor = (key: InvoiceDisplayStatus) =>
+      perStatus.find((row) => row.status === key)?.amount ?? "0";
+
     const perStatus = summaryRows.flatMap((row) =>
       row.status === null
         ? []
         : [{ status: row.status, value: row.value, amount: row.amount }],
     );
-    const amountFor = (key: InvoiceDisplayStatus) =>
-      perStatus.find((row) => row.status === key)?.amount ?? "0";
 
     const statusCounts = toStatusCounts(
       invoiceStatusEnum.enumValues,
@@ -232,9 +235,11 @@ export type InvoicePdfData = {
     taxRate: string;
     taxAmount: string;
     total: string;
+    currency: string;
     /** Freelancer's own free-text payment instructions for this invoice
-     * (bank details, "Zelle to...", etc.) — there's no profile-level
-     * payment field; this is entered per invoice. */
+     * (bank details, "Zelle to...", etc.). A profile-level default now lives
+     * on users.paymentDetails and is copied onto deposit invoices; this
+     * per-invoice field still wins wherever it is set. */
     paymentDetails: string | null;
     clientName: string;
     clientEmail: string | null;
@@ -287,6 +292,7 @@ export async function getInvoiceForPdf(
         taxRate: true,
         taxAmount: true,
         total: true,
+        currency: true,
         paymentDetails: true,
       },
       with: {

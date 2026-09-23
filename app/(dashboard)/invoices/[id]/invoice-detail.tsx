@@ -387,7 +387,7 @@ export function InvoiceDetail({
                   </p>
                   <p className="text-muted-foreground mt-1 text-[13.5px] leading-[1.65]">
                     {project.deadline
-                      ? `${formatDate(project.createdAt)} – ${formatDate(project.deadline)}`
+                      ? `${formatDate(project.createdAt)} - ${formatDate(project.deadline)}`
                       : projectStatus?.label}
                   </p>
                 </div>
@@ -451,7 +451,7 @@ export function InvoiceDetail({
                         {formatLineItemRate(item.rate, item.unit)}
                       </td>
                       <td className="py-3.5 pl-3 text-right align-top font-mono text-[13.5px] tabular-nums">
-                        {formatCurrency(item.amount)}
+                        {formatCurrency(item.amount, invoice.currency)}
                       </td>
                     </tr>
                   ))}
@@ -472,7 +472,7 @@ export function InvoiceDetail({
                   <div className="text-muted-foreground flex justify-between gap-6 py-1.75 text-[13.5px]">
                     <span>Subtotal</span>
                     <span className="text-foreground font-mono tabular-nums">
-                      {formatCurrency(invoice.subTotal)}
+                      {formatCurrency(invoice.subTotal, invoice.currency)}
                     </span>
                   </div>
                   <div
@@ -483,7 +483,7 @@ export function InvoiceDetail({
                   >
                     <span>Tax ({formatNumber(Number(invoice.taxRate))}%)</span>
                     <span className="text-foreground font-mono tabular-nums">
-                      {formatCurrency(invoice.taxAmount)}
+                      {formatCurrency(invoice.taxAmount, invoice.currency)}
                     </span>
                   </div>
                   <div className="flex items-baseline justify-between gap-6 pt-4">
@@ -491,7 +491,7 @@ export function InvoiceDetail({
                       Total due
                     </span>
                     <span className="font-mono text-[34px] leading-none font-semibold tracking-tight tabular-nums">
-                      {formatCurrency(invoice.total)}
+                      {formatCurrency(invoice.total, invoice.currency)}
                     </span>
                   </div>
                 </div>
@@ -509,7 +509,7 @@ export function InvoiceDetail({
                 <h2 className={cn(labelClass, "mb-2.5")}>Payment details</h2>
                 {invoice.paymentDetails ? (
                   <div className="text-[13.5px] leading-[1.85]">
-                    <p className="whitespace-pre-line wrap-anywhere">
+                    <p className="wrap-anywhere whitespace-pre-line">
                       {invoice.paymentDetails}
                     </p>
                     <p className="text-muted-foreground mt-2 text-[12.5px]">
@@ -523,8 +523,8 @@ export function InvoiceDetail({
                       ruleClass,
                     )}
                   >
-                    No payment details on this invoice — your client
-                    won&rsquo;t know where to send the money.{" "}
+                    No payment details on this invoice — your client won&rsquo;t
+                    know where to send the money.{" "}
                     {!isPaid && (
                       <Link
                         href={`/invoices/${invoice.id}/edit`}
@@ -638,7 +638,10 @@ export function InvoiceDetail({
                 </div>
               ) : (
                 <div
-                  className={cn("rounded-sm border border-dashed p-4", ruleClass)}
+                  className={cn(
+                    "rounded-sm border border-dashed p-4",
+                    ruleClass,
+                  )}
                 >
                   <p className="text-[13.5px] leading-[1.4] font-medium">
                     No project linked

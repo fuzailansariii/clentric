@@ -9,7 +9,10 @@ import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { cn } from "@/lib/utils";
 import { getInvoiceDueLabel } from "./invoice-due-label";
 import { InvoiceRowActions } from "./invoice-row-actions";
-import { invoiceAmountColor, invoiceStatusConfig } from "./invoice-status-config";
+import {
+  invoiceAmountColor,
+  invoiceStatusConfig,
+} from "./invoice-status-config";
 import type { InvoiceListItem } from "./queries";
 
 // Mobile shows: invoice number, client · due/overdue, amount, status.
@@ -41,7 +44,7 @@ export function renderInvoiceMobileCard(invoice: InvoiceListItem) {
               invoiceAmountColor[invoice.status],
             )}
           >
-            {formatCurrency(invoice.total)}
+            {formatCurrency(invoice.total, invoice.currency)}
           </span>
           <StatusBadge
             status={config.variant}

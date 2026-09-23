@@ -36,6 +36,12 @@ export const invoices = pgTable(
       onDelete: "set null",
     }),
     invoiceNumber: integer("invoice_number").notNull(),
+    /**
+     * Matches proposals.currency. Without it a deposit invoice raised from a
+     * proposal quoted in EUR would render as USD, since formatCurrency has to
+     * be told which currency a figure is in.
+     */
+    currency: text("currency").notNull().default("USD"),
     subTotal: decimal("sub_total", { precision: 12, scale: 2 }).notNull(),
     taxAmount: decimal("tax_amount", { precision: 12, scale: 2 })
       .notNull()
@@ -49,6 +55,13 @@ export const invoices = pgTable(
     dueDate: date("due_date").notNull(),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paymentDetails: text("payment_details"),
+    /**
+     * Set when a client presses "I've sent payment". A nudge and nothing
+     * more: it never changes `status`, which only the freelancer's own
+     * "Mark as paid" click can do.
+     */
+    paymentClaimedAt: timestamp("payment_claimed_at", { withTimezone: true }),
+    paymentClaimedNote: text("payment_claimed_note"),
     sentAt: timestamp("sent_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     lastReminderSentAt: timestamp("last_reminder_sent_at", {

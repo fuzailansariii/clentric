@@ -10,7 +10,7 @@ export function MilestoneProgress({
 }: {
   completed: number;
   total: number;
-  /** 0–100, precomputed by the query. */
+  /** 0-100, precomputed by the query. */
   progress: number;
   /** Stretch the bar to the available width (mobile rows). */
   fill?: boolean;

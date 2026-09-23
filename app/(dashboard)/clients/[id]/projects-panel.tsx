@@ -6,7 +6,7 @@ import { PlusIcon } from "lucide-react";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { CustomButton } from "@/components/ui/custom-button";
-import { StatsCards } from "@/components/ui/stats-cards";
+import { StatsSummary } from "@/components/ui/stats-summary";
 import { formatCurrency } from "@/lib/format-currency";
 import {
   projectStatusConfig,
@@ -42,31 +42,18 @@ export function ProjectsPanel({ result }: { result: ProjectListResult }) {
 
   return (
     <div className="min-w-0">
-      <StatsCards
-        variant="divided"
-        items={[
-          {
-            label: "Total Projects",
-            value: allCount,
-            hint: isSearching ? "Matching search" : "All time",
-          },
-          {
-            label: "Active",
-            value: statusCounts.in_progress,
-            hint: "In progress",
-          },
-          {
-            label: "Completed",
-            value: statusCounts.completed,
-            hint: "Delivered",
-          },
-          {
-            label: "Total Billed",
-            value: formatCurrency(summary.budgetTotal),
-            hint: isSearching ? "Matching search" : "Across all projects",
-          },
-        ]}
-      />
+      {/* Counts live in the status filter chips below; only the budget total
+          adds something they cannot show. */}
+      <div className="px-3 py-3 @[640px]:px-5 @[640px]:py-4">
+        <StatsSummary
+          items={[
+            {
+              label: isSearching ? "Budget (matching)" : "Total Budget",
+              value: formatCurrency(summary.budgetTotal),
+            },
+          ]}
+        />
+      </div>
 
       <ProjectTable
         data={projects}
@@ -79,13 +66,13 @@ export function ProjectsPanel({ result }: { result: ProjectListResult }) {
                 key: "status",
                 label: "Filter projects by status",
                 allCount,
-                options: (Object.keys(projectStatusConfig) as ProjectStatus[]).map(
-                  (status) => ({
-                    value: status,
-                    label: projectStatusConfig[status].label,
-                    count: statusCounts[status],
-                  }),
-                ),
+                options: (
+                  Object.keys(projectStatusConfig) as ProjectStatus[]
+                ).map((status) => ({
+                  value: status,
+                  label: projectStatusConfig[status].label,
+                  count: statusCounts[status],
+                })),
               },
             ]}
             actions={

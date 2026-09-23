@@ -6,6 +6,7 @@ export * from "./milestones";
 export * from "./invoices";
 export * from "./invoice-items";
 export * from "./proposals";
+export * from "./proposal-milestones";
 export * from "./proposal-items";
 export * from "./client-portal-tokens";
 export * from "./activity-logs";

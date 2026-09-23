@@ -1,7 +1,11 @@
 import { InvoiceFormInput } from "@/app/(dashboard)/invoices/schema";
 
+// Fields are optional because a z.coerce schema with .default() leaves them
+// optional on the form's input type, and a half-filled row is exactly what
+// this gets called with while someone is still typing. The body already
+// treats a missing value as 0.
 export function calculateTotals(
-  lineItems: { quantity: unknown; rate: unknown }[],
+  lineItems: { quantity?: unknown; rate?: unknown }[],
   taxRateInput: unknown,
 ) {
   const subtotal = lineItems.reduce((sum, item) => {

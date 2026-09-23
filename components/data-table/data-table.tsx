@@ -5,7 +5,7 @@ import type { Column, DataTableProps } from "./data-table.types";
 
 // Thresholds are the table's own width, not the viewport's. The sidebar
 // (64px collapsed / 256px expanded) and page padding (80px) come off first,
-// so a 1440px laptop gives the table only ~1080–1280px — viewport-style
+// so a 1440px laptop gives the table only ~1080-1280px — viewport-style
 // 768/1024/1280 steps left the widest tier unreachable on most laptops.
 // These steps are sized to when the extra columns actually fit.
 function getVisibilityClass(hideBelow?: Column<unknown>["hideBelow"]) {
@@ -212,7 +212,7 @@ export function DataTable<T>({
                     className={cn(
                       // Divider starts after the leading mark (12px padding
                       // + 36px mark + 10px gap), like a native list.
-                      "relative not-first:before:border-border not-first:before:absolute not-first:before:top-0 not-first:before:right-0 not-first:before:left-[58px] not-first:before:border-t",
+                      "not-first:before:border-border relative not-first:before:absolute not-first:before:top-0 not-first:before:right-0 not-first:before:left-14.5 not-first:before:border-t",
                       clickable && rowInteractive,
                     )}
                   >

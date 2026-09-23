@@ -10,6 +10,10 @@ import {
   countInvoicesByClientId,
   getInvoicesByUserId,
 } from "../../invoices/queries";
+import {
+  countProposalsByClientId,
+  getProposalsByUserId,
+} from "../../proposals/queries";
 
 type ClientPageProps = {
   params: Promise<{ id: string }>;
@@ -28,27 +32,41 @@ export default async function ClientPage({
     notFound();
   }
 
-  const section = query.section === "invoices" ? "invoices" : "projects";
+  const section =
+    query.section === "invoices"
+      ? "invoices"
+      : query.section === "proposals"
+        ? "proposals"
+        : "projects";
   const isSearching =
     typeof query.search === "string" && query.search.trim() !== "";
 
   // Only the open tab's list is fetched — paged, searched and filtered in
   // the database. The other tab only needs its badge count. The open tab's
   // badge reuses its list's unfiltered count, unless a search narrowed it.
-  const [client, projectList, invoiceList, projectCount, invoiceCount] =
-    await Promise.all([
-      getClientById(id),
-      section === "projects" ? getAllProjects(query, { clientId: id }) : null,
-      section === "invoices"
-        ? getInvoicesByUserId(query, { clientId: id })
-        : null,
-      section === "projects" && !isSearching
-        ? null
-        : countProjectsByClientId(id),
-      section === "invoices" && !isSearching
-        ? null
-        : countInvoicesByClientId(id),
-    ]);
+  const [
+    client,
+    projectList,
+    invoiceList,
+    proposalList,
+    projectCount,
+    invoiceCount,
+    proposalCount,
+  ] = await Promise.all([
+    getClientById(id),
+    section === "projects" ? getAllProjects(query, { clientId: id }) : null,
+    section === "invoices"
+      ? getInvoicesByUserId(query, { clientId: id })
+      : null,
+    section === "proposals"
+      ? getProposalsByUserId(query, { clientId: id })
+      : null,
+    section === "projects" && !isSearching ? null : countProjectsByClientId(id),
+    section === "invoices" && !isSearching ? null : countInvoicesByClientId(id),
+    section === "proposals" && !isSearching
+      ? null
+      : countProposalsByClientId(id),
+  ]);
 
   if (!client) notFound();
 
@@ -58,8 +76,10 @@ export default async function ClientPage({
       section={section}
       projects={projectList}
       invoices={invoiceList}
+      proposals={proposalList}
       projectCount={projectCount ?? projectList?.allCount ?? 0}
       invoiceCount={invoiceCount ?? invoiceList?.allCount ?? 0}
+      proposalCount={proposalCount ?? proposalList?.allCount ?? 0}
       initialEdit={query.edit === "true"}
     />
   );

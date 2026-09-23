@@ -1,7 +1,7 @@
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
 import { CustomButton } from "@/components/ui/custom-button";
-import { StatsCards } from "@/components/ui/stats-cards";
+import { StatsSummary } from "@/components/ui/stats-summary";
 import { Plus, Receipt } from "lucide-react";
 import Link from "next/link";
 import { getInvoicesByUserId } from "./queries";
@@ -62,30 +62,27 @@ export default async function InvoicesPage({
       <DashboardContainer>
         <div className="flex flex-col gap-4">
           {/* Totals come from the database across every matching invoice
-              (search applied, status tab not) — not just the current page. */}
-          <StatsCards
+              (search applied, status tab not) — not just the current page.
+              Per-status counts are left to the filter chips below. */}
+          <StatsSummary
             items={[
               {
                 label: "Total Billed",
                 value: formatCurrency(summary.total),
-                hint: `${summary.totalCount} invoices`,
               },
               {
                 label: "Paid",
                 value: formatCurrency(summary.paid),
-                hint: `${summary.paidCount} invoices`,
                 valueColor: "text-emerald-600",
               },
               {
                 label: "Outstanding",
                 value: formatCurrency(summary.outstanding),
-                hint: `${summary.outstandingCount} invoices`,
                 valueColor: "text-blue-600",
               },
               {
                 label: "Overdue",
                 value: formatCurrency(summary.overdue),
-                hint: `${summary.overdueCount} invoices`,
                 valueColor: "text-rose-500",
               },
             ]}

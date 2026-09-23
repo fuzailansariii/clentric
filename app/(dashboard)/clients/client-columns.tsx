@@ -50,7 +50,7 @@ export const clientColumns: Column<ClientRow>[] = [
   {
     header: "Email",
     className: "max-w-[16rem] text-muted-foreground",
-    cell: (row) => <span className="block truncate">{row.email ?? "—"}</span>,
+    cell: (row) => <span className="block truncate">{row.email ?? "-"}</span>,
   },
 
   {

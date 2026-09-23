@@ -10,6 +10,17 @@ export async function getDashboardData(userId: string) {
   // their current row rather than an arbitrary one.
   const row = await db.query.users.findFirst({
     where: and(eq(users.id, userId), isNull(users.deletedAt)),
+    // Named explicitly rather than selecting the whole row. This runs in the
+    // dashboard layout, so it is on the path of every page in the app — an
+    // implicit select breaks all of them the moment a column is added to the
+    // schema ahead of its migration, and ships columns nothing here reads.
+    columns: {
+      id: true,
+      name: true,
+      email: true,
+      avatar: true,
+      plan: true,
+    },
     with: {
       subscriptions: {
         orderBy: [desc(subscriptions.createdAt)],

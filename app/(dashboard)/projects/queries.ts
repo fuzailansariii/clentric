@@ -1,6 +1,10 @@
 import { unstable_rethrow } from "next/navigation";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
+import {
+  getDisplayStatus,
+  type InvoiceDisplayStatus,
+} from "@/lib/get-invoice-display-status";
 import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
 import {
   projectClientIdSchema,
@@ -11,6 +15,8 @@ import { db } from "@/src/db";
 import { and, asc, count, desc, eq, ilike, isNull, sql } from "drizzle-orm";
 import { projects, projectStatusEnum } from "@/src/db/schema/projects";
 import { clients } from "@/src/db/schema/clients";
+import { invoices } from "@/src/db/schema/invoices";
+import { proposals } from "@/src/db/schema/proposals";
 import { milestones } from "@/src/db/schema/milestones";
 
 export type ProjectListItem = {
@@ -19,6 +25,10 @@ export type ProjectListItem = {
   description: string | null;
   status: "not_started" | "in_progress" | "on_hold" | "completed";
   budget: string;
+  /** Matches proposals.currency; existing projects default to USD. */
+  currency: string;
+  /** Set when this project was created by accepting a proposal. */
+  proposalId: string | null;
   /** Optional default for hour lines on this project's invoices. */
   hourlyRate: string | null;
   deadline: string | null;
@@ -34,7 +44,7 @@ export type ProjectListItem = {
   clientName: string | null;
   totalMilestones: number;
   completedMilestones: number;
-  progress: number; // 0–100
+  progress: number; // 0-100
 };
 
 export type MilestoneItem = {
@@ -72,6 +82,8 @@ const projectListFields = {
   description: projects.description,
   status: projects.status,
   budget: projects.budget,
+  currency: projects.currency,
+  proposalId: projects.proposalId,
   hourlyRate: projects.hourlyRate,
   deadline: projects.deadline,
   daysUntilDeadline,
@@ -266,6 +278,7 @@ export async function getProjectOptionsByUserId() {
         clientId: projects.clientId,
         // Prefills hour lines in the invoice builder.
         hourlyRate: projects.hourlyRate,
+        currency: projects.currency,
       })
       .from(projects)
       .where(and(eq(projects.userId, user.id), isNull(projects.deletedAt)))
@@ -314,9 +327,15 @@ export async function getMilestonesByProjectId(
               .mapWith(Number)
               .as("days_until_due"),
           },
-          // Creation order is the plan order people typed; id breaks ties so
-          // the list never reshuffles between renders.
-          orderBy: [asc(milestones.createdAt), asc(milestones.id)],
+          // sortOrder first: milestones written in one statement share an
+          // identical createdAt, so timestamp alone fell through to a random
+          // uuid tiebreak and scrambled stages copied from a proposal.
+          // createdAt still orders anything added by hand afterwards.
+          orderBy: [
+            asc(milestones.sortOrder),
+            asc(milestones.createdAt),
+            asc(milestones.id),
+          ],
         },
       },
     });
@@ -327,5 +346,85 @@ export async function getMilestonesByProjectId(
     logError("getMilestonesByProjectId", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load milestones.");
+  }
+}
+
+export type ProjectInvoiceRow = {
+  id: string;
+  invoiceNumber: number;
+  status: InvoiceDisplayStatus;
+  total: string;
+  currency: string;
+  issueDate: string;
+  dueDate: string;
+};
+
+/**
+ * Invoices raised against a project, for the panel on its detail page.
+ *
+ * Each carries its own currency: a project can hold invoices in more than
+ * one, so they are formatted individually rather than summed.
+ */
+export async function getInvoicesForProject(
+  projectId: string,
+): Promise<ProjectInvoiceRow[]> {
+  try {
+    const parsed = projectIdSchema.safeParse(projectId);
+    if (!parsed.success) return [];
+
+    const user = await requireUser();
+
+    const rows = await db
+      .select({
+        id: invoices.id,
+        invoiceNumber: invoices.invoiceNumber,
+        status: invoices.status,
+        total: invoices.total,
+        currency: invoices.currency,
+        issueDate: invoices.issueDate,
+        dueDate: invoices.dueDate,
+      })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.projectId, parsed.data),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+        ),
+      )
+      .orderBy(desc(invoices.createdAt));
+
+    // Same derived status the invoice list uses, so "Overdue" means the same
+    // thing on both screens.
+    return rows.map((row) => ({ ...row, status: getDisplayStatus(row) }));
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getInvoicesForProject", error);
+    return [];
+  }
+}
+
+/** The proposal a project came from, for the "From proposal" link. */
+export async function getProposalForProject(proposalId: string) {
+  try {
+    const user = await requireUser();
+
+    const [row] = await db
+      .select({ id: proposals.id, title: proposals.title })
+      .from(proposals)
+      .where(
+        and(
+          eq(proposals.id, proposalId),
+          eq(proposals.userId, user.id),
+          isNull(proposals.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    return row ?? null;
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getProposalForProject", error);
+    return null;
   }
 }

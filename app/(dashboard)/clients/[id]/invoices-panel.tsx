@@ -5,7 +5,7 @@ import { PlusIcon } from "lucide-react";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { CustomButton } from "@/components/ui/custom-button";
-import { StatsCards } from "@/components/ui/stats-cards";
+import { StatsSummary } from "@/components/ui/stats-summary";
 import { formatCurrency } from "@/lib/format-currency";
 import {
   invoiceStatusConfig,
@@ -40,34 +40,31 @@ export function InvoicesPanel({
 
   return (
     <div className="min-w-0">
-      <StatsCards
-        variant="divided"
-        items={[
-          {
-            label: "Total Billed",
-            value: formatCurrency(summary.total),
-            hint: `${summary.totalCount} invoices`,
-          },
-          {
-            label: "Paid",
-            value: formatCurrency(summary.paid),
-            hint: `${summary.paidCount} invoices`,
-            valueColor: "text-emerald-600",
-          },
-          {
-            label: "Outstanding",
-            value: formatCurrency(summary.outstanding),
-            hint: `${summary.outstandingCount} invoices`,
-            valueColor: "text-blue-600",
-          },
-          {
-            label: "Overdue",
-            value: formatCurrency(summary.overdue),
-            hint: `${summary.overdueCount} invoices`,
-            valueColor: "text-rose-500",
-          },
-        ]}
-      />
+      <div className="px-3 py-3 @[640px]:px-5 @[640px]:py-4">
+        <StatsSummary
+          items={[
+            {
+              label: "Total Billed",
+              value: formatCurrency(summary.total),
+            },
+            {
+              label: "Paid",
+              value: formatCurrency(summary.paid),
+              valueColor: "text-emerald-600",
+            },
+            {
+              label: "Outstanding",
+              value: formatCurrency(summary.outstanding),
+              valueColor: "text-blue-600",
+            },
+            {
+              label: "Overdue",
+              value: formatCurrency(summary.overdue),
+              valueColor: "text-rose-500",
+            },
+          ]}
+        />
+      </div>
 
       <InvoicesTable
         data={invoices}
@@ -80,13 +77,13 @@ export function InvoicesPanel({
                 key: "status",
                 label: "Filter invoices by status",
                 allCount,
-                options: (Object.keys(invoiceStatusConfig) as InvoiceStatus[]).map(
-                  (status) => ({
-                    value: status,
-                    label: invoiceStatusConfig[status].label,
-                    count: statusCounts[status],
-                  }),
-                ),
+                options: (
+                  Object.keys(invoiceStatusConfig) as InvoiceStatus[]
+                ).map((status) => ({
+                  value: status,
+                  label: invoiceStatusConfig[status].label,
+                  count: statusCounts[status],
+                })),
               },
             ]}
             actions={

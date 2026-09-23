@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CURRENCY_CODES } from "@/lib/currency-options";
 import { clientIdSchema } from "../clients/schema";
 import { projectIdSchema } from "../projects/schema";
 import { invoiceStatusEnum as invoiceStatusPgEnum } from "@/src/db/schema/invoices";
@@ -19,6 +20,12 @@ export const invoiceObjectSchema = z.object({
   projectId: projectIdSchema.optional(),
   issueDate: invoiceDateSchema,
   dueDate: invoiceDateSchema,
+  currency: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .refine((value) => CURRENCY_CODES.includes(value), "Pick a currency")
+    .default("USD"),
   taxRate: z.coerce
     .number()
     .min(0, "Tax rate cannot be negative")

@@ -287,8 +287,9 @@ export default function PrivacyPolicyPage() {
         <p>
           We use sensible, standard protections: traffic is encrypted in transit
           over HTTPS, access to data is restricted, database row-level security
-          keeps accounts separated, and rich text written into proposals is
-          sanitised before it is displayed.
+          keeps accounts separated, and proposal content is stored and displayed
+          as plain text rather than as markup that could carry anything
+          executable.
         </p>
         <p>
           We would rather be honest than reassuring: no online service can be
