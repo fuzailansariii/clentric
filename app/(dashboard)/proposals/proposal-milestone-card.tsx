@@ -10,7 +10,7 @@ import {
 } from "react-hook-form";
 import { ChevronDown, Plus, Trash2, X } from "lucide-react";
 import { Field } from "@/components/ui/input";
-import { formatCurrency } from "@/lib/format-currency";
+import { currencySymbol, formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
 import type { ProposalFormInput } from "./schema";
 
@@ -19,6 +19,7 @@ type ProposalMilestoneCardProps = {
   control: Control<ProposalFormInput>;
   register: UseFormRegister<ProposalFormInput>;
   errors: FieldErrors<ProposalFormInput>;
+  currency: string;
   /** Removing the only milestone would leave a proposal with nothing in it. */
   canRemove: boolean;
   onRemove: () => void;
@@ -37,6 +38,7 @@ export default function ProposalMilestoneCard({
   control,
   register,
   errors,
+  currency,
   canRemove,
   onRemove,
 }: ProposalMilestoneCardProps) {
@@ -79,7 +81,7 @@ export default function ProposalMilestoneCard({
         </button>
 
         <span className="text-muted-foreground shrink-0 text-sm tabular-nums">
-          {formatCurrency(String(milestoneSubtotal))}
+          {formatCurrency(String(milestoneSubtotal), currency)}
         </span>
 
         <button
@@ -98,8 +100,8 @@ export default function ProposalMilestoneCard({
           <div className="grid gap-4 @[520px]:grid-cols-2">
             <Field
               {...register(`milestones.${index}.name`)}
-              label="Milestone name"
-              placeholder="e.g. Discovery"
+              label="Milestone name (optional)"
+              placeholder="e.g. Discovery — leave blank for a single list"
               error={milestoneErrors?.name?.message}
             />
             <Field
@@ -162,7 +164,7 @@ export default function ProposalMilestoneCard({
                           min="0"
                           step="0.01"
                           placeholder="0.00"
-                          prefix="$"
+                          prefix={currencySymbol(currency)}
                           error={itemErrors?.rate?.message}
                         />
                       </div>
@@ -172,7 +174,7 @@ export default function ProposalMilestoneCard({
                           Amount
                         </span>
                         <div className="border-border bg-input/20 flex h-11 items-center justify-end rounded-lg border px-3 text-sm font-medium tabular-nums">
-                          {formatCurrency(String(quantity * rate))}
+                          {formatCurrency(String(quantity * rate), currency)}
                         </div>
                       </div>
 

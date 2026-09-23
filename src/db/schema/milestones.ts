@@ -6,6 +6,7 @@ import {
   pgEnum,
   date,
   index,
+  integer,
 } from "drizzle-orm/pg-core";
 import { projects } from "./projects";
 
@@ -26,6 +27,12 @@ export const milestones = pgTable(
     title: text("title").notNull(),
     status: milestoneStatusEnum("status").notNull().default("pending"),
     dueDate: date("due_date"),
+    /**
+     * Explicit ordering. Milestones created in one statement share an
+     * identical createdAt, so ordering by timestamp alone falls back to a
+     * random uuid tiebreak - which scrambled stages copied from a proposal.
+     */
+    sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

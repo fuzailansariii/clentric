@@ -6,11 +6,11 @@ export const proposalIdSchema = z.uuid();
 
 /** 0 means the link never expires. */
 export const EXPIRY_OPTIONS = [
-  { value: 0, label: "No expiry" },
-  { value: 7, label: "7 days" },
-  { value: 14, label: "14 days" },
-  { value: 30, label: "30 days" },
-  { value: 60, label: "60 days" },
+  { value: "0", label: "No expiry" },
+  { value: "7", label: "7 days" },
+  { value: "14", label: "14 days" },
+  { value: "30", label: "30 days" },
+  { value: "60", label: "60 days" },
 ] as const;
 
 export const EXPIRY_DEFAULT_DAYS = 14;
@@ -25,11 +25,17 @@ export const lineItemSchema = z.object({
 });
 
 export const milestoneSchema = z.object({
+  /**
+   * Optional: quoting a simple one-line job should not force someone to
+   * invent a stage name. An unnamed stage renders its lines with no heading,
+   * which every surface already handles — proposal_items.milestone_id is
+   * nullable and the detail and client pages group unnamed items already.
+   */
   name: z
     .string()
     .trim()
-    .min(1, "Milestone name is required")
-    .max(200, "Milestone name must be 200 characters or fewer"),
+    .max(200, "Milestone name must be 200 characters or fewer")
+    .optional(),
   description: z
     .string()
     .trim()
@@ -40,7 +46,7 @@ export const milestoneSchema = z.object({
 
 /**
  * Plain object schema, kept separate from anything refined so it stays
- * .extend()/.pick()-able — .refine() would strip those off.
+ * .extend()/.pick()-able - .refine() would strip those off.
  */
 export const proposalObjectSchema = z.object({
   clientId: z.string().trim().min(1, "Client is required").pipe(clientIdSchema),
@@ -54,7 +60,12 @@ export const proposalObjectSchema = z.object({
     .trim()
     .max(20000, "Proposal content is too long")
     .optional(),
-  currency: z.string().trim().length(3).default("USD"),
+  currency: z
+    .string()
+    .trim()
+    .toUpperCase()
+    .length(3, "Pick a currency")
+    .default("USD"),
   taxRate: z.coerce
     .number()
     .min(0, "Tax rate cannot be negative")
@@ -69,7 +80,7 @@ export const proposalObjectSchema = z.object({
   /**
    * How long the public link stays openable, in days. 0 means no expiry.
    * Stored as an absolute expiresAt, but the window is what the user chose,
-   * so sending re-bases it — see sendProposalAction.
+   * so sending re-bases it - see sendProposalAction.
    */
   expiresInDays: z.coerce
     .number()
@@ -80,7 +91,7 @@ export const proposalObjectSchema = z.object({
   milestones: z
     .array(milestoneSchema)
     .min(1, "Add at least one milestone")
-    .max(20, "That is a lot of milestones — 20 is the limit"),
+    .max(20, "That is a lot of milestones - 20 is the limit"),
 });
 
 export const createProposalSchema = proposalObjectSchema;
@@ -98,6 +109,14 @@ export const revokeProposalSchema = z.object({
 });
 
 export const duplicateProposalSchema = z.object({
+  proposalId: proposalIdSchema,
+});
+
+export const startProjectSchema = z.object({
+  proposalId: proposalIdSchema,
+});
+
+export const deleteProposalSchema = z.object({
   proposalId: proposalIdSchema,
 });
 

@@ -259,7 +259,7 @@ export default function TermsOfServicePage() {
       >
         <p>
           When a client accepts a proposal, that is a simple click confirmation.
-          It notifies you and creates a project in your workspace.{" "}
+          It records their acceptance in your workspace and creates a project.{" "}
           <strong>
             It is not a legally binding electronic signature, and{" "}
             {LEGAL.productName} is not an e-signature or contract service.

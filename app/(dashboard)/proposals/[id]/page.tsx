@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { getProposalById } from "../queries";
+import { getProjectForProposal, getProposalById } from "../queries";
 import { ProposalDetailView } from "./proposal-detail";
 
 type ProposalPageProps = {
@@ -17,5 +17,10 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
     notFound();
   }
 
-  return <ProposalDetailView proposal={proposal} />;
+  // Only accepted proposals can have a project, so the lookup is skipped
+  // entirely for the rest.
+  const project =
+    proposal.status === "accepted" ? await getProjectForProposal(id) : null;
+
+  return <ProposalDetailView proposal={proposal} project={project} />;
 }

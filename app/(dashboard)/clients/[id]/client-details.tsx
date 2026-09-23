@@ -18,6 +18,8 @@ import {
 import { TabButton } from "@/components/ui/tab-button";
 import { ProjectsPanel } from "./projects-panel";
 import { InvoicesPanel } from "./invoices-panel";
+import { ProposalsPanel } from "./proposals-panel";
+import type { ProposalListResult } from "../../proposals/queries";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { deleteClientAction, updateClientAction } from "../actions";
 import { useRouter } from "next/navigation";
@@ -42,7 +44,7 @@ import type { InvoiceListResult } from "../../invoices/queries";
 import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 
-type ClientDetailSection = "projects" | "invoices";
+type ClientDetailSection = "projects" | "invoices" | "proposals";
 
 // Params that belong to the open tab's list, dropped when switching tabs.
 const LIST_PARAMS = ["search", "status", "page"];
@@ -52,16 +54,20 @@ export function ClientDetail({
   section,
   projects,
   invoices,
+  proposals,
   projectCount,
   invoiceCount,
+  proposalCount,
   initialEdit = false,
 }: {
   client: ClientRow;
   section: ClientDetailSection;
   projects: ProjectListResult | null;
   invoices: InvoiceListResult | null;
+  proposals: ProposalListResult | null;
   projectCount: number;
   invoiceCount: number;
+  proposalCount: number;
   initialEdit?: boolean;
 }) {
   const [activeSection, setOptimisticSection] = useOptimistic(section);
@@ -435,6 +441,13 @@ export function ClientDetail({
                 onClick={() => handleSectionChange("projects")}
               />
               <TabButton
+                id="proposals-tab"
+                label="Proposals"
+                count={proposalCount}
+                isActive={activeSection === "proposals"}
+                onClick={() => handleSectionChange("proposals")}
+              />
+              <TabButton
                 id="invoices-tab"
                 label="Invoices"
                 count={invoiceCount}
@@ -445,9 +458,13 @@ export function ClientDetail({
             <div
               id="client-section-panel"
               role="tabpanel"
-              aria-labelledby={
-                activeSection === "projects" ? "project-tab" : "invoices-tab"
-              }
+              aria-labelledby={`${
+                activeSection === "projects"
+                  ? "project"
+                  : activeSection === "proposals"
+                    ? "proposals"
+                    : "invoices"
+              }-tab`}
               aria-busy={isSectionPending}
               className={cn(
                 "border-t transition-opacity",
@@ -457,6 +474,12 @@ export function ClientDetail({
               {activeSection === "projects" ? (
                 projects ? (
                   <ProjectsPanel result={projects} />
+                ) : (
+                  <PanelLoading />
+                )
+              ) : activeSection === "proposals" ? (
+                proposals ? (
+                  <ProposalsPanel clientId={client.id} result={proposals} />
                 ) : (
                   <PanelLoading />
                 )

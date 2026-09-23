@@ -88,7 +88,7 @@ export const proposalColumns: Column<ProposalListItem>[] = [
           proposalAmountColor[row.status],
         )}
       >
-        {formatCurrency(row.total)}
+        {formatCurrency(row.total, row.currency)}
       </span>
     ),
   },

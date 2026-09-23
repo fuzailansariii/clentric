@@ -9,7 +9,10 @@ import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { cn } from "@/lib/utils";
 import { getInvoiceDueLabel } from "./invoice-due-label";
 import { InvoiceRowActions } from "./invoice-row-actions";
-import { invoiceAmountColor, invoiceStatusConfig } from "./invoice-status-config";
+import {
+  invoiceAmountColor,
+  invoiceStatusConfig,
+} from "./invoice-status-config";
 import type { InvoiceListItem } from "./queries";
 
 // Visibility by table width — always: Invoice (with client underneath),
@@ -58,7 +61,7 @@ export const invoiceColumns: Column<InvoiceListItem>[] = [
           invoiceAmountColor[row.status],
         )}
       >
-        {formatCurrency(row.total)}
+        {formatCurrency(row.total, row.currency)}
       </span>
     ),
   },

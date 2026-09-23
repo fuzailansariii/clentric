@@ -11,7 +11,6 @@ import {
 import { getAllProjects } from "./queries";
 import ProjectTable from "./projects-table";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import { StatsCards } from "@/components/ui/stats-cards";
 
 type ProjectPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -56,33 +55,10 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
 
       <DashboardContainer>
         <div className="flex flex-col gap-4">
-          {/* Counts come from the database (search applied), not from the
-              current page of rows — so they stay right past page one. */}
-          <StatsCards
-            items={[
-              {
-                label: "Total",
-                value: allCount,
-                hint: "All Projects",
-              },
-              {
-                label: "In Progress",
-                value: statusCounts.in_progress,
-                hint: "Active Now",
-              },
-              {
-                label: "Completed",
-                value: statusCounts.completed,
-                hint: "Delivered",
-              },
-              {
-                label: "On Hold",
-                value: statusCounts.on_hold,
-                hint: "Paused",
-              },
-            ]}
-          />
-
+          {/* No summary strip here on purpose: every figure a project list
+              could show — total, in progress, completed, on hold — is already
+              in the status filter chips directly below, and projects carry no
+              money column to add anything the chips cannot. */}
           <ProjectTable
             data={projects}
             toolbar={

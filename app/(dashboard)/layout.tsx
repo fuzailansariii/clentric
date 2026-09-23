@@ -34,29 +34,29 @@ export default async function DashboardLayout({
   return (
     <SidebarProvider defaultCollapsed={collapsed}>
       <TooltipProvider>
-      <div className="fixed inset-0 flex overflow-hidden">
-        <Sidebar
-          footer={
-            <SidebarFooter
-              user={{
-                name: profile?.name ?? authUser.email ?? "Account",
-                email: authUser.email ?? "",
-                avatarUrl: profile?.avatar ?? undefined,
-              }}
-              plan={subscription?.plan ?? "free"}
-              onLogoutClick={logoutAction}
-            />
-          }
-        />
+        <div className="fixed inset-0 flex overflow-hidden">
+          <Sidebar
+            footer={
+              <SidebarFooter
+                user={{
+                  name: profile?.name ?? authUser.email ?? "Account",
+                  email: authUser.email ?? "",
+                  avatarUrl: profile?.avatar ?? undefined,
+                }}
+                plan={subscription?.plan ?? "free"}
+                onLogoutClick={logoutAction}
+              />
+            }
+          />
 
-        <VerticalScale className="hidden md:block" />
-        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <MobileTopBar />
-          <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-            {children}
-          </main>
+          <VerticalScale className="hidden md:block" />
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+            <MobileTopBar />
+            <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
       </TooltipProvider>
       <Toaster />
     </SidebarProvider>

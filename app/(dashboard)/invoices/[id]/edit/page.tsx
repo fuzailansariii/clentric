@@ -40,6 +40,7 @@ export default async function EditInvoicePage({
         projectId: invoice.projectId ?? undefined,
         issueDate: invoice.issueDate,
         dueDate: invoice.dueDate,
+        currency: invoice.currency,
         taxRate: Number(invoice.taxRate),
         lineItems: invoice.lineItems.map((item) => ({
           description: item.description,

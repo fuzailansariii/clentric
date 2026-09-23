@@ -6,7 +6,9 @@ import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
 import { proposals, proposalStatusEnum } from "@/src/db/schema/proposals";
+import { projects } from "@/src/db/schema/projects";
 import { proposalIdSchema, proposalSearchParamsSchema } from "./schema";
+import { clientIdSchema } from "../clients/schema";
 import { proposalItems } from "@/src/db/schema/proposal-items";
 import { proposalMilestones } from "@/src/db/schema/proposal-milestones";
 import { invoices } from "@/src/db/schema/invoices";
@@ -68,7 +70,10 @@ export function getProposalDisplayStatus(row: {
   return row.status;
 }
 
-export async function getProposalsByUserId(rawParams: unknown) {
+export async function getProposalsByUserId(
+  rawParams: unknown,
+  scope: { clientId?: string } = {},
+) {
   try {
     const user = await requireUser();
 
@@ -80,6 +85,15 @@ export async function getProposalsByUserId(rawParams: unknown) {
       eq(proposals.userId, user.id),
       isNull(proposals.deletedAt),
     ];
+
+    // Used by the client detail page to show only that client's proposals.
+    if (scope.clientId) {
+      const parsedClientId = clientIdSchema.safeParse(scope.clientId);
+      if (!parsedClientId.success) {
+        throw new AppError("VALIDATION_ERROR", "Invalid client ID.");
+      }
+      baseConditions.push(eq(proposals.clientId, parsedClientId.data));
+    }
 
     if (search) {
       const pattern = `%${search}%`;
@@ -139,8 +153,6 @@ export async function getProposalsByUserId(rawParams: unknown) {
         ? []
         : [{ status: row.status, value: row.value, amount: row.amount }],
     );
-    const amountFor = (key: ProposalStatus) =>
-      perStatus.find((row) => row.status === key)?.amount ?? "0";
 
     const statusCounts = toStatusCounts(
       proposalStatusEnum.enumValues,
@@ -151,9 +163,9 @@ export async function getProposalsByUserId(rawParams: unknown) {
 
     // "Awaiting" is anything still with the client and still openable.
     const awaitingCount = statusCounts.sent + statusCounts.viewed;
-    const awaiting = (
-      Number(amountFor("sent")) + Number(amountFor("viewed"))
-    ).toFixed(2);
+
+    const amountFor = (key: ProposalStatus) =>
+      perStatus.find((row) => row.status === key)?.amount ?? "0";
 
     const summary: ProposalSummary = {
       totalCount: allCount,
@@ -161,7 +173,9 @@ export async function getProposalsByUserId(rawParams: unknown) {
       acceptedCount: statusCounts.accepted,
       accepted: amountFor("accepted"),
       awaitingCount,
-      awaiting,
+      awaiting: (
+        Number(amountFor("sent")) + Number(amountFor("viewed"))
+      ).toFixed(2),
       declinedCount: statusCounts.rejected,
       declined: amountFor("rejected"),
     };
@@ -259,3 +273,66 @@ export async function getProposalById(proposalId: string) {
 export type ProposalDetail = NonNullable<
   Awaited<ReturnType<typeof getProposalById>>
 >;
+
+/**
+ * The live project created from this proposal, if there is one.
+ *
+ * Scoped by user as well as proposal id: this feeds a link, and a link to
+ * something the viewer does not own should not render at all.
+ */
+export async function getProjectForProposal(proposalId: string) {
+  try {
+    const parsed = proposalIdSchema.safeParse(proposalId);
+    if (!parsed.success) return null;
+
+    const user = await requireUser();
+
+    const [row] = await db
+      .select({ id: projects.id, title: projects.title })
+      .from(projects)
+      .where(
+        and(
+          eq(projects.proposalId, parsed.data),
+          eq(projects.userId, user.id),
+          isNull(projects.deletedAt),
+        ),
+      )
+      .limit(1);
+
+    return row ?? null;
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getProjectForProposal", error);
+    // A missing link is not worth failing the whole detail page for.
+    return null;
+  }
+}
+
+/** Badge count for the client detail page's Proposals tab. */
+export async function countProposalsByClientId(
+  clientId: string,
+): Promise<number> {
+  try {
+    const parsed = clientIdSchema.safeParse(clientId);
+    if (!parsed.success) return 0;
+
+    const user = await requireUser();
+
+    const rows = await db
+      .select({ value: count() })
+      .from(proposals)
+      .where(
+        and(
+          eq(proposals.clientId, parsed.data),
+          eq(proposals.userId, user.id),
+          isNull(proposals.deletedAt),
+        ),
+      );
+
+    return rows[0]?.value ?? 0;
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("countProposalsByClientId", error);
+    return 0;
+  }
+}

@@ -32,6 +32,7 @@ export type EditableInvoice = {
   projectId?: string;
   issueDate: string;
   dueDate: string;
+  currency: string;
   taxRate: number;
   lineItems: {
     description: string;
@@ -76,6 +77,7 @@ export default function InvoiceBuilder({
           projectId: invoice.projectId,
           issueDate: invoice.issueDate,
           dueDate: invoice.dueDate,
+          currency: invoice.currency,
           taxRate: invoice.taxRate,
           lineItems: invoice.lineItems,
         }
@@ -84,6 +86,9 @@ export default function InvoiceBuilder({
           projectId: initialProjectId ?? undefined,
           issueDate: dateToFormValue(new Date()),
           dueDate: dateToFormValue(new Date()),
+          currency:
+            projects.find((project) => project.id === initialProjectId)
+              ?.currency ?? "USD",
           taxRate: 0,
           lineItems: [{ description: "", quantity: 1, rate: 0, unit: "item" }],
         },

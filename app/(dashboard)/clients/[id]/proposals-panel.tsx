@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
 import { PlusIcon } from "lucide-react";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
@@ -9,28 +8,26 @@ import { CustomButton } from "@/components/ui/custom-button";
 import { StatsSummary } from "@/components/ui/stats-summary";
 import { formatCurrency } from "@/lib/format-currency";
 import {
-  projectStatusConfig,
-  type ProjectStatus,
-} from "../../projects/project-status-config";
-import ProjectTable from "../../projects/projects-table";
-import type { ProjectListResult } from "../../projects/queries";
-
-// The table sits inside the tab card: no frame of its own from 640px up
-// (just a top rule under the stats), and a little padding on mobile where
-// toolbar, list and pagination stack.
-export const PANEL_TABLE_CLASS =
-  "p-3 @[640px]:rounded-none @[640px]:border-0 @[640px]:border-t @[640px]:p-0";
+  proposalStatusConfig,
+  type ProposalStatus,
+} from "../../proposals/proposal-status-config";
+import { ProposalsTable } from "../../proposals/proposals-table";
+import type { ProposalListResult } from "../../proposals/queries";
+import { PANEL_TABLE_CLASS } from "./projects-panel";
 
 /**
- * A client's projects, paged, searched and filtered on the server — the page
- * fetches only what this tab shows, so a client with hundreds of projects
- * doesn't ship them all to the browser.
+ * A client's proposals, paged and filtered on the server like the other two
+ * tabs. The "New Proposal" link arrives with this client prefilled.
  */
-export function ProjectsPanel({ result }: { result: ProjectListResult }) {
-  const isSearching = Boolean(useSearchParams().get("search"));
-
+export function ProposalsPanel({
+  result,
+  clientId,
+}: {
+  result: ProposalListResult;
+  clientId: string;
+}) {
   const {
-    projects,
+    proposals,
     total,
     page,
     pageSize,
@@ -42,48 +39,59 @@ export function ProjectsPanel({ result }: { result: ProjectListResult }) {
 
   return (
     <div className="min-w-0">
-      {/* Counts live in the status filter chips below; only the budget total
-          adds something they cannot show. */}
       <div className="px-3 py-3 @[640px]:px-5 @[640px]:py-4">
         <StatsSummary
           items={[
             {
-              label: isSearching ? "Budget (matching)" : "Total Budget",
-              value: formatCurrency(summary.budgetTotal),
+              label: "Total Proposed",
+              value: formatCurrency(summary.total),
+            },
+            {
+              label: "Accepted",
+              value: formatCurrency(summary.accepted),
+              valueColor: "text-emerald-600",
+            },
+            {
+              label: "Awaiting Reply",
+              value: formatCurrency(summary.awaiting),
+              valueColor: "text-blue-600",
             },
           ]}
         />
       </div>
 
-      <ProjectTable
-        data={projects}
+      <ProposalsTable
+        data={proposals}
         className={PANEL_TABLE_CLASS}
         toolbar={
           <DataTableToolbar
-            searchPlaceholder="Search projects..."
+            searchPlaceholder="Search proposals..."
             filters={[
               {
                 key: "status",
-                label: "Filter projects by status",
+                label: "Filter proposals by status",
                 allCount,
                 options: (
-                  Object.keys(projectStatusConfig) as ProjectStatus[]
+                  Object.keys(proposalStatusConfig) as ProposalStatus[]
                 ).map((status) => ({
                   value: status,
-                  label: projectStatusConfig[status].label,
+                  label: proposalStatusConfig[status].label,
                   count: statusCounts[status],
                 })),
               },
             ]}
             actions={
-              <Link href="/projects/new" className="shrink-0">
+              <Link
+                href={`/proposals/new?clientId=${clientId}`}
+                className="shrink-0"
+              >
                 <CustomButton
                   variant="primary"
                   size="sm"
                   className="h-9 gap-1.5 whitespace-nowrap @[640px]:h-8"
                 >
                   <PlusIcon className="h-3.5 w-3.5" />
-                  New Project
+                  New Proposal
                 </CustomButton>
               </Link>
             }

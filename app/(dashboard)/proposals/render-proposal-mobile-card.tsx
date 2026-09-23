@@ -50,7 +50,7 @@ export function renderProposalMobileCard(proposal: ProposalListItem) {
               proposalAmountColor[proposal.status],
             )}
           >
-            {formatCurrency(proposal.total)}
+            {formatCurrency(proposal.total, proposal.currency)}
           </span>
           <StatusBadge
             status={config.variant}

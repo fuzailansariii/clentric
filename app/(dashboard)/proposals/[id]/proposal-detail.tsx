@@ -3,7 +3,11 @@ import { FileSignature } from "lucide-react";
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatCurrency, formatNumber } from "@/lib/format-currency";
+import {
+  formatCurrency,
+  formatNumber,
+  formatPercent,
+} from "@/lib/format-currency";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import { proposalStatusConfig } from "../proposal-status-config";
@@ -12,6 +16,8 @@ import { ProposalActions } from "./proposal-actions";
 
 type ProposalDetailViewProps = {
   proposal: ProposalDetail;
+  /** The live project created from this proposal, when there is one. */
+  project: { id: string; title: string } | null;
 };
 
 /** One label/value row in the side panel. */
@@ -24,9 +30,13 @@ function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
   );
 }
 
-export function ProposalDetailView({ proposal }: ProposalDetailViewProps) {
+export function ProposalDetailView({
+  proposal,
+  project,
+}: ProposalDetailViewProps) {
   const config = proposalStatusConfig[proposal.status];
 
+  const currency = proposal.currency;
   const taxRate = Number(proposal.taxRate);
   const depositPercent = Number(proposal.depositPercent);
   const depositAmount =
@@ -154,11 +164,11 @@ export function ProposalDetailView({ proposal }: ProposalDetailViewProps) {
                                 </span>
                                 <span className="text-muted-foreground text-xs tabular-nums">
                                   {formatNumber(Number(item.quantity))} ×{" "}
-                                  {formatCurrency(item.rate)}
+                                  {formatCurrency(item.rate, currency)}
                                 </span>
                               </span>
                               <span className="shrink-0 font-medium tabular-nums">
-                                {formatCurrency(item.amount)}
+                                {formatCurrency(item.amount, currency)}
                               </span>
                             </li>
                           ))}
@@ -167,7 +177,7 @@ export function ProposalDetailView({ proposal }: ProposalDetailViewProps) {
                         {section.items.length > 0 && (
                           <p className="text-muted-foreground mt-2 text-right text-xs tabular-nums">
                             Stage subtotal{" "}
-                            {formatCurrency(String(stageSubtotal))}
+                            {formatCurrency(String(stageSubtotal), currency)}
                           </p>
                         )}
                       </section>
@@ -179,30 +189,30 @@ export function ProposalDetailView({ proposal }: ProposalDetailViewProps) {
                   <div className="text-muted-foreground flex justify-between">
                     <dt>Subtotal</dt>
                     <dd className="tabular-nums">
-                      {formatCurrency(proposal.subtotal)}
+                      {formatCurrency(proposal.subtotal, currency)}
                     </dd>
                   </div>
                   <div className="text-muted-foreground flex justify-between">
                     <dt>
-                      Tax{taxRate > 0 ? ` (${formatNumber(taxRate)}%)` : ""}
+                      Tax{taxRate > 0 ? ` (${formatPercent(taxRate)}%)` : ""}
                     </dt>
                     <dd className="tabular-nums">
-                      {formatCurrency(proposal.tax)}
+                      {formatCurrency(proposal.tax, currency)}
                     </dd>
                   </div>
                   <div className="border-border mt-1.5 flex items-baseline justify-between border-t pt-2.5">
                     <dt className="font-space font-semibold">Total</dt>
                     <dd className="font-space text-lg font-semibold tabular-nums">
-                      {formatCurrency(proposal.total)}
+                      {formatCurrency(proposal.total, currency)}
                     </dd>
                   </div>
                   {depositPercent > 0 && (
                     <div className="text-muted-foreground mt-2 flex justify-between text-[13px]">
                       <dt>
-                        Deposit to begin ({formatNumber(depositPercent)}%)
+                        Deposit to begin ({formatPercent(depositPercent)}%)
                       </dt>
                       <dd className="tabular-nums">
-                        {formatCurrency(String(depositAmount))}
+                        {formatCurrency(String(depositAmount), currency)}
                       </dd>
                     </div>
                   )}
@@ -216,6 +226,7 @@ export function ProposalDetailView({ proposal }: ProposalDetailViewProps) {
                   proposalId={proposal.id}
                   token={proposal.token}
                   status={proposal.status}
+                  project={project}
                 />
 
                 <dl className="border-border flex flex-col gap-2.5 border-t pt-4">

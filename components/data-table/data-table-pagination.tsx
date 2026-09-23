@@ -40,14 +40,14 @@ export function DataTablePagination({
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center justify-between gap-3 px-1 @[640px]:border-border @[640px]:border-t @[640px]:px-4 @[640px]:py-2",
+        "@[640px]:border-border flex flex-wrap items-center justify-between gap-3 px-1 @[640px]:border-t @[640px]:px-4 @[640px]:py-2",
         className,
       )}
     >
       <p className="text-muted-foreground text-xs">
         Showing{" "}
         <span className="text-foreground font-medium tabular-nums">
-          {start}–{end}
+          {start}-{end}
         </span>{" "}
         of{" "}
         <span className="text-foreground font-medium tabular-nums">

@@ -5,6 +5,8 @@ import { cn } from "@/lib/utils";
 import { Combobox } from "./combobox";
 
 export type ProjectOption = {
+  /** Used to default a new invoice's currency. */
+  currency?: string;
   id: string;
   title: string;
   clientId: string;

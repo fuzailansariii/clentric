@@ -5,7 +5,19 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { CustomButton } from "@/components/ui/custom-button";
 import { formatDate, formatRelativeDate } from "@/lib/format-date";
 import { formatCurrency } from "@/lib/format-currency";
-import { Check, Folder, PencilIcon, Trash2Icon, X } from "lucide-react";
+import { formatInvoiceNumber } from "@/lib/format-invoice-number";
+import { invoiceStatusConfig } from "../invoices/invoice-status-config";
+import type { ProjectInvoiceRow } from "./queries";
+import Link from "next/link";
+import {
+  Check,
+  FileSignature,
+  Folder,
+  PencilIcon,
+  Plus,
+  Trash2Icon,
+  X,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { TabButton } from "@/components/ui/tab-button";
 import { DeleteDialog } from "@/components/delete-dialog";
@@ -48,10 +60,15 @@ export function toProjectFormDefaults(
 export function ProjectDetail({
   project,
   milestones,
+  invoices,
+  fromProposal,
   initialEdit = false,
 }: {
   project: ProjectListItem;
   milestones: MilestoneItem[];
+  invoices: ProjectInvoiceRow[];
+  /** Set when this project was created by accepting a proposal. */
+  fromProposal: { id: string; title: string } | null;
   initialEdit?: boolean;
 }) {
   const [activeSection, setActiveSection] =
@@ -312,7 +329,7 @@ export function ProjectDetail({
                 items={[
                   {
                     label: "Budget",
-                    value: formatCurrency(project.budget),
+                    value: formatCurrency(project.budget, project.currency),
                     hint: "Fixed price",
                   },
                   {
@@ -349,6 +366,20 @@ export function ProjectDetail({
                   },
                 ]}
               />
+
+              {/* Where this project came from. Only set when it was created
+                  by accepting a proposal. */}
+              {fromProposal && (
+                <Link
+                  href={`/proposals/${fromProposal.id}`}
+                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring mt-4 inline-flex max-w-full items-center gap-1.5 rounded-sm text-xs underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
+                >
+                  <FileSignature className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">
+                    From proposal: {fromProposal.title}
+                  </span>
+                </Link>
+              )}
             </div>
           </div>
 
@@ -414,7 +445,7 @@ export function ProjectDetail({
                   </dt>
                   <dd className="mt-1 font-medium">
                     {project.hourlyRate
-                      ? `${formatCurrency(project.hourlyRate)}/hr`
+                      ? `${formatCurrency(project.hourlyRate, project.currency)}/hr`
                       : "Not set"}
                   </dd>
                   <dd className="text-muted-foreground mt-0.5 text-xs">
@@ -449,6 +480,73 @@ export function ProjectDetail({
           >
             <MilestonesPanel projectId={project.id} milestones={milestones} />
           </div>
+        </div>
+
+        {/* Invoices raised against this project. Each is formatted in its own
+            currency rather than summed - a project can hold more than one. */}
+        <div className="bg-card mt-4 overflow-hidden rounded-xl border">
+          <div className="border-border flex flex-wrap items-center justify-between gap-3 border-b px-6 py-4">
+            <h2 className="text-sm font-semibold">
+              Invoices
+              {invoices.length > 0 && (
+                <span className="text-muted-foreground ml-1.5 font-normal">
+                  {invoices.length}
+                </span>
+              )}
+            </h2>
+            <Link
+              href={`/invoices/new?clientId=${project.clientId}&projectId=${project.id}`}
+            >
+              <CustomButton
+                type="button"
+                variant="secondary"
+                className="gap-1.5 text-xs"
+              >
+                <Plus className="h-4 w-4" />
+                Create invoice
+              </CustomButton>
+            </Link>
+          </div>
+
+          {invoices.length === 0 ? (
+            <p className="text-muted-foreground px-6 py-8 text-center text-sm">
+              No invoices for this project yet.
+            </p>
+          ) : (
+            <ul className="divide-border divide-y">
+              {invoices.map((invoice) => {
+                const config = invoiceStatusConfig[invoice.status];
+                return (
+                  <li key={invoice.id}>
+                    <Link
+                      href={`/invoices/${invoice.id}`}
+                      className="hover:bg-muted/50 focus-visible:ring-ring flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-6 py-3.5 transition-colors focus-visible:ring-2 focus-visible:-outline-offset-2"
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="font-mono text-[13px] font-medium">
+                          {formatInvoiceNumber(invoice.invoiceNumber)}
+                        </span>
+                        <StatusBadge
+                          status={config.variant}
+                          variant="soft"
+                          size="sm"
+                          className={config.dim ? "opacity-60" : undefined}
+                        >
+                          {config.label}
+                        </StatusBadge>
+                      </span>
+                      <span className="text-muted-foreground flex items-center gap-4 text-xs">
+                        <span>{formatDate(invoice.issueDate)}</span>
+                        <span className="text-foreground text-sm font-semibold tabular-nums">
+                          {formatCurrency(invoice.total, invoice.currency)}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
 
         <DeleteDialog

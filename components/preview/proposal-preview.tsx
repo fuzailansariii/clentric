@@ -1,4 +1,8 @@
-import { formatCurrency, formatNumber } from "@/lib/format-currency";
+import {
+  formatCurrency,
+  formatNumber,
+  formatPercent,
+} from "@/lib/format-currency";
 
 type ProposalPreviewProps = {
   title?: string;
@@ -19,6 +23,7 @@ type ProposalPreviewProps = {
   /** 0 means no deposit is asked for. */
   depositPercent: number;
   depositAmount: number;
+  currency: string;
 };
 
 /**
@@ -42,6 +47,7 @@ export default function ProposalPreview({
   expiresInDays,
   depositPercent,
   depositAmount,
+  currency,
 }: ProposalPreviewProps) {
   // A milestone earns a place in the preview once it has a name or a line
   // worth showing — an untouched empty card should not render as a heading.
@@ -137,11 +143,11 @@ export default function ProposalPreview({
                             </span>
                             <span className="text-muted-foreground text-xs tabular-nums">
                               {formatNumber(quantity)} ×{" "}
-                              {formatCurrency(String(rate))}
+                              {formatCurrency(String(rate), currency)}
                             </span>
                           </span>
                           <span className="shrink-0 font-medium tabular-nums">
-                            {formatCurrency(String(quantity * rate))}
+                            {formatCurrency(String(quantity * rate), currency)}
                           </span>
                         </li>
                       );
@@ -150,7 +156,8 @@ export default function ProposalPreview({
 
                   {milestone.items.length > 0 && (
                     <p className="text-muted-foreground mt-2 text-right text-xs tabular-nums">
-                      Stage subtotal {formatCurrency(String(milestoneSubtotal))}
+                      Stage subtotal{" "}
+                      {formatCurrency(String(milestoneSubtotal), currency)}
                     </p>
                   )}
                 </section>
@@ -162,18 +169,20 @@ export default function ProposalPreview({
         <dl className="border-border flex flex-col gap-1.5 border-t pt-4 text-[13px]">
           <div className="text-muted-foreground flex justify-between">
             <dt>Subtotal</dt>
-            <dd className="tabular-nums">{formatCurrency(String(subtotal))}</dd>
+            <dd className="tabular-nums">
+              {formatCurrency(String(subtotal), currency)}
+            </dd>
           </div>
           <div className="text-muted-foreground flex justify-between">
-            <dt>Tax{taxRate > 0 ? ` (${formatNumber(taxRate)}%)` : ""}</dt>
+            <dt>Tax{taxRate > 0 ? ` (${formatPercent(taxRate)}%)` : ""}</dt>
             <dd className="tabular-nums">
-              {formatCurrency(String(taxAmount))}
+              {formatCurrency(String(taxAmount), currency)}
             </dd>
           </div>
           <div className="border-border mt-1.5 flex items-baseline justify-between border-t pt-2.5">
             <dt className="font-space text-sm font-semibold">Total</dt>
             <dd className="font-space text-base font-semibold tabular-nums">
-              {formatCurrency(String(total))}
+              {formatCurrency(String(total), currency)}
             </dd>
           </div>
         </dl>
@@ -185,10 +194,10 @@ export default function ProposalPreview({
           <div className="border-border bg-muted/40 rounded-lg border px-3 py-2.5">
             <p className="flex items-baseline justify-between gap-3 text-[13px]">
               <span className="font-medium">
-                Deposit to begin ({formatNumber(depositPercent)}%)
+                Deposit to begin ({formatPercent(depositPercent)}%)
               </span>
               <span className="font-semibold tabular-nums">
-                {formatCurrency(String(depositAmount))}
+                {formatCurrency(String(depositAmount), currency)}
               </span>
             </p>
             <p className="text-muted-foreground mt-1 text-xs">

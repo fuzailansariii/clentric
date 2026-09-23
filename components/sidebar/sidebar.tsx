@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Bell,
   FileText,
   FolderKanban,
   LayoutDashboard,
@@ -31,7 +30,6 @@ export const NAV_ITEMS = [
 ];
 
 export const EXTRA_ITEMS = [
-  { label: "Notifications", href: "/notifications", icon: Bell },
   { label: "Settings", href: "/settings", icon: Settings },
 ];
 

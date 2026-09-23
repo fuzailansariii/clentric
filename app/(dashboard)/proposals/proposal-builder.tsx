@@ -2,8 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FileSignature, Plus } from "lucide-react";
+import { ChevronDown, FileSignature, Plus } from "lucide-react";
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
 import FormSection from "@/components/dashboard/form-section";
@@ -14,17 +15,12 @@ import {
 import ProposalPreview from "@/components/preview/proposal-preview";
 import { Field } from "@/components/ui/input";
 import { CustomButton } from "@/components/ui/custom-button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { FieldSelect } from "@/components/ui/field-select";
+import { cn } from "@/lib/utils";
 import { calculateTotals } from "@/lib/calculate-totals";
 import { formatCurrency } from "@/lib/format-currency";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
-import { createProposalAction } from "./actions";
+import { createProposalAction, updateProposalAction } from "./actions";
 import ProposalMilestoneCard from "./proposal-milestone-card";
 import {
   createProposalSchema,
@@ -34,38 +30,73 @@ import {
   type ProposalFormOutput,
 } from "./schema";
 
+/** An existing draft loaded into the builder for editing. */
+export type EditableProposal = {
+  id: string;
+  clientId: string;
+  title: string;
+  content: string;
+  taxRate: number;
+  depositPercent: number;
+  expiresInDays: number;
+  milestones: {
+    name: string;
+    description: string;
+    items: { description: string; quantity: number; rate: number }[];
+  }[];
+};
+
 type ProposalBuilderProps = {
   clients: ClientOption[];
   initialClientId?: string;
+  /** When set, the builder edits this draft instead of creating one. */
+  proposal?: EditableProposal;
 };
 
 export default function ProposalBuilder({
   clients,
   initialClientId,
+  proposal,
 }: ProposalBuilderProps) {
   const router = useRouter();
+  const isEditing = Boolean(proposal);
+  // Tax, deposit and expiry have sensible defaults, so they start out of the
+  // way when creating. Opened by default when editing, where someone is
+  // likely to be there precisely to change one of them.
+  const [showOptions, setShowOptions] = useState(isEditing);
 
   // `any` for the context generic is the project convention for z.coerce
   // schemas (CLAUDE.md: type useForm as useForm<Input, any, Output>()).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<ProposalFormInput, any, ProposalFormOutput>({
     resolver: zodResolver(createProposalSchema),
-    defaultValues: {
-      clientId: initialClientId ?? "",
-      title: "",
-      content: "",
-      currency: "USD",
-      taxRate: 0,
-      depositPercent: 0,
-      expiresInDays: EXPIRY_DEFAULT_DAYS,
-      milestones: [
-        {
-          name: "",
-          description: "",
-          items: [{ description: "", quantity: 1, rate: 0 }],
+    defaultValues: proposal
+      ? {
+          clientId: proposal.clientId,
+          title: proposal.title,
+          content: proposal.content,
+          currency: "USD",
+          taxRate: proposal.taxRate,
+          depositPercent: proposal.depositPercent,
+          expiresInDays: proposal.expiresInDays,
+          milestones: proposal.milestones,
+        }
+      : {
+          clientId: initialClientId ?? "",
+          title: "",
+          content: "",
+          currency: "USD",
+          taxRate: 0,
+          depositPercent: 0,
+          expiresInDays: EXPIRY_DEFAULT_DAYS,
+          milestones: [
+            {
+              name: "",
+              description: "",
+              items: [{ description: "", quantity: 1, rate: 0 }],
+            },
+          ],
         },
-      ],
-    },
   });
 
   const {
@@ -91,6 +122,9 @@ export default function ProposalBuilder({
   const watchedContent = useWatch({ control, name: "content" });
   const watchedClientId = useWatch({ control, name: "clientId" });
   const watchedExpiry = useWatch({ control, name: "expiresInDays" });
+  // Everything is USD for now; the column stays so adding a picker later
+  // is a UI change rather than a migration.
+  const watchedCurrency = "USD";
 
   // Preview only. The figures that get stored are recomputed by the server
   // action, which never trusts anything sent from here.
@@ -111,6 +145,18 @@ export default function ProposalBuilder({
   );
 
   const onSubmit = handleSubmit(async (data) => {
+    if (proposal) {
+      await runActionWithToast(
+        updateProposalAction({ ...data, proposalId: proposal.id }),
+        {
+          loading: "Saving changes...",
+          success: "Proposal updated",
+          onSuccess: () => router.push(`/proposals/${proposal.id}`),
+        },
+      );
+      return;
+    }
+
     await runActionWithToast(createProposalAction(data), {
       loading: "Creating proposal...",
       success: "Proposal created",
@@ -121,13 +167,17 @@ export default function ProposalBuilder({
   return (
     <>
       <PageHeader
-        title="New proposal"
-        subtitle="Build a quote to send to your client"
+        title={isEditing ? "Edit proposal" : "New proposal"}
+        subtitle={
+          isEditing
+            ? "Changes apply to the draft only"
+            : "Build a quote to send to your client"
+        }
         icon={<FileSignature className="h-5 w-5" />}
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Proposals", href: "/proposals" },
-          { label: "New" },
+          { label: isEditing ? "Edit" : "New" },
         ]}
       />
 
@@ -161,7 +211,7 @@ export default function ProposalBuilder({
                     <Field
                       {...register("title")}
                       label="Title"
-                      placeholder="e.g. Website redesign — Phase 1"
+                      placeholder="e.g. Website redesign - Phase 1"
                       error={errors.title?.message}
                     />
 
@@ -193,6 +243,7 @@ export default function ProposalBuilder({
                         control={control}
                         register={register}
                         errors={errors}
+                        currency={watchedCurrency}
                         canRemove={milestoneFields.length > 1}
                         onRemove={() => removeMilestone(index)}
                       />
@@ -220,67 +271,66 @@ export default function ProposalBuilder({
                     Add milestone
                   </button>
 
-                  <div className="border-border mt-8 grid gap-5 border-t pt-6 @[560px]:grid-cols-3">
-                    <Field
-                      {...register("taxRate")}
-                      label="Tax rate"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="0.01"
-                      placeholder="0"
-                      suffix="%"
-                      error={errors.taxRate?.message}
-                    />
+                  <div className="border-border mt-8 border-t pt-5">
+                    <button
+                      type="button"
+                      onClick={() => setShowOptions((value) => !value)}
+                      aria-expanded={showOptions}
+                      className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-sm text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
+                    >
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 transition-transform",
+                          !showOptions && "-rotate-90",
+                        )}
+                      />
+                      Tax, deposit and expiry
+                    </button>
 
-                    <Field
-                      {...register("depositPercent")}
-                      label="Deposit"
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="1"
-                      placeholder="0"
-                      suffix="%"
-                      error={errors.depositPercent?.message}
-                    />
-
-                    <Controller
-                      control={control}
-                      name="expiresInDays"
-                      render={({ field }) => (
-                        <div className="flex flex-col gap-1">
-                          <label className="text-muted-foreground font-sans text-[13px] font-medium">
-                            Link expires after
-                          </label>
-                          <Select
-                            value={String(field.value ?? EXPIRY_DEFAULT_DAYS)}
-                            onValueChange={(value) =>
-                              field.onChange(Number(value))
-                            }
-                          >
-                            <SelectTrigger className="h-11 w-full">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {EXPIRY_OPTIONS.map((option) => (
-                                <SelectItem
-                                  key={option.value}
-                                  value={String(option.value)}
-                                >
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          {errors.expiresInDays?.message && (
-                            <span className="text-danger-600 text-xs">
-                              {errors.expiresInDays.message}
-                            </span>
+                    {showOptions && (
+                      <div className="mt-5 grid gap-5 @[560px]:grid-cols-2">
+                        <Controller
+                          control={control}
+                          name="expiresInDays"
+                          render={({ field }) => (
+                            <FieldSelect
+                              id="expiresInDays"
+                              label="Link expires after"
+                              value={String(field.value ?? EXPIRY_DEFAULT_DAYS)}
+                              onChange={(value) =>
+                                field.onChange(Number(value))
+                              }
+                              options={EXPIRY_OPTIONS}
+                              error={errors.expiresInDays?.message}
+                            />
                           )}
-                        </div>
-                      )}
-                    />
+                        />
+
+                        <Field
+                          {...register("taxRate")}
+                          label="Tax rate"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="0.01"
+                          placeholder="0"
+                          suffix="%"
+                          error={errors.taxRate?.message}
+                        />
+
+                        <Field
+                          {...register("depositPercent")}
+                          label="Deposit"
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="1"
+                          placeholder="0"
+                          suffix="%"
+                          error={errors.depositPercent?.message}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   {/* The totals live in the preview panel on wide screens.
@@ -290,19 +340,19 @@ export default function ProposalBuilder({
                     <div className="text-muted-foreground flex justify-between">
                       <dt>Subtotal</dt>
                       <dd className="tabular-nums">
-                        {formatCurrency(String(subtotal))}
+                        {formatCurrency(String(subtotal), watchedCurrency)}
                       </dd>
                     </div>
                     <div className="text-muted-foreground flex justify-between">
                       <dt>Tax</dt>
                       <dd className="tabular-nums">
-                        {formatCurrency(String(taxAmount))}
+                        {formatCurrency(String(taxAmount), watchedCurrency)}
                       </dd>
                     </div>
                     <div className="border-border flex justify-between border-t pt-2 text-base font-semibold">
                       <dt>Total</dt>
                       <dd className="tabular-nums">
-                        {formatCurrency(String(total))}
+                        {formatCurrency(String(total), watchedCurrency)}
                       </dd>
                     </div>
                   </dl>
@@ -317,6 +367,7 @@ export default function ProposalBuilder({
                 clientCompany={selectedClient?.company}
                 content={watchedContent}
                 milestones={watchedMilestones}
+                currency={watchedCurrency}
                 subtotal={subtotal}
                 taxRate={taxRate}
                 taxAmount={taxAmount}
@@ -330,7 +381,11 @@ export default function ProposalBuilder({
                 <CustomButton
                   type="button"
                   variant="secondary"
-                  onClick={() => router.push("/proposals")}
+                  onClick={() =>
+                    router.push(
+                      proposal ? `/proposals/${proposal.id}` : "/proposals",
+                    )
+                  }
                 >
                   Cancel
                 </CustomButton>
@@ -339,7 +394,13 @@ export default function ProposalBuilder({
                   form="proposal-form"
                   disabled={isSubmitting}
                 >
-                  {isSubmitting ? "Creating..." : "Create proposal"}
+                  {isSubmitting
+                    ? isEditing
+                      ? "Saving..."
+                      : "Creating..."
+                    : isEditing
+                      ? "Save changes"
+                      : "Create proposal"}
                 </CustomButton>
               </div>
             </aside>

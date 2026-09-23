@@ -355,7 +355,7 @@ export function InvoicePdfDocument({
               {formatLineItemRate(item.rate, item.unit)}
             </Text>
             <Text style={[styles.colAmount, styles.cellNumber]}>
-              {formatCurrency(item.amount)}
+              {formatCurrency(item.amount, invoice.currency)}
             </Text>
           </View>
         ))}
@@ -391,7 +391,7 @@ export function InvoicePdfDocument({
             <View style={styles.totalsRow}>
               <Text style={styles.cellMuted}>Subtotal</Text>
               <Text style={styles.cellNumber}>
-                {formatCurrency(invoice.subTotal)}
+                {formatCurrency(invoice.subTotal, invoice.currency)}
               </Text>
             </View>
             <View style={styles.totalsRowLast}>
@@ -399,7 +399,7 @@ export function InvoicePdfDocument({
                 Tax ({formatNumber(Number(invoice.taxRate))}%)
               </Text>
               <Text style={styles.cellNumber}>
-                {formatCurrency(invoice.taxAmount)}
+                {formatCurrency(invoice.taxAmount, invoice.currency)}
               </Text>
             </View>
             <View style={styles.grandRow}>
@@ -407,7 +407,7 @@ export function InvoicePdfDocument({
                 {invoice.status === "paid" ? "Total paid" : "Total due"}
               </Text>
               <Text style={styles.grandValue}>
-                {formatCurrency(invoice.total)}
+                {formatCurrency(invoice.total, invoice.currency)}
               </Text>
             </View>
           </View>
