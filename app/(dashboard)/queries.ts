@@ -1,10 +1,13 @@
 import "server-only";
+import { cache } from "react";
 import { db } from "@/src/db";
 import { users } from "@/src/db/schema/users";
 import { subscriptions } from "@/src/db/schema/subscriptions";
 import { and, desc, eq, isNull } from "drizzle-orm";
 
-export async function getDashboardData(userId: string) {
+// cache(): the dashboard layout and the dashboard page both read this in
+// the same request; they share one database round trip.
+export const getDashboardData = cache(async (userId: string) => {
   // One round trip via the relational query builder. The subscription is
   // ordered newest-first so a user with billing history always resolves to
   // their current row rather than an arbitrary one.
@@ -20,6 +23,8 @@ export async function getDashboardData(userId: string) {
       email: true,
       avatar: true,
       plan: true,
+      // Pending deletion: the layout shows the restore screen instead.
+      deletionRequestedAt: true,
     },
     with: {
       subscriptions: {
@@ -37,4 +42,4 @@ export async function getDashboardData(userId: string) {
     profile,
     subscription: userSubscriptions[0] ?? null,
   };
-}
+});

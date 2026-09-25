@@ -5,9 +5,31 @@ import { AppError, logError } from "@/lib/errors";
 import { revalidatePath } from "next/cache";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
-import { and, eq, isNull } from "drizzle-orm";
+import { projects } from "@/src/db/schema/projects";
+import { invoices } from "@/src/db/schema/invoices";
+import { proposals } from "@/src/db/schema/proposals";
+import {
+  and,
+  count,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  ne,
+  notExists,
+  or,
+  sql,
+} from "drizzle-orm";
 import { normalize } from "@/lib/normalizeOptionalFields";
 import { ActionResult } from "@/lib/action-result";
+
+
+function revalidateClientEverywhere() {
+  revalidatePath("/clients", "layout");
+  revalidatePath("/projects", "layout");
+  revalidatePath("/invoices", "layout");
+  revalidatePath("/proposals", "layout");
+}
 
 // create client
 export async function createClientAction(
@@ -85,8 +107,7 @@ export async function updateClientAction(
     if (updatedClient.length === 0) {
       throw new AppError("NOT_FOUND", "Client not found.");
     }
-    revalidatePath("/clients");
-    revalidatePath(`/clients/${clientId}`);
+    revalidateClientEverywhere();
     return { success: true };
   } catch (error) {
     logError("updateClientAction", error);
@@ -111,25 +132,101 @@ export async function deleteClientAction(
     }
 
     const user = await requireUser();
+    const id = parsedClientId.data;
 
-    const deleted = await db
+    // Work that would be stranded without its client. Finished work
+    // (completed projects, paid invoices, answered or expired proposals)
+    // doesn't block. Compared against the id parameter rather than
+    // correlated to clients.id, so no column name can resolve ambiguously.
+    const openProjects = and(
+      eq(projects.userId, user.id),
+      eq(projects.clientId, id),
+      isNull(projects.deletedAt),
+      ne(projects.status, "completed"),
+    );
+    const openInvoices = and(
+      eq(invoices.userId, user.id),
+      eq(invoices.clientId, id),
+      isNull(invoices.deletedAt),
+      ne(invoices.status, "paid"),
+    );
+    const openProposals = and(
+      eq(proposals.userId, user.id),
+      eq(proposals.clientId, id),
+      isNull(proposals.deletedAt),
+      or(
+        eq(proposals.status, "draft"),
+        and(
+          inArray(proposals.status, ["sent", "viewed"]),
+          or(isNull(proposals.expiresAt), gt(proposals.expiresAt, sql`now()`)),
+        ),
+      ),
+    );
+
+    // The open-work check lives in the write's own WHERE, so work added a
+    // moment ago in another tab still blocks the delete.
+    const [deleted] = await db
       .update(clients)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
       .where(
         and(
-          eq(clients.id, parsedClientId.data),
+          eq(clients.id, id),
           eq(clients.userId, user.id),
           isNull(clients.deletedAt),
+          notExists(
+            db.select({ one: sql`1` }).from(projects).where(openProjects),
+          ),
+          notExists(
+            db.select({ one: sql`1` }).from(invoices).where(openInvoices),
+          ),
+          notExists(
+            db.select({ one: sql`1` }).from(proposals).where(openProposals),
+          ),
         ),
       )
       .returning({ id: clients.id });
 
-    if (deleted.length === 0) {
-      throw new AppError("NOT_FOUND", "Client not found.");
+    if (!deleted) {
+      // Refused: say what's still open, or that the client is gone.
+      const [projectRows, invoiceRows, proposalRows, clientRows] =
+        await Promise.all([
+          db.select({ n: count() }).from(projects).where(openProjects),
+          db.select({ n: count() }).from(invoices).where(openInvoices),
+          db.select({ n: count() }).from(proposals).where(openProposals),
+          db
+            .select({ n: count() })
+            .from(clients)
+            .where(
+              and(
+                eq(clients.id, id),
+                eq(clients.userId, user.id),
+                isNull(clients.deletedAt),
+              ),
+            ),
+        ]);
+
+      if ((clientRows[0]?.n ?? 0) === 0) {
+        throw new AppError("NOT_FOUND", "Client not found.");
+      }
+
+      const plural = (n: number, one: string, many: string) =>
+        `${n} ${n === 1 ? one : many}`;
+      const open = [
+        [projectRows[0]?.n ?? 0, "open project", "open projects"],
+        [invoiceRows[0]?.n ?? 0, "unpaid invoice", "unpaid invoices"],
+        [proposalRows[0]?.n ?? 0, "open proposal", "open proposals"],
+      ] as const;
+      const parts = open
+        .filter(([n]) => n > 0)
+        .map(([n, one, many]) => plural(n, one, many));
+
+      throw new AppError(
+        "HAS_OPEN_WORK",
+        `This client still has ${parts.join(", ")}. Finish or delete them first.`,
+      );
     }
 
-    revalidatePath("/clients");
-    revalidatePath(`/clients/${clientId}`);
+    revalidateClientEverywhere();
     return { success: true };
   } catch (error) {
     logError("deleteClientAction", error);

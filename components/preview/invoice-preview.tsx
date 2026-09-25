@@ -6,6 +6,8 @@ import PreviewRow from "./preview-row";
 import PreviewActions from "./preview-actions";
 
 type InvoicePreviewProps = {
+  /** Who the invoice is from: business name, else person, else email. */
+  issuerName: string;
   clientName?: string;
   projectName?: string;
   dueDate?: string;
@@ -13,7 +15,10 @@ type InvoicePreviewProps = {
   taxRate: number;
   taxAmount: number;
   total: number;
+  /** Save: creates a draft (new invoice) or saves changes (editing). */
   onSubmit: () => void;
+  /** Create & Send: creates the invoice, then marks it sent. */
+  onSubmitAndSend?: () => void;
   onCancel: () => void;
   isSubmitting: boolean;
   /** Set when editing an existing invoice: shows its real number and a
@@ -22,6 +27,7 @@ type InvoicePreviewProps = {
 };
 
 export default function InvoicePreview({
+  issuerName,
   clientName,
   projectName,
   dueDate,
@@ -30,6 +36,7 @@ export default function InvoicePreview({
   taxAmount,
   total,
   onSubmit,
+  onSubmitAndSend,
   onCancel,
   isSubmitting,
   editing,
@@ -43,14 +50,16 @@ export default function InvoicePreview({
         </h2>
         <div className="flex flex-col p-4">
           <h2 className="flex items-center gap-3 border-b pb-4 text-[15px] font-medium">
+            {/* TODO(logo-upload): show the business logo here once
+                uploads exist; initials are the fallback. */}
             <AvatarInitials
-              name="Clentric"
+              name={issuerName}
               shape="square"
               size="md"
               variant="neutral"
               className="font-space rounded-lg font-medium"
             />
-            <span>Clentric Studio</span>
+            <span className="min-w-0 truncate">{issuerName}</span>
           </h2>
 
           <PreviewRow
@@ -106,17 +115,14 @@ export default function InvoicePreview({
                 {
                   label: "Create & Send",
                   variant: "primary",
-                  onClick: onSubmit, // TODO: once sendInvoiceAction exists, this should
-                  // chain createInvoiceAction -> sendInvoiceAction,
-                  // not call the same create-only handler as Draft
+                  onClick: onSubmitAndSend ?? onSubmit,
                   disabled: isSubmitting,
                   icon: <Plus className="h-4 w-4" />,
                 },
                 {
                   label: "Save as Draft",
                   variant: "secondary",
-                  onClick: onSubmit, // TODO: same as above — identical to Create & Send
-                  // for now since there's no send step to skip yet
+                  onClick: onSubmit,
                   disabled: isSubmitting,
                 },
                 {

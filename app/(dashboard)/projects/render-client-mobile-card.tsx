@@ -38,7 +38,7 @@ export function renderProjectMobileCard(row: ProjectListItem) {
       trailing={
         <>
           <span className="text-sm font-semibold tabular-nums">
-            {formatCurrency(row.budget)}
+            {formatCurrency(row.budget, row.currency)}
           </span>
           <StatusBadge
             status={config.variant}

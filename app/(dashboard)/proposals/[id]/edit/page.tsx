@@ -57,12 +57,12 @@ export default async function EditProposalPage({
     });
   }
 
-  // The stored expiry is an absolute date; the form works in windows. Rounding
-  // up keeps "14 days" reading as 14 rather than 13 on the day after.
+  // The stored expiry is an absolute date; the form works in windows. A
+  // draft's expiry is always createdAt + N days, so this recovers N exactly.
   const expiresInDays = proposal.expiresAt
     ? Math.max(
         0,
-        Math.ceil(
+        Math.round(
           (proposal.expiresAt.getTime() - proposal.createdAt.getTime()) /
             86_400_000,
         ),

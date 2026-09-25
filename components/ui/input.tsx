@@ -4,11 +4,13 @@ import {
   forwardRef,
   Ref,
   type InputHTMLAttributes,
+  type ReactNode,
   type TextareaHTMLAttributes,
 } from "react";
 
 type BaseProp = {
-  label?: string;
+  /** Plain text, or markup when part of it needs emphasis. */
+  label?: ReactNode;
   error?: string;
   className?: string;
   prefix?: string;

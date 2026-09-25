@@ -23,7 +23,6 @@ function ownedProjectIds(userId: string) {
     .where(and(eq(projects.userId, userId), isNull(projects.deletedAt)));
 }
 
-
 function revalidateMilestonePaths(projectId: string) {
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/projects");
@@ -62,9 +61,17 @@ export async function createMilestoneAction(
             id: sql<string>`gen_random_uuid()`.as("id"),
             projectId: projects.id,
             title: sql<string>`${title}::text`.as("title"),
-            status:
-              sql<"pending">`'pending'::milestone_status`.as("status"),
+            status: sql<"pending">`'pending'::milestone_status`.as("status"),
             dueDate: sql<string | null>`${dueDate}::date`.as("due_date"),
+            // After the project's current last milestone, so a hand-added
+            // one lands at the end of the list. Written with explicit table
+            // aliases: Drizzle leaves column names unqualified in a
+            // single-table select, which would make the subquery compare
+            // the milestone's own project_id with its own id.
+            sortOrder:
+              sql<number>`(select coalesce(max(m.sort_order) + 1, 0) from milestones m where m.project_id = "projects"."id")`.as(
+                "sort_order",
+              ),
             createdAt: sql<Date>`now()`.as("created_at"),
             updatedAt: sql<Date>`now()`.as("updated_at"),
           })

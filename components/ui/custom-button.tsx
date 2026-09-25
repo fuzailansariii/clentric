@@ -1,6 +1,7 @@
 import { type ButtonHTMLAttributes, forwardRef } from "react";
 
-type Variant = "primary" | "secondary" | "ghost" | "destructive";
+type Variant =
+  "primary" | "secondary" | "ghost" | "destructive" | "danger-outline";
 type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -16,6 +17,10 @@ const variantStyles: Record<Variant, string> = {
   ghost:
     "bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground",
   destructive: "bg-destructive text-white hover:bg-destructive/90",
+  // Opens something destructive (e.g. a confirm dialog) without being the
+  // final, solid-red action itself.
+  "danger-outline":
+    "border border-destructive/60 bg-transparent text-destructive hover:bg-destructive/10",
 };
 
 const sizeStyles: Record<Size, string> = {

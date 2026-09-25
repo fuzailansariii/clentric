@@ -24,6 +24,7 @@ import { invoiceItems } from "./invoice-items";
 import { invoices } from "./invoices";
 import { milestones } from "./milestones";
 import { notifications } from "./notifications";
+import { userPaymentMethods } from "./payment-methods";
 import { projects } from "./projects";
 import { proposalItems } from "./proposal-items";
 import { proposalMilestones } from "./proposal-milestones";
@@ -42,11 +43,22 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   activityLogs: many(activityLog),
   subscriptions: many(subscriptions),
   teamMembers: many(teamMembers),
+  paymentMethods: many(userPaymentMethods),
   invoiceCounter: one(invoiceCounters, {
     fields: [users.id],
     references: [invoiceCounters.userId],
   }),
 }));
+
+export const userPaymentMethodsRelations = relations(
+  userPaymentMethods,
+  ({ one }) => ({
+    user: one(users, {
+      fields: [userPaymentMethods.userId],
+      references: [users.id],
+    }),
+  }),
+);
 
 // A client belongs to one user and is the anchor for their billable work.
 export const clientsRelations = relations(clients, ({ one, many }) => ({

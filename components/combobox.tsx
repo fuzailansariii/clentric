@@ -49,16 +49,22 @@ export function Combobox<T>({
   const [open, setOpen] = useState(false);
   // Ties the combobox button to the list it opens (aria-controls).
   const listId = useId();
+  // Names the button after the visible label for screen readers.
+  const triggerId = useId();
   const selected = items.find((item) => getId(item) === value);
 
   return (
     <div className="flex flex-col gap-1">
-      <label className="text-muted-foreground font-sans text-[13px] font-medium">
+      <label
+        htmlFor={triggerId}
+        className="text-muted-foreground font-sans text-[13px] font-medium"
+      >
         {label}
       </label>
       <Popover open={open && !disabled} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
+            id={triggerId}
             type="button"
             role="combobox"
             aria-expanded={open}
@@ -92,7 +98,7 @@ export function Combobox<T>({
           </button>
         </PopoverTrigger>
         <PopoverContent
-          className="border-border w-[--radix-popover-trigger-width] overflow-hidden rounded-lg border p-0 shadow-lg"
+          className="border-border w-(--radix-popover-trigger-width) overflow-hidden rounded-lg border p-0 shadow-lg"
           align="start"
         >
           <Command>

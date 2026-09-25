@@ -33,10 +33,13 @@ export default function Login() {
 
   // OTP Verification
   const onVerifyCode = async (code: string) => {
+    // "email" is the type for codes from signInWithOtp. ("recovery" only
+    // matched because Supabase used to keep sign-in codes in the password
+    // recovery slot.)
     const { error } = await supabase.auth.verifyOtp({
       email: emailRef.current,
       token: code,
-      type: "recovery",
+      type: "email",
     });
 
     if (error) throw new Error(error.message);
@@ -56,7 +59,7 @@ export default function Login() {
   };
 
   // OAuth handler
-  const onOAuth = async (provider: "google" | "github") => {
+  const onOAuth = async (provider: "google") => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },

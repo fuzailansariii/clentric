@@ -17,10 +17,21 @@ import {
   InvoiceDisplayStatus,
 } from "@/lib/get-invoice-display-status";
 import { projects } from "@/src/db/schema/projects";
+import {
+  issuerUserColumns,
+  liveIssuer,
+  livePayment,
+  resolveIssuer,
+  resolvePayment,
+  visiblePaymentMethods,
+  type IssuerDetails,
+} from "@/lib/issuer-snapshot";
+import type { PaymentDetails } from "@/lib/payment-methods";
 
 export type InvoiceListItem = {
   id: string;
   invoiceNumber: number;
+  numberPrefix: string;
   clientName: string | null;
   projectTitle: string | null; // from the linked project, for the description line
   total: string; // decimal(12,2) comes back as string from drizzle
@@ -100,6 +111,7 @@ export async function getInvoicesByUserId(
         .select({
           id: invoices.id,
           invoiceNumber: invoices.invoiceNumber,
+          numberPrefix: invoices.numberPrefix,
           status: invoices.status,
           issueDate: invoices.issueDate,
           dueDate: invoices.dueDate,
@@ -204,16 +216,29 @@ export async function getInvoiceById(invoiceId: string) {
       with: {
         lineItems: { orderBy: [asc(invoiceItems.sortOrder)] },
         user: {
-          columns: { name: true, email: true, profession: true },
+          columns: issuerUserColumns,
+          with: { paymentMethods: visiblePaymentMethods },
         },
       },
     });
 
     if (!row) return null;
 
-    const { user: issuer, ...invoice } = row;
+    const { user: owner, ...invoice } = row;
 
-    return { ...invoice, issuer: issuer ?? null };
+    return {
+      ...invoice,
+      // Sent invoices print the details they went out with; drafts (and
+      // invoices sent before snapshots existed) print the live ones.
+      issuer: owner
+        ? resolveIssuer(invoice.issuerSnapshot, liveIssuer(owner))
+        : null,
+      payment: resolvePayment(
+        invoice.issuerSnapshot,
+        invoice.paymentDetails,
+        owner ? livePayment(owner) : { methods: [], instructions: null },
+      ),
+    };
   } catch (error) {
     unstable_rethrow(error);
     logError("getInvoiceById", error);
@@ -226,6 +251,9 @@ export type InvoicePdfData = {
   invoice: {
     id: string;
     invoiceNumber: number;
+    numberPrefix: string;
+    /** Printed at the bottom; null when there are none. */
+    notes: string | null;
     status: InvoiceDisplayStatus;
     issueDate: string;
     dueDate: string;
@@ -236,11 +264,9 @@ export type InvoicePdfData = {
     taxAmount: string;
     total: string;
     currency: string;
-    /** Freelancer's own free-text payment instructions for this invoice
-     * (bank details, "Zelle to...", etc.). A profile-level default now lives
-     * on users.paymentDetails and is copied onto deposit invoices; this
-     * per-invoice field still wins wherever it is set. */
-    paymentDetails: string | null;
+    /** How to pay: the snapshot's methods once sent, live ones on a draft
+     * (see resolvePayment). Informational only — no payment link. */
+    payment: PaymentDetails;
     clientName: string;
     clientEmail: string | null;
     clientCompany: string | null;
@@ -257,11 +283,8 @@ export type InvoicePdfData = {
     /** What quantity counts — shown as "12.5 hrs × $85.00/hr". */
     unit: InvoiceItemUnit;
   }[];
-  profile: {
-    name: string | null;
-    email: string;
-    profession: string | null;
-  };
+  /** The "From" block: this invoice's snapshot once sent, live otherwise. */
+  profile: IssuerDetails;
 };
 
 export async function getInvoiceForPdf(
@@ -284,6 +307,8 @@ export async function getInvoiceForPdf(
       columns: {
         id: true,
         invoiceNumber: true,
+        numberPrefix: true,
+        notes: true,
         status: true,
         issueDate: true,
         dueDate: true,
@@ -294,6 +319,7 @@ export async function getInvoiceForPdf(
         total: true,
         currency: true,
         paymentDetails: true,
+        issuerSnapshot: true,
       },
       with: {
         client: {
@@ -316,19 +342,33 @@ export async function getInvoiceForPdf(
           orderBy: [asc(invoiceItems.sortOrder), asc(invoiceItems.id)],
         },
         user: {
-          columns: { name: true, email: true, profession: true },
+          columns: issuerUserColumns,
+          with: { paymentMethods: visiblePaymentMethods },
         },
       },
     });
 
     if (!row) return null;
 
-    const { client, project, lineItems, user: profile, ...invoice } = row;
-    if (!profile) throw new AppError("NOT_FOUND", "Profile not found.");
+    const {
+      client,
+      project,
+      lineItems,
+      user: owner,
+      issuerSnapshot,
+      paymentDetails,
+      ...invoice
+    } = row;
+    if (!owner) throw new AppError("NOT_FOUND", "Profile not found.");
 
     return {
       invoice: {
         ...invoice,
+        payment: resolvePayment(
+          issuerSnapshot,
+          paymentDetails,
+          livePayment(owner),
+        ),
         status: getDisplayStatus(invoice),
         clientName: client.name,
         clientEmail: client.email,
@@ -337,7 +377,7 @@ export async function getInvoiceForPdf(
         projectTitle: project && !project.deletedAt ? project.title : null,
       },
       items: lineItems,
-      profile,
+      profile: resolveIssuer(issuerSnapshot, liveIssuer(owner)),
     };
   } catch (error) {
     unstable_rethrow(error);

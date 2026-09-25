@@ -12,7 +12,6 @@ import { Field } from "./ui/input";
 import { CustomButton } from "./ui/custom-button";
 import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
-import { FaGithub } from "react-icons/fa";
 import { OtpInput, type OtpInputHandle } from "./otp-input";
 import { useHydrated } from "@/hooks/use-hydrated";
 
@@ -21,7 +20,7 @@ type AuthFormProps = {
   onSubmitDetails: (data: { name?: string; email: string }) => Promise<void>;
   onVerifyCode: (code: string) => Promise<void>;
   onResendCode: () => Promise<void>;
-  onOAuth: (provider: "google" | "github") => Promise<void>;
+  onOAuth: (provider: "google") => Promise<void>;
   switchHref: string;
 };
 
@@ -173,7 +172,7 @@ function AuthFormContent({
   };
 
   //   OAuth click handler
-  const handleOAuthClick = async (provider: "github" | "google") => {
+  const handleOAuthClick = async (provider: "google") => {
     setError(null);
     try {
       await onOAuth(provider);
@@ -256,22 +255,15 @@ function AuthFormContent({
           </div>
 
           {/* OAuth button */}
-          <div className="grid grid-cols-2 items-center gap-3">
-            <CustomButton
-              type="button"
-              variant="secondary"
-              onClick={() => handleOAuthClick("google")}
-            >
-              <FcGoogle size={20} />
-            </CustomButton>
-            <CustomButton
-              type="button"
-              variant="secondary"
-              onClick={() => handleOAuthClick("github")}
-            >
-              <FaGithub size={20} />
-            </CustomButton>
-          </div>
+          <CustomButton
+            type="button"
+            variant="secondary"
+            className="w-full gap-2"
+            onClick={() => handleOAuthClick("google")}
+          >
+            <FcGoogle aria-hidden="true" size={20} />
+            Continue with Google
+          </CustomButton>
 
           <div className="flex items-center justify-center space-x-1 text-[13px]">
             <span>

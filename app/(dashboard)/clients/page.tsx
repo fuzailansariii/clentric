@@ -26,7 +26,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
         icon={<UsersIcon className="h-5 w-5" />}
         badge={
           <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px] font-medium">
-            {clients.length}
+            {total}
           </span>
         }
         breadcrumbs={[

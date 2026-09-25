@@ -181,6 +181,21 @@ export default function DetailedInvoiceForm({
             </button>
           </div>
         </FormSection>
+
+        <FormSection
+          title="Anything else?"
+          step="04 Notes"
+          description="Printed at the bottom of the invoice."
+        >
+          <Field
+            {...register("notes")}
+            multiline
+            rows={3}
+            label="Notes"
+            placeholder="e.g. Thanks for your business!"
+            error={errors.notes?.message}
+          />
+        </FormSection>
       </div>
     </form>
   );

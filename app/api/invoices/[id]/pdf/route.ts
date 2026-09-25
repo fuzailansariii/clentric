@@ -58,7 +58,10 @@ export async function GET(
     // Built from a DB integer (invoices.invoiceNumber), so it's already
     // just "INV-1042" — stripped anyway, on principle, so nothing about
     // this filename can ever inject a header character.
-    const rawFilename = formatInvoiceNumber(data.invoice.invoiceNumber);
+    const rawFilename = formatInvoiceNumber(
+      data.invoice.invoiceNumber,
+      data.invoice.numberPrefix,
+    );
     const safeFilename = rawFilename.replace(/[^a-zA-Z0-9_-]/g, "") || "invoice";
 
     // TS's DOM lib doesn't recognize a Node Buffer as BodyInit, even though
@@ -78,6 +81,12 @@ export async function GET(
 
     if (error instanceof AppError && error.code === "UNAUTHENTICATED") {
       return new Response("Unauthorized.", { status: 401 });
+    }
+
+    if (error instanceof AppError && error.code === "ACCOUNT_PENDING_DELETION") {
+      return new Response("This account is scheduled for deletion.", {
+        status: 403,
+      });
     }
 
     // Never the raw error — could be a DB message, a stack trace, etc.

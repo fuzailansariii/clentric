@@ -46,17 +46,38 @@ export type EditableProposal = {
   }[];
 };
 
+/** Starting values for a brand-new proposal (users.* defaults columns). */
+export type NewProposalDefaults = {
+  expiresInDays: number;
+  depositPercent: number;
+};
+
 type ProposalBuilderProps = {
   clients: ClientOption[];
   initialClientId?: string;
   /** When set, the builder edits this draft instead of creating one. */
   proposal?: EditableProposal;
+  /** Starting values for a new proposal. Ignored when editing. */
+  defaults?: NewProposalDefaults;
 };
+
+/**
+ * The fixed expiry choices, plus the current value when it isn't one of
+ * them — a default of 21 days from Settings still shows as selected.
+ */
+function expiryOptionsWith(days: number) {
+  return EXPIRY_OPTIONS.some((option) => option.value === String(days))
+    ? EXPIRY_OPTIONS
+    : [...EXPIRY_OPTIONS, { value: String(days), label: `${days} days` }].sort(
+        (a, b) => Number(a.value) - Number(b.value),
+      );
+}
 
 export default function ProposalBuilder({
   clients,
   initialClientId,
   proposal,
+  defaults,
 }: ProposalBuilderProps) {
   const router = useRouter();
   const isEditing = Boolean(proposal);
@@ -87,8 +108,8 @@ export default function ProposalBuilder({
           content: "",
           currency: "USD",
           taxRate: 0,
-          depositPercent: 0,
-          expiresInDays: EXPIRY_DEFAULT_DAYS,
+          depositPercent: defaults?.depositPercent ?? 0,
+          expiresInDays: defaults?.expiresInDays ?? EXPIRY_DEFAULT_DAYS,
           milestones: [
             {
               name: "",
@@ -300,7 +321,9 @@ export default function ProposalBuilder({
                               onChange={(value) =>
                                 field.onChange(Number(value))
                               }
-                              options={EXPIRY_OPTIONS}
+                              options={expiryOptionsWith(
+                                Number(field.value ?? EXPIRY_DEFAULT_DAYS),
+                              )}
                               error={errors.expiresInDays?.message}
                             />
                           )}

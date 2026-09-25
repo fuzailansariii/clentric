@@ -43,6 +43,41 @@
       "when": 1790101043204,
       "tag": "0005_nostalgic_catseye",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790185516834,
+      "tag": "0006_business_details_issuer_snapshot",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790186434865,
+      "tag": "0007_user_payment_methods",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1790186821942,
+      "tag": "0008_invoice_defaults",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1790187328018,
+      "tag": "0009_account_deletion",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790360390982,
+      "tag": "0010_business_email",
+      "breakpoints": true
     }
   ]
 }

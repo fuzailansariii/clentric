@@ -29,7 +29,7 @@ export const invoiceColumns: Column<InvoiceListItem>[] = [
             <FileTextIcon />
           </IconTile>
         }
-        title={formatInvoiceNumber(row.invoiceNumber)}
+        title={formatInvoiceNumber(row.invoiceNumber, row.numberPrefix)}
         titleClassName="font-mono text-[13px]"
         subtitle={row.clientName ?? "No client"}
       />

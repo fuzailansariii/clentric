@@ -3,6 +3,7 @@ import { getClientOptions } from "../../../clients/queries";
 import { getProjectOptionsByUserId } from "../../../projects/queries";
 import InvoiceBuilder from "../../invoice-builder";
 import { getInvoiceById } from "../../queries";
+import { formatIssuer } from "@/lib/format-issuer";
 
 type EditInvoicePageProps = {
   params: Promise<{ id: string }>;
@@ -31,11 +32,15 @@ export default async function EditInvoicePage({
 
   return (
     <InvoiceBuilder
+      // The invoice's own sender: its snapshot once sent, live on a draft.
+      issuerName={invoice.issuer ? formatIssuer(invoice.issuer).title : "You"}
       clients={clients}
       projects={projects}
       invoice={{
         id: invoice.id,
         invoiceNumber: invoice.invoiceNumber,
+        numberPrefix: invoice.numberPrefix,
+        notes: invoice.notes ?? "",
         clientId: invoice.clientId,
         projectId: invoice.projectId ?? undefined,
         issueDate: invoice.issueDate,

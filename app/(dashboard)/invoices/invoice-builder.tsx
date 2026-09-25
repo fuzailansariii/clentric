@@ -7,13 +7,19 @@ import {
   type InvoiceFormInput,
   type InvoiceFormOutput,
 } from "./schema";
-import { createInvoiceAction, updateInvoiceAction } from "./actions";
+import {
+  createInvoiceAction,
+  sendInvoiceAction,
+  updateInvoiceAction,
+} from "./actions";
+import type { ActionResult } from "@/lib/action-result";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { useRouter } from "next/navigation";
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
 import { ClientOption } from "@/components/client-combobox";
 import { ProjectOption } from "@/components/project-combobox";
+import { addDays } from "date-fns";
 import { dateToFormValue } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { calculateInvoiceTotals } from "@/lib/calculate-totals";
@@ -28,12 +34,14 @@ import QuickInvoiceForm from "./new/quick-invoice-form";
 export type EditableInvoice = {
   id: string;
   invoiceNumber: number;
+  numberPrefix: string;
   clientId: string;
   projectId?: string;
   issueDate: string;
   dueDate: string;
   currency: string;
   taxRate: number;
+  notes: string;
   lineItems: {
     description: string;
     quantity: number;
@@ -42,21 +50,36 @@ export type EditableInvoice = {
   }[];
 };
 
+/** Starting values for a brand-new invoice (users.* defaults columns). */
+export type NewInvoiceDefaults = {
+  paymentTermsDays: number;
+  taxRate: number;
+  notes: string;
+  /** e.g. "INV-015" — what the next invoice will most likely be numbered. */
+  nextNumberLabel: string;
+};
+
 type InvoiceBuilderProps = {
+  /** Who the invoice is from, for the live preview's header. */
+  issuerName: string;
   clients: ClientOption[];
   projects: ProjectOption[];
   initialClientId?: string;
   initialProjectId?: string;
   /** When set, the builder edits this invoice instead of creating one. */
   invoice?: EditableInvoice;
+  /** Starting values for a new invoice. Ignored when editing. */
+  defaults?: NewInvoiceDefaults;
 };
 
 export default function InvoiceBuilder({
+  issuerName,
   clients,
   projects,
   initialClientId,
   initialProjectId,
   invoice,
+  defaults,
 }: InvoiceBuilderProps) {
   const [mode, setMode] = useState<"quick" | "detailed">(
     invoice ? "detailed" : "quick",
@@ -79,17 +102,23 @@ export default function InvoiceBuilder({
           dueDate: invoice.dueDate,
           currency: invoice.currency,
           taxRate: invoice.taxRate,
+          notes: invoice.notes,
           lineItems: invoice.lineItems,
         }
       : {
           clientId: initialClientId ?? "",
           projectId: initialProjectId ?? undefined,
           issueDate: dateToFormValue(new Date()),
-          dueDate: dateToFormValue(new Date()),
+          // Payment terms (users.payment_terms_days): due on receipt, or N
+          // days out.
+          dueDate: dateToFormValue(
+            addDays(new Date(), defaults?.paymentTermsDays ?? 0),
+          ),
           currency:
             projects.find((project) => project.id === initialProjectId)
               ?.currency ?? "USD",
-          taxRate: 0,
+          taxRate: defaults?.taxRate ?? 0,
+          notes: defaults?.notes ?? "",
           lineItems: [{ description: "", quantity: 1, rate: 0, unit: "item" }],
         },
   });
@@ -233,7 +262,7 @@ export default function InvoiceBuilder({
 
   const invoicePath = invoice ? `/invoices/${invoice.id}` : "/invoices";
   const invoiceLabel = invoice
-    ? formatInvoiceNumber(invoice.invoiceNumber)
+    ? formatInvoiceNumber(invoice.invoiceNumber, invoice.numberPrefix)
     : null;
 
   // form submit handler
@@ -264,6 +293,38 @@ export default function InvoiceBuilder({
     });
   });
 
+  // Create & Send: create the invoice, then send it. A failed send leaves a
+  // saved draft, so it still counts as success — the toast says it wasn't
+  // sent, and the invoice page (where it lands) has its own Send button.
+  const onSubmitAndSend = handleSubmit(async (data: InvoiceFormOutput) => {
+    setFormError("");
+
+    const createAndSend = async (): Promise<
+      ActionResult<{ invoiceId: string; sent: boolean }>
+    > => {
+      const created = await createInvoiceAction(data);
+      if (!created.success) return created;
+      const sent = await sendInvoiceAction(created.data.invoiceId);
+      return {
+        success: true,
+        data: { invoiceId: created.data.invoiceId, sent: sent.success },
+      };
+    };
+
+    await runActionWithToast(createAndSend(), {
+      loading: "Creating and sending invoice...",
+      success: ({ sent }) =>
+        sent
+          ? "Invoice created and sent."
+          : "Invoice saved as a draft, but it couldn't be sent. Try Send again from the invoice.",
+      onSuccess: ({ invoiceId }) => {
+        router.push(`/invoices/${invoiceId}`);
+        reset();
+      },
+      onError: setFormError,
+    });
+  });
+
   return (
     <>
       <PageHeader
@@ -271,7 +332,9 @@ export default function InvoiceBuilder({
         subtitle={
           invoice
             ? "Update the client, dates, tax, or line items."
-            : "Bill a client for completed work with line items, tax, and due dates."
+            : defaults
+              ? `Next invoice: ${defaults.nextNumberLabel}. Bill a client for completed work.`
+              : "Bill a client for completed work with line items, tax, and due dates."
         }
         backHref={invoicePath}
         breadcrumbs={
@@ -360,6 +423,7 @@ export default function InvoiceBuilder({
             {/* Invoice Preview */}
             <div className="sticky top-6 self-start">
               <InvoicePreview
+                issuerName={issuerName}
                 projectName={selectedProject?.title}
                 clientName={selectedClient?.name}
                 dueDate={watchedDueDate}
@@ -368,6 +432,7 @@ export default function InvoiceBuilder({
                 taxAmount={taxAmount}
                 total={total}
                 onSubmit={onSubmit}
+                onSubmitAndSend={invoice ? undefined : onSubmitAndSend}
                 onCancel={() => router.push(invoicePath)}
                 isSubmitting={isSubmitting}
                 editing={

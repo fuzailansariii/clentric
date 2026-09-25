@@ -63,7 +63,10 @@ export function FieldSelect({
           aria-invalid={!!error}
           className={cn(
             // Matches Field's baseStyles rather than the shadcn defaults.
-            "border-border bg-input/20 h-11 w-full rounded-lg px-3 font-sans text-sm font-medium",
+            // Height is set through data-[size=default] too: SelectTrigger's
+            // own data-[size=default]:h-8 is an attribute selector, so it
+            // outranks a plain h-11 and left selects shorter than inputs.
+            "border-border bg-input/20 h-11 w-full rounded-lg px-3 font-sans text-sm font-medium data-[size=default]:h-11",
             "focus-visible:border-ring focus-visible:ring-ring/20 focus-visible:ring-2",
             "disabled:cursor-not-allowed disabled:opacity-60",
             "dark:bg-input/20 dark:hover:bg-input/30",

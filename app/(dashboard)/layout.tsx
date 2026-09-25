@@ -11,6 +11,9 @@ import { getDashboardData } from "./queries";
 import { Toaster } from "@/components/ui/sonner";
 import { VerticalScale } from "@/components/ui/scale-border";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { formatDate } from "@/lib/format-date";
+import { scheduledDeletionDate } from "@/lib/account-deletion";
+import { RestoreAccountScreen } from "./restore-account-screen";
 
 export default async function DashboardLayout({
   children,
@@ -30,6 +33,21 @@ export default async function DashboardLayout({
   if (!authUser) redirect("/login");
 
   const { profile, subscription } = await getDashboardData(authUser.id);
+
+  // Pending deletion: no app, only the choice to restore or leave. The
+  // pages below would be refused anyway (requireUser locks the account).
+  if (profile?.deletionRequestedAt) {
+    return (
+      <>
+        <RestoreAccountScreen
+          deletionDate={formatDate(
+            scheduledDeletionDate(profile.deletionRequestedAt),
+          )}
+        />
+        <Toaster />
+      </>
+    );
+  }
 
   return (
     <SidebarProvider defaultCollapsed={collapsed}>
@@ -51,7 +69,7 @@ export default async function DashboardLayout({
 
           <VerticalScale className="hidden md:block" />
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <MobileTopBar />
+            <MobileTopBar name={profile?.name ?? authUser.email ?? "Account"} />
             <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
               {children}
             </main>

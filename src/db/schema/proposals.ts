@@ -6,8 +6,10 @@ import {
   text,
   timestamp,
   uuid,
+  jsonb,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import type { IssuerSnapshot } from "../../../lib/issuer-snapshot";
 import { users } from "./users";
 import { clients } from "./clients";
 import { invoices } from "./invoices";
@@ -79,6 +81,12 @@ export const proposals = pgTable(
     depositInvoiceId: uuid("deposit_invoice_id").references(() => invoices.id, {
       onDelete: "set null",
     }),
+    /**
+     * The sender's details as they were when this was sent (see
+     * lib/issuer-snapshot.ts). Null for drafts, and for anything sent
+     * before snapshots existed — both read live from users instead.
+     */
+    issuerSnapshot: jsonb("issuer_snapshot").$type<IssuerSnapshot>(),
 
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

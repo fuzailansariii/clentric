@@ -399,21 +399,19 @@ export function ClientDetail({
               />
             </div>
 
-            {(client.notes || true) && (
-              <>
-                <div className="border-border border-t" />
-                <div className="px-6 py-5">
-                  <DataField
-                    label="Notes"
-                    editing={isEditing}
-                    value={client.notes}
-                    registration={register("notes")}
-                    error={errors.notes?.message}
-                    type="textarea"
-                  />
-                </div>
-              </>
-            )}
+            {/* Always shown, so notes can be added while editing; empty
+                reads as "—". */}
+            <div className="border-border border-t" />
+            <div className="px-6 py-5">
+              <DataField
+                label="Notes"
+                editing={isEditing}
+                value={client.notes}
+                registration={register("notes")}
+                error={errors.notes?.message}
+                type="textarea"
+              />
+            </div>
 
             <div className="border-border border-t" />
 
@@ -435,6 +433,7 @@ export function ClientDetail({
             >
               <TabButton
                 id="project-tab"
+                panelId="client-section-panel"
                 label="Projects"
                 count={projectCount}
                 isActive={activeSection === "projects"}
@@ -442,6 +441,7 @@ export function ClientDetail({
               />
               <TabButton
                 id="proposals-tab"
+                panelId="client-section-panel"
                 label="Proposals"
                 count={proposalCount}
                 isActive={activeSection === "proposals"}
@@ -449,6 +449,7 @@ export function ClientDetail({
               />
               <TabButton
                 id="invoices-tab"
+                panelId="client-section-panel"
                 label="Invoices"
                 count={invoiceCount}
                 isActive={activeSection === "invoices"}
@@ -473,7 +474,7 @@ export function ClientDetail({
             >
               {activeSection === "projects" ? (
                 projects ? (
-                  <ProjectsPanel result={projects} />
+                  <ProjectsPanel clientId={client.id} result={projects} />
                 ) : (
                   <PanelLoading />
                 )
