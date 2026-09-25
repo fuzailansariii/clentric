@@ -1,7 +1,8 @@
 /**
- * Shown for a link that was revoked, has expired, or never existed.
+ * Shown for a link that was revoked, has expired, never existed, or whose
+ * owner has asked to delete their account.
  *
- * Deliberately says the same thing in all three cases and names no client,
+ * Deliberately says the same thing in every case and names no client,
  * no amount and no freelancer: this renders for anyone who types a URL, so
  * it must not confirm whether a given token was ever real.
  */
@@ -13,7 +14,7 @@ export function ProposalUnavailable() {
           Proposal
         </p>
         <h1 className="font-space mt-3 text-xl font-semibold tracking-tight text-balance">
-          This proposal is no longer available.
+          This link is no longer available.
         </h1>
         <p className="text-muted-foreground mx-auto mt-3 max-w-sm text-sm leading-relaxed text-pretty">
           The link may have expired or been withdrawn. If you were expecting to

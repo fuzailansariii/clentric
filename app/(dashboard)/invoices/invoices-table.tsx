@@ -27,7 +27,7 @@ export function InvoicesTable({
       renderMobileCard={renderInvoiceMobileCard}
       getRowId={(row) => row.id}
       getRowAriaLabel={(row) =>
-        `View invoice ${formatInvoiceNumber(row.invoiceNumber)}`
+        `View invoice ${formatInvoiceNumber(row.invoiceNumber, row.numberPrefix)}`
       }
       onRowClick={(row) => router.push(`/invoices/${row.id}`)}
       emptyMessage="No invoices found."

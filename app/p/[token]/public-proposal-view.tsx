@@ -11,6 +11,8 @@ import {
   formatPercent,
 } from "@/lib/format-currency";
 import { formatDate, formatRelativeDate } from "@/lib/format-date";
+import { formatIssuer } from "@/lib/format-issuer";
+import { formatPaymentMethod, hasPaymentDetails } from "@/lib/payment-methods";
 import {
   markPaymentSentAction,
   respondProposalAction,
@@ -35,12 +37,12 @@ export function PublicProposalView({ proposal, token }: Props) {
     // A reopened link should show the answer already given rather than
     // offering the buttons again.
     proposal.status === "accepted"
-      ? { response: "accepted", deposit: null }
+      ? { response: "accepted", deposit: proposal.deposit }
       : proposal.status === "rejected"
         ? { response: "declined", deposit: null }
         : null,
   );
-  const [paymentClaimed, setPaymentClaimed] = useState(false);
+  const [paymentClaimed, setPaymentClaimed] = useState(proposal.paymentClaimed);
   const [paymentNote, setPaymentNote] = useState("");
 
   const recorded = useRef(false);
@@ -116,7 +118,10 @@ export function PublicProposalView({ proposal, token }: Props) {
     });
   };
 
-  const ownerName = proposal.owner.name?.trim() || proposal.owner.email;
+  // Business name when set, else the person — the proposal's snapshot once
+  // sent, so it matches what the client was sent.
+  const issuer = formatIssuer(proposal.owner);
+  const ownerName = issuer.title;
 
   return (
     <main className="bg-muted/30 min-h-dvh px-4 py-8 sm:px-6 sm:py-12">
@@ -356,14 +361,34 @@ export function PublicProposalView({ proposal, token }: Props) {
                     the details below.
                   </p>
 
-                  {outcome.deposit.paymentDetails ? (
+                  {hasPaymentDetails(outcome.deposit.payment) ? (
                     <div className="bg-muted/50 border-border rounded-lg border px-4 py-3">
                       <p className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.18em] uppercase">
                         Payment details
                       </p>
-                      <p className="mt-2 text-sm leading-relaxed whitespace-pre-line">
-                        {outcome.deposit.paymentDetails}
-                      </p>
+                      <div className="mt-2 flex flex-col gap-3 text-sm leading-relaxed wrap-anywhere">
+                        {outcome.deposit.payment.methods.map((method) => {
+                          const { label, lines } = formatPaymentMethod(method);
+                          return (
+                            <div key={method.type}>
+                              <p className="font-medium">{label}</p>
+                              {lines.map((line, index) => (
+                                <p
+                                  key={index}
+                                  className="text-muted-foreground"
+                                >
+                                  {line}
+                                </p>
+                              ))}
+                            </div>
+                          );
+                        })}
+                        {outcome.deposit.payment.instructions?.trim() && (
+                          <p className="whitespace-pre-line">
+                            {outcome.deposit.payment.instructions}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   ) : (
                     <p className="text-muted-foreground text-sm">
@@ -412,6 +437,22 @@ export function PublicProposalView({ proposal, token }: Props) {
               )}
             </div>
           )}
+
+          <section className="border-border border-t pt-6">
+            <h2 className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.2em] uppercase">
+              From
+            </h2>
+            <p className="mt-2 text-sm font-medium wrap-anywhere">
+              {issuer.title}
+            </p>
+            {issuer.lines.length > 0 && (
+              <div className="text-muted-foreground mt-1 text-sm leading-relaxed wrap-anywhere">
+                {issuer.lines.map((line, index) => (
+                  <p key={index}>{line}</p>
+                ))}
+              </div>
+            )}
+          </section>
 
           {proposal.owner.testimonialQuote?.trim() && (
             <blockquote className="border-border border-t pt-6">

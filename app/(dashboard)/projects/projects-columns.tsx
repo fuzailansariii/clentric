@@ -52,7 +52,7 @@ export const projectColumns: Column<ProjectListItem>[] = [
     className: "whitespace-nowrap text-right",
     cell: (row) => (
       <span className="font-semibold tabular-nums">
-        {formatCurrency(row.budget)}
+        {formatCurrency(row.budget, row.currency)}
       </span>
     ),
   },

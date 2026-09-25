@@ -5,12 +5,14 @@ import {
   decimal,
   timestamp,
   uuid,
+  jsonb,
   date,
   index,
   unique,
   integer,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import type { IssuerSnapshot } from "../../../lib/issuer-snapshot";
 import { users } from "./users";
 import { clients } from "./clients";
 import { projects } from "./projects";
@@ -37,6 +39,16 @@ export const invoices = pgTable(
     }),
     invoiceNumber: integer("invoice_number").notNull(),
     /**
+     * The prefix this invoice was numbered with (users.invoice_prefix at
+     * creation), so changing the prefix later never renames old invoices.
+     * Printed as `${numberPrefix}${number padded to 3}` — see
+     * formatInvoiceNumber.
+     */
+    numberPrefix: text("number_prefix").notNull().default("INV-"),
+    /** Printed at the bottom of the invoice; prefilled from the user's
+     * default notes when the invoice is created. */
+    notes: text("notes"),
+    /**
      * Matches proposals.currency. Without it a deposit invoice raised from a
      * proposal quoted in EUR would render as USD, since formatCurrency has to
      * be told which currency a figure is in.
@@ -55,6 +67,12 @@ export const invoices = pgTable(
     dueDate: date("due_date").notNull(),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paymentDetails: text("payment_details"),
+    /**
+     * The sender's details as they were when this was sent (see
+     * lib/issuer-snapshot.ts). Null for drafts, and for anything sent
+     * before snapshots existed — both read live from users instead.
+     */
+    issuerSnapshot: jsonb("issuer_snapshot").$type<IssuerSnapshot>(),
     /**
      * Set when a client presses "I've sent payment". A nudge and nothing
      * more: it never changes `status`, which only the freelancer's own

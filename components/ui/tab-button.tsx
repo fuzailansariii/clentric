@@ -2,6 +2,8 @@ import { cn } from "@/lib/utils";
 
 type TabButtonProps = {
   id: string;
+  /** id of the tabpanel this tab shows (aria-controls). */
+  panelId: string;
   label: string;
   count?: number;
   isActive: boolean;
@@ -10,6 +12,7 @@ type TabButtonProps = {
 
 export function TabButton({
   id,
+  panelId,
   label,
   count,
   isActive,
@@ -21,7 +24,7 @@ export function TabButton({
       role="tab"
       type="button"
       aria-selected={isActive}
-      aria-controls="client-section-panel"
+      aria-controls={panelId}
       tabIndex={isActive ? 0 : -1}
       onClick={onClick}
       className={cn(

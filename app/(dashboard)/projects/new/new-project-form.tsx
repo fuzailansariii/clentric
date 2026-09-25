@@ -19,8 +19,11 @@ import { NO_CHANGE_MESSAGE } from "@/lib/error-message";
 
 export default function NewProjectsForm({
   clients,
+  initialClientId,
 }: {
   clients: ClientOption[];
+  /** Set when arriving from a client's Projects tab. */
+  initialClientId?: string;
 }) {
   const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
@@ -34,7 +37,7 @@ export default function NewProjectsForm({
     resolver: zodResolver(projectSchema),
     defaultValues: {
       status: "not_started",
-      clientId: "",
+      clientId: initialClientId ?? "",
     },
   });
 
@@ -111,7 +114,7 @@ export default function NewProjectsForm({
               step="02 Budget & Timeline"
               description="Estimate what this project is worth and when it's due."
             >
-              <div className="sm: grid grid-cols-2 gap-5">
+              <div className="grid gap-5 sm:grid-cols-2">
                 <Field
                   {...register("budget")}
                   label="Budget"

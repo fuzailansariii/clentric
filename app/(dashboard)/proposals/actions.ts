@@ -13,7 +13,16 @@ import { proposalItems } from "@/src/db/schema/proposal-items";
 import { proposalMilestones } from "@/src/db/schema/proposal-milestones";
 import { projects } from "@/src/db/schema/projects";
 import { proposals } from "@/src/db/schema/proposals";
+import { invoices } from "@/src/db/schema/invoices";
 import { createProjectFromProposal } from "@/lib/create-project-from-proposal";
+import {
+  issuerSnapshotSql,
+  liveIssuer,
+  resolveIssuer,
+  resolvePayment,
+  type IssuerDetails,
+} from "@/lib/issuer-snapshot";
+import type { RespondResult } from "./public-actions";
 import {
   createProposalSchema,
   duplicateProposalSchema,
@@ -49,13 +58,13 @@ export type PublicProposal = {
   createdAt: Date;
   clientName: string;
   clientCompany: string | null;
-  /** The freelancer, as the client sees them on the page. */
-  owner: {
-    name: string | null;
-    email: string;
+  /**
+   * The freelancer, as the client sees them on the page. The issuer fields
+   * come from the proposal's snapshot once sent, live data otherwise.
+   */
+  owner: IssuerDetails & {
     avatar: string | null;
     brandColor: string | null;
-    paymentDetails: string | null;
     testimonialQuote: string | null;
     testimonialAuthor: string | null;
   };
@@ -65,6 +74,14 @@ export type PublicProposal = {
     description: string | null;
   }[];
   items: PublicProposalItem[];
+  /**
+   * For an accepted proposal with a deposit: the amount and how to pay,
+   * read from the deposit invoice, so a client reopening the link still
+   * sees them. Null otherwise.
+   */
+  deposit: RespondResult["deposit"];
+  /** The client already pressed "I've sent payment", or it's been paid. */
+  paymentClaimed: boolean;
 };
 
 const viewableStatuses = ["sent", "viewed", "accepted", "rejected"] as const;
@@ -106,21 +123,35 @@ export async function getProposalByToken(
         expiresAt: true,
         viewedAt: true,
         createdAt: true,
+        issuerSnapshot: true,
+        userId: true,
+        depositInvoiceId: true,
       },
       with: {
         client: { columns: { name: true, company: true } },
         // Branding and payment details belong to the freelancer, not the
         // proposal, so they are read through the owner rather than copied
-        // onto every row.
+        // onto every row. The identity fields are read too, for proposals
+        // sent before snapshots existed.
         user: {
           columns: {
             name: true,
             email: true,
+            businessEmail: true,
+            profession: true,
+            businessName: true,
+            website: true,
+            phone: true,
+            taxId: true,
+            address: true,
             avatar: true,
             brandColor: true,
-            paymentDetails: true,
+            // No payment details here: the page only shows how to pay
+            // after acceptance, from the deposit invoice itself.
             testimonialQuote: true,
             testimonialAuthor: true,
+            // An owner pending deletion closes all their links.
+            deletionRequestedAt: true,
           },
         },
         milestones: {
@@ -149,7 +180,12 @@ export async function getProposalByToken(
     if (
       !proposal ||
       !isViewable(proposal.status) ||
-      (proposal.expiresAt && proposal.expiresAt.getTime() <= Date.now())
+      proposal.user.deletionRequestedAt ||
+      // Expiry only closes a proposal still awaiting an answer; one the
+      // client already accepted or declined stays readable.
+      ((proposal.status === "sent" || proposal.status === "viewed") &&
+        proposal.expiresAt &&
+        proposal.expiresAt.getTime() <= Date.now())
     ) {
       return {
         success: false as const,
@@ -157,7 +193,47 @@ export async function getProposalByToken(
       };
     }
 
-    const { client, user, ...rest } = proposal;
+    const { client, user, issuerSnapshot, userId, depositInvoiceId, ...rest } =
+      proposal;
+
+    // Accepted with a deposit: show the same amount and payment details the
+    // deposit invoice carries. Scoped to the proposal's owner and skipped
+    // if the freelancer has since deleted that invoice.
+    let deposit: PublicProposal["deposit"] = null;
+    let paymentClaimed = false;
+    if (proposal.status === "accepted" && depositInvoiceId) {
+      const [invoice] = await db
+        .select({
+          total: invoices.total,
+          status: invoices.status,
+          paymentClaimedAt: invoices.paymentClaimedAt,
+          issuerSnapshot: invoices.issuerSnapshot,
+          paymentDetails: invoices.paymentDetails,
+        })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.id, depositInvoiceId),
+            eq(invoices.userId, userId),
+            isNull(invoices.deletedAt),
+          ),
+        )
+        .limit(1);
+
+      if (invoice) {
+        deposit = {
+          amount: invoice.total,
+          percent: Number(proposal.depositPercent),
+          payment: resolvePayment(
+            invoice.issuerSnapshot,
+            invoice.paymentDetails,
+            { methods: [], instructions: null },
+          ),
+        };
+        paymentClaimed =
+          invoice.paymentClaimedAt !== null || invoice.status === "paid";
+      }
+    }
 
     return {
       success: true as const,
@@ -166,7 +242,15 @@ export async function getProposalByToken(
         status: proposal.status,
         clientName: client.name,
         clientCompany: client.company,
-        owner: user,
+        owner: {
+          ...resolveIssuer(issuerSnapshot, liveIssuer(user)),
+          avatar: user.avatar,
+          brandColor: user.brandColor,
+          testimonialQuote: user.testimonialQuote,
+          testimonialAuthor: user.testimonialAuthor,
+        },
+        deposit,
+        paymentClaimed,
       },
     };
   } catch (error) {
@@ -366,6 +450,9 @@ export async function sendProposalAction(
       .set({
         status: "sent",
         expiresAt: sql`case when ${proposals.expiresAt} is null then null else now() + (${proposals.expiresAt} - ${proposals.createdAt}) end`,
+        // Freezes the sender's details in the same statement that sends it.
+        // Only drafts match the WHERE, so there is never one to keep.
+        issuerSnapshot: issuerSnapshotSql(user.id),
         updatedAt: new Date(),
       })
       // Ownership lives in the write's own WHERE, not in an earlier read.
@@ -385,6 +472,10 @@ export async function sendProposalAction(
         error: "This proposal can no longer be sent.",
       };
     }
+
+    // TODO(resend): email the client their /p/[token] link. Until Resend is
+    // installed, sending only opens the link — the freelancer shares it
+    // with "Copy client link".
 
     revalidateProposalPaths(row.id, row.clientId);
     return { success: true };
@@ -558,10 +649,11 @@ export async function duplicateProposalAction(
         );
       }
 
-      return row;
+      return { ...row, clientId: source.clientId };
     });
 
-    revalidateProposalPaths(created.proposalId, undefined);
+    // The copy also appears on its client's Proposals tab.
+    revalidateProposalPaths(created.proposalId, created.clientId);
 
     return { success: true, data: { proposalId: created.proposalId } };
   } catch (error) {
@@ -738,11 +830,13 @@ export async function updateProposalAction(
           taxRate: parsed.data.taxRate.toFixed(2),
           total: total.toFixed(2),
           depositPercent: parsed.data.depositPercent.toFixed(2),
-          // Re-based from now, the same way sending does, so an edited draft
-          // does not inherit a window that has already been running.
+          // Stored as createdAt + N days, not now + N: a draft's window is
+          // read back as expiresAt - createdAt (by the edit page, and by
+          // sendProposalAction, which re-bases it from the moment it's
+          // sent). Anchoring on now made the window grow with every edit.
           expiresAt:
             parsed.data.expiresInDays > 0
-              ? new Date(Date.now() + parsed.data.expiresInDays * 86_400_000)
+              ? sql`${proposals.createdAt} + make_interval(days => ${parsed.data.expiresInDays})`
               : null,
           updatedAt: new Date(),
         })

@@ -238,9 +238,17 @@ export function ProposalDetailView({
                   <MetaRow
                     label="Expires"
                     value={
-                      proposal.expiresAt
-                        ? formatDate(proposal.expiresAt)
-                        : "Never"
+                      !proposal.expiresAt
+                        ? "Never"
+                        : proposal.status === "draft"
+                          ? // A draft's date isn't real yet: sending re-bases
+                            // the window from the moment it goes out.
+                            `${Math.round(
+                              (proposal.expiresAt.getTime() -
+                                proposal.createdAt.getTime()) /
+                                86_400_000,
+                            )} days after sending`
+                          : formatDate(proposal.expiresAt)
                     }
                   />
                   {proposal.viewedAt && (

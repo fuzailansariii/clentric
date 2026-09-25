@@ -26,7 +26,13 @@ export const PANEL_TABLE_CLASS =
  * fetches only what this tab shows, so a client with hundreds of projects
  * doesn't ship them all to the browser.
  */
-export function ProjectsPanel({ result }: { result: ProjectListResult }) {
+export function ProjectsPanel({
+  clientId,
+  result,
+}: {
+  clientId: string;
+  result: ProjectListResult;
+}) {
   const isSearching = Boolean(useSearchParams().get("search"));
 
   const {
@@ -76,7 +82,11 @@ export function ProjectsPanel({ result }: { result: ProjectListResult }) {
               },
             ]}
             actions={
-              <Link href="/projects/new" className="shrink-0">
+              // Prefills this client on the new-project form.
+              <Link
+                href={`/projects/new?clientId=${clientId}`}
+                className="shrink-0"
+              >
                 <CustomButton
                   variant="primary"
                   size="sm"

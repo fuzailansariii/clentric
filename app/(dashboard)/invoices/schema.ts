@@ -33,6 +33,12 @@ export const invoiceObjectSchema = z.object({
   lineItems: z
     .array(invoiceLineSchema)
     .min(1, "At least one line item is required"),
+  /** Printed at the bottom of the invoice. Blank is stored as null. */
+  notes: z
+    .string()
+    .trim()
+    .max(2000, "Notes must be 2000 characters or fewer")
+    .optional(),
 });
 
 export const invoiceSchema = invoiceObjectSchema.refine(

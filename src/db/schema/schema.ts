@@ -15,5 +15,6 @@ export * from "./subscriptions";
 export * from "./team-members";
 export * from "./webhook-events";
 export * from "./invoice-counters";
+export * from "./payment-methods";
 export * from "./waitlist";
 export * from "./relations";

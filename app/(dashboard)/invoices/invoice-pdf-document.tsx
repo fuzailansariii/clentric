@@ -2,6 +2,8 @@ import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
 import { formatCurrency, formatNumber } from "@/lib/format-currency";
 import { formatDate } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
+import { formatIssuer } from "@/lib/format-issuer";
+import { formatPaymentMethod, hasPaymentDetails } from "@/lib/payment-methods";
 import {
   formatLineItemQuantity,
   formatLineItemRate,
@@ -258,11 +260,15 @@ export function InvoicePdfDocument({
   showBranding?: boolean;
 }) {
   const { invoice, items, profile } = data;
-  const invoiceNumber = formatInvoiceNumber(invoice.invoiceNumber);
+  const invoiceNumber = formatInvoiceNumber(
+    invoice.invoiceNumber,
+    invoice.numberPrefix,
+  );
   const statusInfo = invoiceStatusConfig[invoice.status];
   const stampInk = toneInk[statusInfo.variant] ?? toneInk.neutral;
   const detail = stampDetail(invoice);
-  const issuerName = profile.name ?? profile.email;
+  const issuer = formatIssuer(profile);
+  const issuerName = issuer.title;
   const clientCompany =
     invoice.clientCompany && invoice.clientCompany !== invoice.clientName
       ? invoice.clientCompany
@@ -305,12 +311,11 @@ export function InvoicePdfDocument({
           <View style={styles.party}>
             <Text style={styles.label}>From</Text>
             <Text style={styles.partyName}>{issuerName}</Text>
-            {profile.profession ? (
-              <Text style={styles.partyLine}>{profile.profession}</Text>
-            ) : null}
-            {profile.name ? (
-              <Text style={styles.partyLine}>{profile.email}</Text>
-            ) : null}
+            {issuer.lines.map((line, index) => (
+              <Text key={index} style={styles.partyLine}>
+                {line}
+              </Text>
+            ))}
           </View>
 
           <View style={styles.party}>
@@ -418,11 +423,24 @@ export function InvoicePdfDocument({
             belongs here, only whatever instructions the freelancer typed
             in on this invoice. */}
         <View style={styles.closing} wrap={false}>
-          {invoice.paymentDetails ? (
+          {hasPaymentDetails(invoice.payment) ? (
             <View style={styles.closingCol}>
               <Text style={styles.label}>Payment details</Text>
               <View style={styles.paymentBox}>
-                <Text>{invoice.paymentDetails}</Text>
+                {invoice.payment.methods.map((method) => {
+                  const { label, lines } = formatPaymentMethod(method);
+                  return (
+                    <View key={method.type} style={{ marginBottom: 6 }}>
+                      <Text style={sansStrong}>{label}</Text>
+                      {lines.map((line, index) => (
+                        <Text key={index}>{line}</Text>
+                      ))}
+                    </View>
+                  );
+                })}
+                {invoice.payment.instructions?.trim() ? (
+                  <Text>{invoice.payment.instructions}</Text>
+                ) : null}
                 <Text style={styles.reference}>
                   Please use {invoiceNumber} as the payment reference.
                 </Text>
@@ -438,6 +456,13 @@ export function InvoicePdfDocument({
             </Text>
           </View>
         </View>
+
+        {invoice.notes?.trim() ? (
+          <View style={{ marginTop: 20 }} wrap={false}>
+            <Text style={styles.label}>Notes</Text>
+            <Text style={{ marginTop: 8 }}>{invoice.notes}</Text>
+          </View>
+        ) : null}
 
         <View fixed style={styles.footer}>
           <Text style={styles.footerText}>

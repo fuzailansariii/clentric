@@ -352,6 +352,7 @@ export async function getMilestonesByProjectId(
 export type ProjectInvoiceRow = {
   id: string;
   invoiceNumber: number;
+  numberPrefix: string;
   status: InvoiceDisplayStatus;
   total: string;
   currency: string;
@@ -378,6 +379,7 @@ export async function getInvoicesForProject(
       .select({
         id: invoices.id,
         invoiceNumber: invoices.invoiceNumber,
+        numberPrefix: invoices.numberPrefix,
         status: invoices.status,
         total: invoices.total,
         currency: invoices.currency,

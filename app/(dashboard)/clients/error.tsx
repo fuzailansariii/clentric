@@ -16,7 +16,7 @@ export default function ClientsError({
 
   return (
     <div className="border-border flex min-h-40 flex-col items-center justify-center gap-3 rounded-xl border px-6 py-12 text-center">
-      <p className="text-sm font-medium">Couldn`&apos;`t load your clients.</p>
+      <p className="text-sm font-medium">Couldn&apos;t load your clients.</p>
       <p className="text-muted-foreground text-xs">
         Something went wrong. Try again, or refresh the page.
       </p>

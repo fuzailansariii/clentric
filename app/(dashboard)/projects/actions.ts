@@ -1,10 +1,14 @@
 "use server";
 import { AppError, logError } from "@/lib/errors";
-import { projectIdSchema, projectSchema } from "./schema";
+import {
+  editableProjectsSchema,
+  projectIdSchema,
+  projectSchema,
+} from "./schema";
 import { requireUser } from "@/lib/current-user";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { projects } from "@/src/db/schema/projects";
 import { normalize } from "@/lib/normalizeOptionalFields";
 import { revalidatePath } from "next/cache";
@@ -25,41 +29,55 @@ export async function createProjectAction(
       };
     }
 
-    // check if the client already exist
     const user = await requireUser();
     const { clientId } = parsedInput.data;
+    const data = normalize(parsedInput.data);
 
-    const created = await db.transaction(async (tx) => {
-      const [client] = await tx
-        .select({ id: clients.id })
-        .from(clients)
-        .where(
-          and(
-            eq(clients.id, clientId),
-            eq(clients.userId, user.id),
-            isNull(clients.deletedAt),
+    // INSERT ... SELECT: the row is only produced when the client exists,
+    // belongs to this user and isn't deleted, so the ownership check lives
+    // in the write itself — no transaction, no check-then-insert race.
+    // Drizzle requires every column, in table order.
+    const [created] = await db
+      .insert(projects)
+      .select(
+        db
+          .select({
+            id: sql<string>`gen_random_uuid()`.as("id"),
+            userId: sql<string>`${user.id}::uuid`.as("user_id"),
+            clientId: clients.id,
+            title: sql<string>`${data.title}::text`.as("title"),
+            description: sql<
+              string | null
+            >`${data.description ?? null}::text`.as("description"),
+            budget: sql<string>`${data.budget}::numeric`.as("budget"),
+            currency: sql<string>`'USD'::text`.as("currency"),
+            proposalId: sql<string | null>`null::uuid`.as("proposal_id"),
+            hourlyRate: sql<
+              string | null
+            >`${data.hourlyRate ?? null}::numeric`.as("hourly_rate"),
+            deadline: sql<
+              string | null
+            >`${data.deadline ?? null}::date`.as("deadline"),
+            status: sql<
+              typeof data.status
+            >`${data.status}::project_status_enum`.as("status"),
+            createdAt: sql<Date>`now()`.as("created_at"),
+            updatedAt: sql<Date>`now()`.as("updated_at"),
+            deletedAt: sql<Date | null>`null::timestamptz`.as("deleted_at"),
+          })
+          .from(clients)
+          .where(
+            and(
+              eq(clients.id, clientId),
+              eq(clients.userId, user.id),
+              isNull(clients.deletedAt),
+            ),
           ),
-        )
-        .limit(1)
-        .for("update");
-
-      if (!client) {
-        throw new AppError("NOT_FOUND", "Client not found");
-      }
-
-      const [row] = await tx
-        .insert(projects)
-        .values({
-          ...normalize(parsedInput.data),
-          userId: user.id,
-        })
-        .returning({ id: projects.id });
-
-      return row;
-    });
+      )
+      .returning({ id: projects.id });
 
     if (!created) {
-      throw new AppError("INSERT_FAILED", "Project was not created.");
+      throw new AppError("NOT_FOUND", "Client not found");
     }
 
     revalidatePath(`/clients/${clientId}`);
@@ -108,10 +126,7 @@ export async function updateProjectAction(
     const updatableInput: Record<string, unknown> = { ...input };
     delete updatableInput.clientId;
 
-    const parsedInput = projectSchema
-      .omit({ clientId: true })
-      .partial()
-      .safeParse(updatableInput);
+    const parsedInput = editableProjectsSchema.safeParse(updatableInput);
 
     if (!parsedInput.success) {
       return {

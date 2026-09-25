@@ -1,11 +1,12 @@
 "use server";
 
-import { and, eq, gt, inArray, isNull, or } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
-
 import type { ActionResult } from "@/lib/action-result";
 import { AppError, logError } from "@/lib/errors";
 import { getNextInvoiceNumber } from "@/lib/get-next-invoice-number";
+import { issuerSnapshotSql, resolvePayment } from "@/lib/issuer-snapshot";
+import type { PaymentDetails } from "@/lib/payment-methods";
 import { isRateLimited } from "@/lib/rate-limit";
 import { db, type Transaction } from "@/src/db";
 import { createProjectFromProposal } from "@/lib/create-project-from-proposal";
@@ -13,14 +14,6 @@ import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { invoices } from "@/src/db/schema/invoices";
 import { proposals } from "@/src/db/schema/proposals";
 import { users } from "@/src/db/schema/users";
-
-/**
- * Actions reachable by a client holding a proposal link, with no account.
- *
- * Kept apart from actions.ts on purpose: nothing here calls requireUser(), so
- * every function must carry its own rate limit and prove the caller holds a
- * valid, still-open token. The token is the only credential.
- */
 
 const tokenSchema = z.string().trim().min(20, "Invalid link").max(200);
 
@@ -39,19 +32,14 @@ const markPaymentSentSchema = z.object({
 /** Statuses a link is still allowed to act on. */
 const OPEN_STATUSES = ["sent", "viewed"] as const;
 
-/**
- * One message for "never existed", "revoked" and "expired". A public endpoint
- * that distinguishes them lets someone probe tokens.
- */
 const GONE = "This proposal is no longer available.";
 
-/**
- * Records the first time a client opened the proposal.
- *
- * Only ever moves `sent` to `viewed` — an accepted or declined proposal keeps
- * the status the client gave it, and viewedAt is never overwritten, so it
- * stays the *first* view rather than the most recent.
- */
+const ownerIsActive = sql`not exists (
+  select 1 from ${users}
+  where ${users.id} = ${proposals.userId}
+    and ${users.deletionRequestedAt} is not null
+)`;
+
 export async function viewProposalAction(token: string): Promise<ActionResult> {
   try {
     const parsed = tokenSchema.safeParse(token);
@@ -75,6 +63,7 @@ export async function viewProposalAction(token: string): Promise<ActionResult> {
           eq(proposals.status, "sent"),
           isNull(proposals.viewedAt),
           isNull(proposals.deletedAt),
+          ownerIsActive,
         ),
       );
 
@@ -87,13 +76,6 @@ export async function viewProposalAction(token: string): Promise<ActionResult> {
   }
 }
 
-/**
- * Raises the deposit invoice for an accepted proposal.
- *
- * NOT a payment. It writes an invoice carrying the freelancer's own saved
- * payment details so the client can pay them directly, outside this app.
- * No gateway is involved and none may be added here.
- */
 async function createDepositInvoice(
   tx: Transaction,
   proposal: {
@@ -114,7 +96,12 @@ async function createDepositInvoice(
   if (!(amount > 0)) return null;
 
   const [owner] = await tx
-    .select({ paymentDetails: users.paymentDetails })
+    .select({
+      paymentDetails: users.paymentDetails,
+      // Numbered and noted like any other new invoice.
+      invoicePrefix: users.invoicePrefix,
+      defaultInvoiceNotes: users.defaultInvoiceNotes,
+    })
     .from(users)
     .where(eq(users.id, proposal.userId))
     .limit(1);
@@ -133,11 +120,7 @@ async function createDepositInvoice(
       userId: proposal.userId,
       clientId: proposal.clientId,
       invoiceNumber,
-      // Inherited from the proposal: the deposit is a slice of that figure,
-      // so it has to be in the same currency it was quoted in.
       currency: proposal.currency,
-      // Tax was already applied when the proposal total was computed, so the
-      // deposit is a straight slice of that figure and is not taxed again.
       subTotal: amount.toFixed(2),
       taxRate: "0",
       taxAmount: "0",
@@ -147,6 +130,12 @@ async function createDepositInvoice(
       status: "sent",
       sentAt: issueDate,
       paymentDetails: owner?.paymentDetails ?? null,
+      numberPrefix: owner?.invoicePrefix ?? "INV-",
+      notes: owner?.defaultInvoiceNotes ?? null,
+      issuerSnapshot: sql`coalesce(
+        (select ${proposals.issuerSnapshot} from ${proposals} where ${proposals.id} = ${proposal.id}),
+        ${issuerSnapshotSql(proposal.userId)}
+      )`,
     })
     .returning({ id: invoices.id });
 
@@ -168,19 +157,13 @@ async function createDepositInvoice(
 
 export type RespondResult = {
   response: "accepted" | "declined";
-  /** Present only when accepting a proposal that asked for a deposit. */
   deposit: {
     amount: string;
     percent: number;
-    paymentDetails: string | null;
+    payment: PaymentDetails;
   } | null;
 };
 
-/**
- * The client's answer. Accepting a proposal that asks for a deposit also
- * raises that invoice, in the same transaction, so an accepted proposal can
- * never exist without the invoice it promised.
- */
 export async function respondProposalAction(
   input: unknown,
 ): Promise<ActionResult<RespondResult>> {
@@ -201,15 +184,12 @@ export async function respondProposalAction(
     const result = await db.transaction(async (tx) => {
       const now = new Date();
 
-      // The status change is the claim. Guarding it here — rather than
-      // reading first and writing after — is what makes two tabs accepting
-      // at the same moment safe: exactly one UPDATE matches a row, and the
-      // loser sees the same "no longer available" message as a stale link.
       const stillOpen = and(
         eq(proposals.token, token),
         inArray(proposals.status, [...OPEN_STATUSES]),
         isNull(proposals.deletedAt),
         or(isNull(proposals.expiresAt), gt(proposals.expiresAt, now)),
+        ownerIsActive,
       );
 
       if (response === "declined") {
@@ -267,10 +247,15 @@ export async function respondProposalAction(
       const amount =
         Math.round(Number(accepted.total) * (percent / 100) * 100) / 100;
 
-      const [owner] = await tx
-        .select({ paymentDetails: users.paymentDetails })
-        .from(users)
-        .where(eq(users.id, accepted.userId))
+      // Read back from the invoice just raised, so the page shows the same
+      // methods the invoice (and its PDF) will print.
+      const [deposit] = await tx
+        .select({
+          issuerSnapshot: invoices.issuerSnapshot,
+          paymentDetails: invoices.paymentDetails,
+        })
+        .from(invoices)
+        .where(eq(invoices.id, depositInvoiceId))
         .limit(1);
 
       return {
@@ -278,7 +263,11 @@ export async function respondProposalAction(
         deposit: {
           amount: amount.toFixed(2),
           percent,
-          paymentDetails: owner?.paymentDetails ?? null,
+          payment: resolvePayment(
+            deposit?.issuerSnapshot,
+            deposit?.paymentDetails ?? null,
+            { methods: [], instructions: null },
+          ),
         },
       } satisfies RespondResult;
     });
@@ -293,14 +282,6 @@ export async function respondProposalAction(
   }
 }
 
-/**
- * A nudge, nothing more.
- *
- * Reached with the proposal's token rather than one of its own — the deposit
- * invoice hangs off the proposal, so there is no second public token to leak
- * or revoke. It sets paymentClaimedAt/Note and deliberately never touches
- * `status`: only the freelancer's own "Mark as paid" can do that.
- */
 export async function markPaymentSentAction(
   input: unknown,
 ): Promise<ActionResult> {
@@ -318,11 +299,18 @@ export async function markPaymentSentAction(
 
     const [proposal] = await db
       .select({
+        userId: proposals.userId,
         depositInvoiceId: proposals.depositInvoiceId,
         status: proposals.status,
       })
       .from(proposals)
-      .where(and(eq(proposals.token, token), isNull(proposals.deletedAt)))
+      .where(
+        and(
+          eq(proposals.token, token),
+          isNull(proposals.deletedAt),
+          ownerIsActive,
+        ),
+      )
       .limit(1);
 
     // Only an accepted proposal has a deposit invoice to claim against.
@@ -341,7 +329,13 @@ export async function markPaymentSentAction(
         paymentClaimedNote: note || null,
         updatedAt: new Date(),
       })
-      .where(eq(invoices.id, proposal.depositInvoiceId));
+      .where(
+        and(
+          eq(invoices.id, proposal.depositInvoiceId),
+          eq(invoices.userId, proposal.userId),
+          isNull(invoices.deletedAt),
+        ),
+      );
 
     return { success: true };
   } catch (error) {

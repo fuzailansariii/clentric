@@ -12,12 +12,14 @@ import { requireUser } from "@/lib/current-user";
 import { db } from "@/src/db";
 import { getNextInvoiceNumber } from "@/lib/get-next-invoice-number";
 import { invoices } from "@/src/db/schema/invoices";
+import { users } from "@/src/db/schema/users";
 import { revalidatePath } from "next/cache";
 import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { clients } from "@/src/db/schema/clients";
 import { and, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
 import { projects } from "@/src/db/schema/projects";
 import { getDisplayStatus } from "@/lib/get-invoice-display-status";
+import { issuerSnapshotSql } from "@/lib/issuer-snapshot";
 import {
   isReminderOnCooldown,
   REMINDER_COOLDOWN_MS,
@@ -35,8 +37,6 @@ function revalidateInvoicePaths(invoiceId: string, clientId: string) {
   revalidatePath(`/clients/${clientId}`);
 }
 
-// `now() - <ms>` for SQL guards, built from the same millisecond constants
-// the UI uses, so the database check and the button state can't drift apart.
 function msAgo(ms: number) {
   return sql`now() - make_interval(secs => ${ms / 1000})`;
 }
@@ -123,6 +123,11 @@ export async function createInvoiceAction(
           currency: parsed.data.currency,
           taxRate: parsed.data.taxRate.toFixed(2),
           invoiceNumber,
+          // The user's prefix as it is right now, read inside this INSERT
+          // and stored on the invoice, so renaming the prefix later never
+          // renames this one.
+          numberPrefix: sql`(select ${users.invoicePrefix} from ${users} where ${users.id} = ${user.id})`,
+          notes: parsed.data.notes || null,
           taxAmount: taxAmount.toFixed(2),
           subTotal: subTotal.toFixed(2),
           total: total.toFixed(2),
@@ -270,6 +275,7 @@ export async function updateInvoiceAction(
           taxAmount: taxAmount.toFixed(2),
           subTotal: subTotal.toFixed(2),
           total: total.toFixed(2),
+          notes: parsed.data.notes || null,
           updatedAt: new Date(),
         })
         .where(
@@ -383,13 +389,13 @@ export async function updateInvoiceStatusAction(
       );
     }
 
+    // Undo-send makes it a draft again, and drafts read the sender's details
+    // live — so the snapshot goes too, and is retaken on the next send.
     const clearedTimestamp =
-      currentStatus === "sent" ? { sentAt: null } : { paidAt: null };
+      currentStatus === "sent"
+        ? { sentAt: null, issuerSnapshot: null }
+        : { paidAt: null };
 
-    // The checks above give a clear error message; this WHERE is what actually
-    // enforces them. It only matches if the status is still what we read and,
-    // for undo-send, the window is still open — so two requests racing each
-    // other (or the window closing mid-request) can't both succeed.
     const [updated] = await db
       .update(invoices)
       .set({
@@ -466,7 +472,16 @@ export async function sendInvoiceAction(
 
     const [updated] = await db
       .update(invoices)
-      .set({ status: "sent", sentAt: new Date(), updatedAt: new Date() })
+      .set({
+        status: "sent",
+        // Keeps the first send time: overwriting it on a re-send would
+        // reopen the 5-minute "Undo send" window. Undo clears sentAt, so a
+        sentAt: sql`coalesce(${invoices.sentAt}, now())`,
+        // Freezes the sender's details in this same statement, so later
+        // profile edits never change what the client received. Re-sending
+        issuerSnapshot: sql`coalesce(${invoices.issuerSnapshot}, ${issuerSnapshotSql(user.id)})`,
+        updatedAt: new Date(),
+      })
       .where(
         and(
           eq(invoices.id, parsedId.data),
@@ -481,6 +496,10 @@ export async function sendInvoiceAction(
     if (!updated) {
       throw new AppError("BAD_REQUEST", "Invoice is already paid");
     }
+
+    // TODO(resend): email the invoice (with its PDF from renderInvoicePdf)
+    // to the client. Until Resend is installed, "sending" only marks the
+    // invoice as sent — the freelancer delivers it themselves.
 
     revalidateInvoicePaths(updated.id, updated.clientId);
 
@@ -571,7 +590,10 @@ export async function sendReminderAction(
       throw new AppError("BAD_REQUEST", cooldownMessage);
     }
 
-    // TODO: send the actual email here
+    // TODO(resend): email the reminder to the client. Resend isn't installed
+    // yet, so today this only records lastReminderSentAt (which drives the
+    // 24h cooldown) — nothing reaches the client. Same pending integration as
+    // the contact form (app/contact/actions.ts).
 
     revalidateInvoicePaths(updated.id, updated.clientId);
 

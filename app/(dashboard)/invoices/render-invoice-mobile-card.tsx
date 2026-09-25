@@ -28,7 +28,7 @@ export function renderInvoiceMobileCard(invoice: InvoiceListItem) {
           <FileTextIcon />
         </IconTile>
       }
-      title={formatInvoiceNumber(invoice.invoiceNumber)}
+      title={formatInvoiceNumber(invoice.invoiceNumber, invoice.numberPrefix)}
       titleClassName="font-mono text-[13.5px]"
       subtitle={
         <>

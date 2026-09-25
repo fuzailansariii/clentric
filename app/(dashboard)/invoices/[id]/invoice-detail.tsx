@@ -28,6 +28,13 @@ import {
   formatLineItemRate,
 } from "@/lib/format-line-item";
 import { getDisplayStatus } from "@/lib/get-invoice-display-status";
+import { formatIssuer } from "@/lib/format-issuer";
+import type { IssuerDetails } from "@/lib/issuer-snapshot";
+import {
+  formatPaymentMethod,
+  hasPaymentDetails,
+  type PaymentDetails,
+} from "@/lib/payment-methods";
 import { isReminderOnCooldown } from "@/lib/is-reminder-on-cooldown";
 import { useWithinWindow } from "@/hooks/use-within-window";
 import { useUndoableAction } from "@/hooks/use-undoable-action";
@@ -62,13 +69,11 @@ type InvoiceDetailProps = {
     lineItems: InvoiceItemRow[];
     /** Whole days until dueDate, negative once past — see getInvoiceById(). */
     daysUntilDue: number;
-    /** The freelancer issuing this invoice, for the "From" block — only what
-     * actually exists on `users` today (no business name/address field). */
-    issuer: {
-      name: string | null;
-      email: string;
-      profession: string | null;
-    } | null;
+    /** The freelancer issuing this invoice, for the "From" block: the
+     * invoice's snapshot once sent, live details while it's a draft. */
+    issuer: IssuerDetails | null;
+    /** How to pay — resolved the same way as the issuer. */
+    payment: PaymentDetails;
   };
   client: ClientRow | null;
   project: ProjectListItem | null;
@@ -195,7 +200,10 @@ export function InvoiceDetail({
 
   const displayStatus = getDisplayStatus(invoice);
   const statusInfo = invoiceStatusConfig[displayStatus];
-  const invoiceNumber = formatInvoiceNumber(invoice.invoiceNumber);
+  const invoiceNumber = formatInvoiceNumber(
+    invoice.invoiceNumber,
+    invoice.numberPrefix,
+  );
 
   const isDraft = displayStatus === "draft";
   const isSent = displayStatus === "sent";
@@ -248,7 +256,9 @@ export function InvoiceDetail({
       ? "Not sent"
       : dueLabel.label;
 
-  const issuerName = invoice.issuer?.name ?? invoice.issuer?.email ?? "You";
+  const issuer = invoice.issuer
+    ? formatIssuer(invoice.issuer)
+    : { title: "You", lines: [] };
   const clientCompany =
     client?.company && client.company !== client.name ? client.company : null;
 
@@ -357,13 +367,12 @@ export function InvoiceDetail({
               <div className="min-w-0">
                 <h2 className={cn(labelClass, "mb-2.5")}>From</h2>
                 <p className="text-[14.5px] leading-[1.45] font-semibold wrap-anywhere">
-                  {issuerName}
+                  {issuer.title}
                 </p>
                 <div className="text-muted-foreground mt-1 text-[13.5px] leading-[1.65] wrap-anywhere">
-                  {invoice.issuer?.profession && (
-                    <p>{invoice.issuer.profession}</p>
-                  )}
-                  {invoice.issuer?.name && <p>{invoice.issuer.email}</p>}
+                  {issuer.lines.map((line, index) => (
+                    <p key={index}>{line}</p>
+                  ))}
                 </div>
               </div>
 
@@ -498,7 +507,7 @@ export function InvoiceDetail({
               </div>
             </section>
 
-            {/* Footer — payment details (invoice notes aren't stored yet) */}
+            {/* Footer — payment details and notes */}
             <section
               className={cn(
                 "mt-8 grid gap-x-10 gap-y-7 border-t pt-6.5 @[560px]:grid-cols-2",
@@ -507,12 +516,27 @@ export function InvoiceDetail({
             >
               <div className="min-w-0">
                 <h2 className={cn(labelClass, "mb-2.5")}>Payment details</h2>
-                {invoice.paymentDetails ? (
-                  <div className="text-[13.5px] leading-[1.85]">
-                    <p className="wrap-anywhere whitespace-pre-line">
-                      {invoice.paymentDetails}
-                    </p>
-                    <p className="text-muted-foreground mt-2 text-[12.5px]">
+                {hasPaymentDetails(invoice.payment) ? (
+                  <div className="flex flex-col gap-3 text-[13.5px] leading-[1.65]">
+                    {invoice.payment.methods.map((method) => {
+                      const { label, lines } = formatPaymentMethod(method);
+                      return (
+                        <div key={method.type} className="wrap-anywhere">
+                          <p className="font-semibold">{label}</p>
+                          {lines.map((line, index) => (
+                            <p key={index} className="text-muted-foreground">
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      );
+                    })}
+                    {invoice.payment.instructions?.trim() && (
+                      <p className="wrap-anywhere whitespace-pre-line">
+                        {invoice.payment.instructions}
+                      </p>
+                    )}
+                    <p className="text-muted-foreground text-[12.5px]">
                       Reference: {invoiceNumber}
                     </p>
                   </div>
@@ -525,17 +549,28 @@ export function InvoiceDetail({
                   >
                     No payment details on this invoice — your client won&rsquo;t
                     know where to send the money.{" "}
-                    {!isPaid && (
+                    {/* Only a draft picks up settings changes; a sent
+                        invoice keeps the details it went out with. */}
+                    {isDraft && (
                       <Link
-                        href={`/invoices/${invoice.id}/edit`}
+                        href="/settings/business"
                         className="text-primary font-medium hover:underline"
                       >
-                        Add them
+                        Set up payment methods
                       </Link>
                     )}
                   </div>
                 )}
               </div>
+
+              {invoice.notes?.trim() && (
+                <div className="min-w-0">
+                  <h2 className={cn(labelClass, "mb-2.5")}>Notes</h2>
+                  <p className="text-[13.5px] leading-[1.65] wrap-anywhere whitespace-pre-line">
+                    {invoice.notes}
+                  </p>
+                </div>
+              )}
             </section>
           </article>
 

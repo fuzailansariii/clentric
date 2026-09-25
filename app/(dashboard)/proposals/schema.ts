@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CURRENCY_CODES } from "@/lib/currency-options";
 import { clientIdSchema } from "../clients/schema";
 import { proposalStatusEnum as proposalStatusPgEnum } from "@/src/db/schema/proposals";
 
@@ -60,11 +61,13 @@ export const proposalObjectSchema = z.object({
     .trim()
     .max(20000, "Proposal content is too long")
     .optional(),
+  // Same list invoices accept, so a hand-crafted request can't store an
+  // arbitrary code that formatCurrency then can't print.
   currency: z
     .string()
     .trim()
     .toUpperCase()
-    .length(3, "Pick a currency")
+    .refine((value) => CURRENCY_CODES.includes(value), "Pick a currency")
     .default("USD"),
   taxRate: z.coerce
     .number()

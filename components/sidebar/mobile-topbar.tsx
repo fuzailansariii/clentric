@@ -1,20 +1,17 @@
 "use client";
 import { Menu } from "lucide-react";
 import { useSidebar } from "./sidebar-provider";
+import { AvatarInitials } from "../ui/avatar-initials";
 
-export function MobileTopBar() {
+export function MobileTopBar({ name }: { name: string }) {
   const { openMobile } = useSidebar();
   return (
     <div className="flex h-14 items-center justify-between border-b px-4 md:hidden">
-      <button onClick={openMobile} aria-label="Open menu">
+      <button type="button" onClick={openMobile} aria-label="Open menu">
         <Menu size={20} />
       </button>
       <span className="font-space text-xl font-medium">Clentric</span>
-      <div className="bg-accent relative flex h-7 w-7 items-center justify-center rounded-full">
-        <span className="text-primary absolute font-sans text-xs font-medium">
-          MF
-        </span>
-      </div>
+      <AvatarInitials name={name} size="sm" shape="circle" variant="accent" />
     </div>
   );
 }

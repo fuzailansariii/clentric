@@ -37,19 +37,13 @@ export default function Register() {
 
   // OTP Verification
   const onVerifyCode = async (code: string) => {
-    let { error } = await supabase.auth.verifyOtp({
+    // "email" covers both a brand-new account's code and a returning
+    // user's, so this no longer tries "signup" and then "recovery".
+    const { error } = await supabase.auth.verifyOtp({
       email: emailRef.current,
       token: code,
-      type: "signup",
+      type: "email",
     });
-    if (error) {
-      const retry = await supabase.auth.verifyOtp({
-        email: emailRef.current,
-        token: code,
-        type: "recovery",
-      });
-      error = retry.error;
-    }
     if (error) throw new Error(error.message);
     router.replace("/dashboard");
     router.refresh();
@@ -69,7 +63,7 @@ export default function Register() {
   };
 
   // OAuth handler
-  const onOAuth = async (provider: "google" | "github") => {
+  const onOAuth = async (provider: "google") => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },

@@ -129,6 +129,18 @@ export default function QuickInvoiceForm({
               step="0.01"
               error={errors.taxRate?.message}
             />
+
+            {/* Notes, printed at the bottom of the invoice */}
+            <div className="sm:col-span-2">
+              <Field
+                {...register("notes")}
+                multiline
+                rows={3}
+                label="Notes"
+                placeholder="e.g. Thanks for your business!"
+                error={errors.notes?.message}
+              />
+            </div>
           </div>
         </FormSection>
       </div>

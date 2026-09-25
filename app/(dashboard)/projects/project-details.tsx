@@ -37,6 +37,7 @@ import type { MilestoneItem, ProjectListItem } from "./queries";
 import { MilestonesPanel } from "./milestones-panel";
 import { EditableProjectInput, editableProjectsSchema } from "./schema";
 import { projectStatusConfig } from "./project-status-config";
+import { getProjectDeadlineLabel } from "./project-deadline-label";
 import { deleteProjectAction, updateProjectAction } from "./actions";
 import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
@@ -79,6 +80,7 @@ export function ProjectDetail({
 
   const router = useRouter();
   const config = projectStatusConfig[project.status];
+  const deadline = getProjectDeadlineLabel(project);
 
   const {
     handleSubmit,
@@ -330,16 +332,25 @@ export function ProjectDetail({
                   {
                     label: "Budget",
                     value: formatCurrency(project.budget, project.currency),
-                    hint: "Fixed price",
+                    hint: project.hourlyRate
+                      ? `${formatCurrency(project.hourlyRate, project.currency)}/hr for hour lines`
+                      : undefined,
                   },
                   {
                     label: "Deadline",
                     value: (
-                      <span className="text-amber-600">
+                      <span
+                        className={cn(
+                          deadline.late && "text-danger-600",
+                          project.status === "completed" &&
+                            "text-muted-foreground",
+                        )}
+                      >
                         {project.deadline ? formatDate(project.deadline) : "—"}
                       </span>
                     ),
-                    hint: project.deadline ? "Upcoming" : "No deadline",
+                    // "Due in 9 days", "3 days late", "Delivered", "No deadline".
+                    hint: deadline.label,
                   },
                   {
                     label: "Progress",
@@ -467,6 +478,7 @@ export function ProjectDetail({
           >
             <TabButton
               id="milestones-tab"
+              panelId="milestones-panel"
               label="Milestones"
               count={milestones.length}
               isActive={activeSection === "milestones"}
@@ -474,6 +486,7 @@ export function ProjectDetail({
             />
           </div>
           <div
+            id="milestones-panel"
             role="tabpanel"
             aria-labelledby="milestones-tab"
             className="border-t"
@@ -524,7 +537,10 @@ export function ProjectDetail({
                     >
                       <span className="flex min-w-0 items-center gap-3">
                         <span className="font-mono text-[13px] font-medium">
-                          {formatInvoiceNumber(invoice.invoiceNumber)}
+                          {formatInvoiceNumber(
+                            invoice.invoiceNumber,
+                            invoice.numberPrefix,
+                          )}
                         </span>
                         <StatusBadge
                           status={config.variant}

@@ -93,7 +93,7 @@ export const PhoneField = forwardRef<PhoneFieldHandle, PhoneFieldProps>(
         )}
         <div
           className={cn(
-            "border-border bg-input/20 focus-within:border-ring focus-within:ring-ring/20 flex h-10 items-center rounded-lg border focus-within:ring-2",
+            "border-border bg-input/20 focus-within:border-ring focus-within:ring-ring/20 flex h-11 items-center rounded-lg border focus-within:ring-2",
             error && "border-danger-600",
           )}
         >
