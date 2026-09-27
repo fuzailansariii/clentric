@@ -3,7 +3,11 @@
 import { useSelectedLayoutSegment } from "next/navigation";
 import { Settings } from "lucide-react";
 import PageHeader from "@/components/dashboard/page-header";
-import { getSettingsTab } from "./sections";
+import {
+  DEFAULT_SETTINGS_HREF,
+  DEFAULT_SETTINGS_TAB,
+  getSettingsTab,
+} from "./sections";
 
 /**
  * Client wrapper so the header can live in the settings layout (which never
@@ -15,11 +19,17 @@ export function SettingsHeader() {
   return (
     <PageHeader
       title="Settings"
-      subtitle={tab?.description ?? "Your account, your business and your plan."}
+      subtitle={
+        tab?.description ?? "Your account, your business and your plan."
+      }
       icon={<Settings className="h-5 w-5" />}
       breadcrumbs={[
         { label: "Dashboard", href: "/dashboard" },
-        tab ? { label: "Settings", href: "/settings" } : { label: "Settings" },
+        // "Settings" lands on the default tab, so on that tab it would only
+        // link to the page already open.
+        tab && tab.slug !== DEFAULT_SETTINGS_TAB.slug
+          ? { label: "Settings", href: DEFAULT_SETTINGS_HREF }
+          : { label: "Settings" },
         ...(tab ? [{ label: tab.label }] : []),
       ]}
     />

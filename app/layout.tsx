@@ -17,8 +17,6 @@ export const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  // Without a metadataBase, the relative `alternates.canonical` values on the
-  // public policy pages cannot resolve into absolute URLs.
   metadataBase: new URL(LEGAL.siteUrl),
   title: "Clentric",
   description: "Freelance Workspace",

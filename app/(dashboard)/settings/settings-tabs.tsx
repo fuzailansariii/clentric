@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useSelectedLayoutSegment } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useIsCurrentPage } from "@/hooks/use-is-current-page";
 import { DEFAULT_SETTINGS_TAB, SETTINGS_TABS } from "./sections";
 
 /**
@@ -17,6 +18,7 @@ import { DEFAULT_SETTINGS_TAB, SETTINGS_TABS } from "./sections";
 export function SettingsTabs() {
   // null on /settings itself (which redirects), the slug on a tab.
   const segment = useSelectedLayoutSegment() ?? DEFAULT_SETTINGS_TAB.slug;
+  const isCurrentPage = useIsCurrentPage();
 
   return (
     <nav aria-label="Settings" className="@container">
@@ -27,6 +29,12 @@ export function SettingsTabs() {
             <li key={tab.slug} className="flex-1 @[480px]:flex-none">
               <Link
                 href={`/settings/${tab.slug}`}
+                // The open tab is already on screen; don't refetch it.
+                onClick={(event) => {
+                  if (isCurrentPage(`/settings/${tab.slug}`)) {
+                    event.preventDefault();
+                  }
+                }}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "-mb-px flex h-11 items-center justify-center border-b-2 px-3 text-sm whitespace-nowrap transition-colors @[480px]:px-4",

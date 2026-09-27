@@ -20,7 +20,7 @@ const TAB_CONTENT: Record<SettingsSlug, () => ReactNode> = {
     <>
       <SettingsGroup
         title="Profile"
-        description="How you appear in inside Clentric"
+        description="How you appear inside Clentric"
       >
         <ProfileSection />
       </SettingsGroup>

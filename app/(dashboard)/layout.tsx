@@ -69,7 +69,14 @@ export default async function DashboardLayout({
 
           <VerticalScale className="hidden md:block" />
           <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-            <MobileTopBar name={profile?.name ?? authUser.email ?? "Account"} />
+            <MobileTopBar
+              user={{
+                name: profile?.name ?? authUser.email ?? "Account",
+                email: authUser.email ?? "",
+              }}
+              plan={subscription?.plan ?? "free"}
+              onLogoutClick={logoutAction}
+            />
             <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
               {children}
             </main>

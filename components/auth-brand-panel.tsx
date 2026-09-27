@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { LayoutGrid } from "lucide-react";
 import { ReactNode } from "react";
 
 type BrandFeature = {
@@ -45,18 +44,11 @@ export default function AuthBrandPanel({
       )}
     >
       {/* Logo Section */}
-      <div className="flex items-center gap-2">
-        <div className="bg-primary flex size-10 items-center justify-center rounded-2xl">
-          <LayoutGrid className="text-primary-foreground size-5" />
-        </div>
-        <div className="flex flex-col">
-          <span className="font-heading font-semibold tracking-tight">
-            {logo}
-          </span>
-          <span className="text-muted-foreground text-xs leading-none">
-            {tagline}
-          </span>
-        </div>
+      <div className="flex flex-col gap-2">
+        {logo}
+        <span className="text-muted-foreground text-xs leading-none">
+          {tagline}
+        </span>
       </div>
 
       {/* Title, Description */}
@@ -102,7 +94,7 @@ export default function AuthBrandPanel({
       {testimonial && (
         <div className="border-border bg-muted/50 max-w-xs rounded-xl border p-4">
           <p className="text-foreground font-sans text-sm leading-relaxed italic">
-            `&quot;`{testimonial.quote}`&quot;`
+            &ldquo;{testimonial.quote}&rdquo;
           </p>
           <div className="mt-3 flex items-center gap-2.5">
             <div className="bg-accent text-accent-foreground flex size-7 items-center justify-center rounded-full text-[11px] font-semibold">
