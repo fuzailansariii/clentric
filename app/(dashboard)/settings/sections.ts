@@ -34,6 +34,12 @@ export type SettingsSlug = SettingsTab["slug"];
 export const DEFAULT_SETTINGS_TAB: SettingsTab = SETTINGS_TABS[0];
 
 /**
+ * Link target for "Settings" in the app chrome. Points at the tab directly
+ * rather than /settings, which would cost a redirect on every click.
+ */
+export const DEFAULT_SETTINGS_HREF = `/settings/${DEFAULT_SETTINGS_TAB.slug}`;
+
+/**
  * Section URLs from before settings became three tabs. Links to them (old
  * bookmarks, emails) redirect to the tab that now holds that section.
  */

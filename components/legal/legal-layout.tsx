@@ -33,7 +33,7 @@ export function LegalLayout({
             href="/"
             className="focus-visible:ring-ring rounded-sm focus-visible:ring-2 focus-visible:outline-none"
           >
-            <Logo fontSize={20} />
+            <Logo className="block h-5" />
           </Link>
           <Link
             href={LEGAL.routes.contact}

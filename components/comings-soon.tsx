@@ -24,6 +24,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { StatusBadge } from "@/components/ui/status-badge";
 import WaitlistForm from "@/components/waitlist-form";
 import { LegalFooter } from "@/components/legal/legal-footer";
+import { Logo } from "@/components/logo";
 import { cn } from "@/lib/utils";
 
 // Visual direction: a freelancer's ledger — ruled paper, monospaced figures,
@@ -238,20 +239,11 @@ function SectionHeading({
   );
 }
 
-function LogoMark() {
+function HomeLogo() {
   return (
-    <a
-      href="#top"
-      className="flex items-center gap-2.5"
-      aria-label="Clentric home"
-    >
-      <span className="bg-primary text-primary-foreground font-space flex size-7 items-center justify-center rounded-md text-sm font-bold">
-        C
-      </span>
-      <span className="font-space text-lg font-semibold tracking-tight">
-        Clentric
-      </span>
-    </a>
+    <Link href="#top" className="flex items-center" aria-label="Clentric home">
+      <Logo className="h-6" aria-hidden />
+    </Link>
   );
 }
 
@@ -380,12 +372,8 @@ function HeroInvoice() {
 export default function ComingSoon({
   waitlistCount = null,
 }: {
-  /** Real, currently-subscribed signups. null when the count couldn't be
-   * read — the page then says nothing rather than claiming zero. */
   waitlistCount?: number | null;
 }) {
-  // Starts from the server's number and goes up by one when someone joins on
-  // this page, so the line reflects their own signup without a reload.
   const [count, setCount] = useState(waitlistCount);
   const onJoined = () => setCount((c) => (c === null ? c : c + 1));
 
@@ -407,7 +395,7 @@ export default function ComingSoon({
         {/* ── Header ─────────────────────────────────────────────── */}
         <header className="border-border bg-background/80 sticky top-0 z-40 border-b backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5">
-            <LogoMark />
+            <HomeLogo />
             <nav
               aria-label="Sections"
               className="hidden items-center gap-7 md:flex"
@@ -417,23 +405,23 @@ export default function ComingSoon({
                 { href: "#features", label: "Features" },
                 { href: "#why", label: "Why Clentric" },
               ].map((link) => (
-                <a
+                <Link
                   key={link.href}
                   href={link.href}
                   className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
             </nav>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <a
+              <Link
                 href="#waitlist"
                 className="bg-primary text-primary-foreground font-space inline-flex h-9 items-center rounded-lg px-3.5 text-sm font-semibold transition-[filter] hover:brightness-110"
               >
                 Get early access
-              </a>
+              </Link>
             </div>
           </div>
         </header>

@@ -44,7 +44,7 @@ export function RestoreAccountScreen({
   return (
     <main className="bg-background flex min-h-dvh items-center justify-center px-4 py-10">
       <div className="bg-card w-full max-w-md rounded-xl border p-6 shadow-sm sm:p-8">
-        <Logo />
+        <Logo className="block" />
         <h1 className="font-space mt-6 text-xl font-medium tracking-tight">
           Your account is scheduled for deletion on {deletionDate}.
         </h1>
