@@ -81,7 +81,7 @@ export default function Register() {
     <main className="flex min-h-screen">
       <div className="hidden lg:block lg:w-1/3">
         <AuthBrandPanel
-          logo={<Logo />}
+          logo={<Logo className="h-7 self-start" />}
           trustBadge="Trusted By Many Freelancers."
           title="Everything your freelance business needs."
           description="One workspace for clients, projects, invoices, and proposals."
