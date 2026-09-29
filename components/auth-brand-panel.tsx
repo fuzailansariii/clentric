@@ -1,5 +1,4 @@
 import { cn } from "@/lib/utils";
-import { LayoutGrid } from "lucide-react";
 import { ReactNode } from "react";
 
 type BrandFeature = {
@@ -45,18 +44,11 @@ export default function AuthBrandPanel({
       )}
     >
       {/* Logo Section */}
-      <div className="flex items-center gap-2">
-        <div className="flex size-10 items-center justify-center rounded-2xl bg-primary">
-          <LayoutGrid className="size-5 text-primary-foreground" />
-        </div>
-        <div className="flex flex-col">
-          <span className="font-heading font-semibold tracking-tight">
-            {logo}
-          </span>
-          <span className="text-xs leading-none text-muted-foreground">
-            {tagline}
-          </span>
-        </div>
+      <div className="flex flex-col gap-2">
+        {logo}
+        <span className="text-xs leading-none text-muted-foreground">
+          {tagline}
+        </span>
       </div>
 
       {/* Title, Description */}

@@ -9,7 +9,7 @@ export default function AdminMobileTopbar() {
   return (
     <div className="flex md:hidden fixed top-0 bg-sidebar px-5 py-3 w-full border-b border-sidebar-border z-40">
       <div className="flex items-center justify-between w-full">
-        <Logo />
+        <Logo className="h-5" />
         <button
           type="button"
           aria-label="Toggle menu"

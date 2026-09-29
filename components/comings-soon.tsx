@@ -24,6 +24,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { StatusBadge } from "@/components/ui/status-badge";
 import WaitlistForm from "@/components/waitlist-form";
 import { LegalFooter } from "@/components/legal/legal-footer";
+import { Logo } from "@/components/logo";
 import { PricingSection } from "@/components/pricing/pricing-section";
 import { cn } from "@/lib/utils";
 
@@ -241,20 +242,11 @@ function SectionHeading({
   );
 }
 
-function LogoMark() {
+function HomeLogo() {
   return (
-    <a
-      href="#top"
-      className="flex items-center gap-2.5"
-      aria-label="Clentric home"
-    >
-      <span className="bg-primary text-primary-foreground font-space flex size-7 items-center justify-center rounded-md text-sm font-bold">
-        C
-      </span>
-      <span className="font-space text-lg font-semibold tracking-tight">
-        Clentric
-      </span>
-    </a>
+    <Link href="#top" className="flex items-center" aria-label="Clentric home">
+      <Logo className="h-6" aria-hidden />
+    </Link>
   );
 }
 
@@ -413,7 +405,7 @@ export default function ComingSoon({
         {/* ── Header ─────────────────────────────────────────────── */}
         <header className="border-border bg-background/80 sticky top-0 z-40 border-b backdrop-blur-md">
           <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-5">
-            <LogoMark />
+            <HomeLogo />
             <nav
               aria-label="Sections"
               className="hidden items-center gap-7 md:flex"
