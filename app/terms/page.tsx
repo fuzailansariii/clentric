@@ -76,8 +76,7 @@ export default function TermsOfServicePage() {
         <p>
           {LEGAL.productName} gives you a client manager, a project tracker with
           milestones, an invoice generator with line items, tax and PDF export,
-          a proposal builder with private accept or decline links, and a
-          read-only client portal on paid plans.
+          and a proposal builder with private accept or decline links.
         </p>
         <p>
           Features depend on your plan. Prices are in {LEGAL.currency}. Paid
@@ -95,6 +94,11 @@ export default function TermsOfServicePage() {
               className="border-border bg-card flex flex-col rounded-xl border p-5"
             >
               <h3 className="mt-0! text-base font-semibold">{plan.name}</h3>
+              {plan.note && (
+                <p className="text-primary! mt-0.5 text-xs font-medium">
+                  {plan.note}
+                </p>
+              )}
               <p className="mt-0.5 text-sm">{plan.summary}</p>
 
               <p className="mt-4">

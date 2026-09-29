@@ -22,6 +22,8 @@ export type LegalPlan = {
   cadence: string;
   /** The yearly option, shown under the price; empty for Free. */
   yearlyNote: string;
+  /** Shown under the plan name, e.g. while a plan is not available yet. */
+  note: string;
   summary: string;
   includes: readonly string[];
 };
@@ -82,6 +84,7 @@ export const LEGAL = {
       price: "$0",
       cadence: "forever",
       yearlyNote: "",
+      note: "",
       summary: "For trying Clentric out.",
       // Limits and prices come from lib/plans.ts, the same source as the
       // pricing section, so the Terms can't drift from the homepage.
@@ -90,7 +93,8 @@ export const LEGAL = {
         countLabel(PLANS.free.limits.projects, "project"),
         `${countLabel(PLANS.free.limits.invoicesPerMonth, "invoice")} per month`,
         countLabel(PLANS.free.limits.proposals, "proposal"),
-        "No PDF export, client portal or custom branding",
+        "No PDF export",
+        "“Made with Clentric” on your documents",
       ],
     },
     {
@@ -98,20 +102,24 @@ export const LEGAL = {
       price: `$${PRICING.pro.price.monthly}`,
       cadence: "per month",
       yearlyNote: `or $${pricePerMonth(PRICING.pro.price, "yearly")} per month billed yearly`,
+      note: "",
       summary: "For working freelancers.",
-      includes: [
-        "Unlimited clients, projects, invoices and proposals",
-        "PDF export",
-        "Client portal",
-        "Custom branding",
-        "Email notifications",
-      ],
+      // Exactly the features the homepage Pro card shows: unbuilt ones stay
+      // hidden until their availableAtLaunch flag is flipped.
+      includes: PRICING.pro.features
+        .filter((f) => f.availableAtLaunch)
+        .map((f) => f.text),
     },
     {
       name: "Agency",
       price: `$${PRICING.agency.price.monthly}`,
       cadence: `per month for ${PRICING.agency.includedSeats} seats`,
       yearlyNote: `or $${pricePerMonth(PRICING.agency.price, "yearly")} per month billed yearly`,
+      // Disappears on its own once PRICING.agency.status is "live".
+      note:
+        PRICING.agency.status === "coming_soon"
+          ? `Coming soon — launching ${PRICING.agency.launchDateLabel}`
+          : "",
       summary: "For small teams.",
       includes: [
         "Everything in Pro",

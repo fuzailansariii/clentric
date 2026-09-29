@@ -393,7 +393,7 @@ function AgencyCard({ cycle, today }: { cycle: BillingCycle; today: string }) {
         )}
         {!isLive && (
           <p className="mt-2.5 text-center text-xs text-white/55">
-            {agency.launchNote}
+            Launching {agency.launchDateLabel}.
           </p>
         )}
       </div>
