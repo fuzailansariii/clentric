@@ -35,7 +35,7 @@ export const LEGAL = {
   entityType: "Sole Proprietorship (India)",
   operatorCountry: "India",
   /** null hides the postal address everywhere rather than printing a
-   * placeholder. Set a string here if Stripe later asks for one. */
+   * placeholder. Set a string here if the payment provider later asks for one. */
   registeredAddress: null as string | null,
 
   /** Customer service. */
@@ -88,8 +88,8 @@ export const LEGAL = {
     },
     {
       name: "Pro",
-      price: "$15",
-      cadence: "per month",
+      price: "$16",
+      cadence: "per month, or $160 per year",
       summary: "For working freelancers.",
       includes: [
         "Unlimited clients, projects, invoices and proposals",
@@ -101,8 +101,8 @@ export const LEGAL = {
     },
     {
       name: "Agency",
-      price: "$25",
-      cadence: "per month",
+      price: "$29",
+      cadence: "per month, or $290 per year",
       summary: "For small teams.",
       includes: ["Everything in Pro", "Up to 3 team members"],
     },
@@ -115,8 +115,9 @@ export const LEGAL = {
     { name: "Supabase", purpose: "Database, authentication and file storage" },
     { name: "Vercel", purpose: "Hosting" },
     {
-      name: "Stripe",
-      purpose: "Subscription billing for Clentric plans only",
+      name: "Payment provider",
+      purpose:
+        "Subscription billing for Clentric plans only, as merchant of record",
     },
     {
       name: "Resend",
