@@ -1,0 +1,1 @@
+ALTER TABLE "waitlist_emails" ADD COLUMN "interested_in_agency" boolean DEFAULT false NOT NULL;

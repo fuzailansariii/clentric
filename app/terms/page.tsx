@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CheckIcon } from "lucide-react";
 
 import {
   LegalCallout,
@@ -84,77 +85,44 @@ export default function TermsOfServicePage() {
           choose.
         </p>
 
-        {/* Phone: one card per plan. A three-column table at this width
-            either scrolls sideways or squeezes the feature column down to a
-            word per line, and neither reads well. */}
-        <div className="mt-6 space-y-3 sm:hidden">
+        {/* One card per plan: stacked on phones, three across from md up.
+            The `!` overrides beat LegalSection's prose list styles
+            (bullets, indent, muted text), which don't suit a card. */}
+        <div className="mt-6 grid gap-3 md:grid-cols-3">
           {LEGAL.plans.map((plan) => (
             <div
               key={plan.name}
-              className="border-border bg-card rounded-xl border p-4"
+              className="border-border bg-card flex flex-col rounded-xl border p-5"
             >
-              <div className="flex items-baseline justify-between gap-3">
-                <h3 className="mt-0! text-base font-semibold">{plan.name}</h3>
-                <span className="text-muted-foreground text-sm whitespace-nowrap">
+              <h3 className="mt-0! text-base font-semibold">{plan.name}</h3>
+              <p className="mt-0.5 text-sm">{plan.summary}</p>
+
+              <p className="mt-4">
+                <span className="font-space text-foreground text-2xl font-semibold tracking-tight">
                   {plan.price}
-                  {plan.cadence ? ` ${plan.cadence}` : ""}
-                </span>
-              </div>
-              <ul className="mt-3">
+                </span>{" "}
+                <span className="text-sm">{plan.cadence}</span>
+              </p>
+              {plan.yearlyNote && (
+                <p className="mt-0.5 text-xs">{plan.yearlyNote}</p>
+              )}
+
+              <ul className="border-border mt-4 list-none! space-y-2! border-t pt-4 pl-0!">
                 {plan.includes.map((item) => (
-                  <li key={item}>{item}</li>
+                  <li
+                    key={item}
+                    className="text-foreground flex items-start gap-2 text-sm"
+                  >
+                    <CheckIcon
+                      className="text-primary mt-0.5 size-4 shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span>{item}</span>
+                  </li>
                 ))}
               </ul>
             </div>
           ))}
-        </div>
-
-        {/* Tablet and up: the same plans as a comparison table. */}
-        <div className="border-border mt-6 hidden w-full overflow-x-auto rounded-xl border sm:block">
-          <table className="w-full border-collapse text-left text-sm">
-            <caption className="sr-only">
-              {LEGAL.productName} plans, prices and what each one includes
-            </caption>
-            <thead>
-              <tr className="border-border text-foreground border-b">
-                <th scope="col" className="px-4 py-3 font-semibold">
-                  Plan
-                </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
-                  Price
-                </th>
-                <th scope="col" className="px-4 py-3 font-semibold">
-                  What you get
-                </th>
-              </tr>
-            </thead>
-            <tbody className="text-muted-foreground">
-              {LEGAL.plans.map((plan) => (
-                <tr
-                  key={plan.name}
-                  className="border-border border-b last:border-b-0"
-                >
-                  <th
-                    scope="row"
-                    className="text-foreground px-4 py-3 align-top font-medium"
-                  >
-                    {plan.name}
-                  </th>
-                  <td className="px-4 py-3 align-top whitespace-nowrap">
-                    {plan.price}
-                    {plan.cadence ? ` ${plan.cadence}` : ""}
-                  </td>
-                  <td className="px-4 py-3 align-top">
-                    <ul>
-                      {plan.includes.map((item) => (
-                        <li key={item}>{item}</li>
-                      ))}
-                    </ul>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
 
         <p>

@@ -5,5 +5,7 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const waitlistCount = await getWaitlistCount();
-  return <ComingSoon waitlistCount={waitlistCount} />;
+  // UTC date, read on the server so pricing's dated tags match on hydration.
+  const today = new Date().toISOString().slice(0, 10);
+  return <ComingSoon waitlistCount={waitlistCount} today={today} />;
 }
