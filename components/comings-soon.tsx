@@ -25,6 +25,7 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import WaitlistForm from "@/components/waitlist-form";
 import { LegalFooter } from "@/components/legal/legal-footer";
 import { Logo } from "@/components/logo";
+import { PricingSection } from "@/components/pricing/pricing-section";
 import { cn } from "@/lib/utils";
 
 // Visual direction: a freelancer's ledger — ruled paper, monospaced figures,
@@ -106,35 +107,37 @@ const AFTER = [
 // anyone's real account.
 const PREVIEW_INVOICES: {
   name: string;
-  amount: string;
-  status: string;
+  amount: number;
+  status: "Sent" | "Paid" | "Draft" | "Overdue";
   tone: "success" | "info" | "neutral" | "danger";
 }[] = [
-  {
-    name: "Northbeam Studio",
-    amount: "$2,400.00",
-    status: "Sent",
-    tone: "info",
-  },
-  {
-    name: "Halden & Co.",
-    amount: "$1,880.00",
-    status: "Paid",
-    tone: "success",
-  },
+  { name: "Northbeam Studio", amount: 2400, status: "Sent", tone: "info" },
+  { name: "Halden & Co.", amount: 1880, status: "Paid", tone: "success" },
   {
     name: "Verso Type Foundry",
-    amount: "$960.00",
+    amount: 960,
     status: "Draft",
     tone: "neutral",
   },
-  {
-    name: "Møller Atelier",
-    amount: "$1,240.00",
-    status: "Overdue",
-    tone: "danger",
-  },
+  { name: "Møller Atelier", amount: 1240, status: "Overdue", tone: "danger" },
 ];
+
+// The stat tiles are derived from the rows above so the mock always adds
+// up: outstanding = sent + overdue (drafts aren't billed yet), and every
+// listed client is an active one.
+const PREVIEW_UNPAID = PREVIEW_INVOICES.filter(
+  (row) => row.status === "Sent" || row.status === "Overdue",
+);
+const PREVIEW_OUTSTANDING = PREVIEW_UNPAID.reduce(
+  (sum, row) => sum + row.amount,
+  0,
+);
+const PREVIEW_ACTIVE_CLIENTS = PREVIEW_INVOICES.length;
+const PREVIEW_CLIENTS_ADDED = 2;
+
+function formatMoney(n: number) {
+  return `$${n.toLocaleString("en-US", { minimumFractionDigits: 2 })}`;
+}
 const PREVIEW_BARS = [42, 30, 64, 48, 80, 58, 92, 70];
 
 const HERO_LINES = [
@@ -371,8 +374,11 @@ function HeroInvoice() {
 
 export default function ComingSoon({
   waitlistCount = null,
+  today,
 }: {
   waitlistCount?: number | null;
+  /** YYYY-MM-DD from the server, for the pricing section's dated tags. */
+  today: string;
 }) {
   const [count, setCount] = useState(waitlistCount);
   const onJoined = () => setCount((c) => (c === null ? c : c + 1));
@@ -404,6 +410,7 @@ export default function ComingSoon({
                 { href: "#product", label: "Product" },
                 { href: "#features", label: "Features" },
                 { href: "#why", label: "Why Clentric" },
+                { href: "#pricing", label: "Pricing" },
               ].map((link) => (
                 <Link
                   key={link.href}
@@ -547,10 +554,10 @@ export default function ComingSoon({
                     Outstanding
                   </p>
                   <p className="mt-2 font-mono text-3xl font-medium tracking-tight">
-                    <CountUp target={4280} prefix="$" />
+                    <CountUp target={PREVIEW_OUTSTANDING} prefix="$" />
                   </p>
                   <p className="text-muted-foreground mt-1.5 text-xs">
-                    3 invoices unpaid
+                    {PREVIEW_UNPAID.length} invoices unpaid
                   </p>
                 </div>
                 <div className="bg-card px-5 py-5">
@@ -592,10 +599,10 @@ export default function ComingSoon({
                     Active clients
                   </p>
                   <p className="mt-2 font-mono text-3xl font-medium tracking-tight">
-                    <CountUp target={6} />
+                    <CountUp target={PREVIEW_ACTIVE_CLIENTS} />
                   </p>
                   <p className="text-muted-foreground mt-1.5 text-xs">
-                    2 added this quarter
+                    {PREVIEW_CLIENTS_ADDED} added this quarter
                   </p>
                 </div>
               </div>
@@ -618,11 +625,11 @@ export default function ComingSoon({
                       {/* On phones the amount moves under the name instead of
                           squeezing the name into an ellipsis. */}
                       <p className="text-muted-foreground mt-0.5 font-mono text-xs tabular-nums sm:hidden">
-                        {row.amount}
+                        {formatMoney(row.amount)}
                       </p>
                     </div>
                     <p className="hidden text-right font-mono text-sm tabular-nums sm:block">
-                      {row.amount}
+                      {formatMoney(row.amount)}
                     </p>
                     <div className="flex justify-end">
                       <StatusBadge status={row.tone} variant="soft" size="sm">
@@ -756,6 +763,9 @@ export default function ComingSoon({
               ))}
             </Reveal>
           </section>
+
+          {/* ── Pricing ──────────────────────────────────────────── */}
+          <PricingSection today={today} />
 
           {/* ── Final call to action ─────────────────────────────── */}
           <section className="mx-auto max-w-6xl px-5 pb-20 sm:pb-28">
