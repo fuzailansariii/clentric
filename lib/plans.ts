@@ -123,7 +123,7 @@ const agency = {
   /** Flip to "live" to switch the card's badge, CTA and feature tags. */
   status: "coming_soon" as AgencyStatus,
   badge: { coming_soon: "Coming soon", live: "For teams" },
-  launchNote: "Launching 26 October 2026.",
+  launchDateLabel: "26 October 2026",
   price: { monthly: 29 } satisfies PlanPrice,
   includedSeats: 3,
   extraSeatMonthly: 6,
