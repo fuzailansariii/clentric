@@ -33,7 +33,7 @@ export default function ContactPage() {
         <p>
           It is operated by {LEGAL.operatorLegalName}, a {LEGAL.entityType}{" "}
           based in {LEGAL.operatorCountry}. Paid plans are subscriptions billed
-          monthly in {LEGAL.currency}.
+          monthly or yearly in {LEGAL.currency}.
         </p>
       </LegalSection>
 
@@ -56,10 +56,9 @@ export default function ContactPage() {
         <h3>Billing, cancellations and refunds</h3>
         <p>
           Write from the email address on your account, and include the account
-          email and the approximate date of the charge. A first payment can be
-          refunded in full if your request reaches us within{" "}
-          {LEGAL.refund.windowHours} hours of the charge — the full rules are on
-          our{" "}
+          email and the approximate date of the charge. Any payment can be
+          refunded in full if you ask within {LEGAL.refund.windowHours} hours of
+          the charge — the full rules are on our{" "}
           <Link href={LEGAL.routes.refund}>Refund & Cancellation Policy</Link>{" "}
           page.
         </p>
