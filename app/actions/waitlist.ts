@@ -122,6 +122,53 @@ export async function joinWaitlist(input: {
   }
 }
 
+/** Agency waitlist from the pricing card. Upserts on email: a new visitor
+ * gets a row, an existing signup keeps its source and is flagged as
+ * interested. Rejoining here also clears a past unsubscribe, since they've
+ * just asked to hear from us again. */
+export async function joinAgencyWaitlist(input: {
+  email: string;
+  /** Honeypot, as in joinWaitlist. */
+  website?: string;
+}): Promise<ActionResult> {
+  if (input.website) {
+    return { success: true };
+  }
+
+  const ip = await clientIp();
+  if (isRateLimited(`waitlist:${ip}`, { max: 5, windowMs: 10 * 60 * 1000 })) {
+    return {
+      success: false,
+      error: "Too many attempts. Please try again in a few minutes.",
+    };
+  }
+
+  const parsed = emailSchema.safeParse({ email: input.email });
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid input.",
+    };
+  }
+
+  try {
+    await db
+      .insert(waitlistEmails)
+      .values({ email: parsed.data.email, interestedInAgency: true })
+      .onConflictDoUpdate({
+        target: waitlistEmails.email,
+        set: { interestedInAgency: true, unsubscribedAt: null },
+      });
+    return { success: true };
+  } catch (error) {
+    logError("joinAgencyWaitlist", error);
+    return {
+      success: false,
+      error: "Something went wrong. Please try again.",
+    };
+  }
+}
+
 /** Sets unsubscribedAt for this email if a row exists and isn't already
  * unsubscribed. Always returns success — an unsubscribe page that reveals
  * whether a given address is on the list is an email-enumeration leak. */

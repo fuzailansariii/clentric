@@ -14,10 +14,14 @@
  * governing law, and the controller/processor split.
  */
 
+import { PLANS, PRICING, countLabel, pricePerMonth } from "./plans";
+
 export type LegalPlan = {
   name: string;
   price: string;
   cadence: string;
+  /** The yearly option, shown under the price; empty for Free. */
+  yearlyNote: string;
   summary: string;
   includes: readonly string[];
 };
@@ -76,20 +80,24 @@ export const LEGAL = {
     {
       name: "Free",
       price: "$0",
-      cadence: "",
+      cadence: "forever",
+      yearlyNote: "",
       summary: "For trying Clentric out.",
+      // Limits and prices come from lib/plans.ts, the same source as the
+      // pricing section, so the Terms can't drift from the homepage.
       includes: [
-        "1 client",
-        "1 project",
-        "3 invoices per month",
-        "2 proposals",
+        countLabel(PLANS.free.limits.clients, "client"),
+        countLabel(PLANS.free.limits.projects, "project"),
+        `${countLabel(PLANS.free.limits.invoicesPerMonth, "invoice")} per month`,
+        countLabel(PLANS.free.limits.proposals, "proposal"),
         "No PDF export, client portal or custom branding",
       ],
     },
     {
       name: "Pro",
-      price: "$16",
-      cadence: "per month, or $160 per year",
+      price: `$${PRICING.pro.price.monthly}`,
+      cadence: "per month",
+      yearlyNote: `or $${pricePerMonth(PRICING.pro.price, "yearly")} per month billed yearly`,
       summary: "For working freelancers.",
       includes: [
         "Unlimited clients, projects, invoices and proposals",
@@ -101,10 +109,15 @@ export const LEGAL = {
     },
     {
       name: "Agency",
-      price: "$29",
-      cadence: "per month, or $290 per year",
+      price: `$${PRICING.agency.price.monthly}`,
+      cadence: `per month for ${PRICING.agency.includedSeats} seats`,
+      yearlyNote: `or $${pricePerMonth(PRICING.agency.price, "yearly")} per month billed yearly`,
       summary: "For small teams.",
-      includes: ["Everything in Pro", "Up to 3 team members"],
+      includes: [
+        "Everything in Pro",
+        `${PRICING.agency.includedSeats} team seats included`,
+        `Extra seats at $${PRICING.agency.extraSeatMonthly} per month each`,
+      ],
     },
   ] as const satisfies readonly LegalPlan[],
 
