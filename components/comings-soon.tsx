@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
 // Every colour comes from the app's theme tokens (app/globals.css), so light
 // and dark are the same design rather than one of them being an afterthought.
 
-const LAUNCH_LABEL = "October 2026";
+const LAUNCH_LABEL = "Mid-October 2026";
 
 /** Faint horizontal rules, like a ledger page. var(--border) is defined for
  * both themes, so the lines stay visible-but-quiet in each. */
