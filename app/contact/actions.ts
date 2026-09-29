@@ -10,7 +10,7 @@ import type { ActionResult } from "@/lib/action-result";
 
 // Public support action — no requireUser() here on purpose, the same way the
 // waitlist actions work. Someone who cannot sign in (or has no account at
-// all) still has to be able to reach support; Stripe also expects the
+// all) still has to be able to reach support; payment providers also expect the
 // contact route to be reachable without an account.
 
 const contactSchema = z.object({

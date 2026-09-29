@@ -35,8 +35,9 @@ export default function TermsOfServicePage() {
             invoices and proposals. You need to be 18 or older to use it.
           </li>
           <li>
-            Paid plans are billed monthly in {LEGAL.currency} through Stripe and
-            renew automatically until you cancel. You can cancel at any time.
+            Paid plans are billed monthly or yearly in {LEGAL.currency} through
+            our payment provider and renew automatically until you cancel. You
+            can cancel at any time.
           </li>
           <li>
             <strong>
@@ -78,8 +79,9 @@ export default function TermsOfServicePage() {
           read-only client portal on paid plans.
         </p>
         <p>
-          Features depend on your plan. Prices are in {LEGAL.currency} and
-          billing is monthly.
+          Features depend on your plan. Prices are in {LEGAL.currency}. Paid
+          plans are billed monthly or yearly, depending on the option you
+          choose.
         </p>
 
         {/* Phone: one card per plan. A three-column table at this width
@@ -164,15 +166,20 @@ export default function TermsOfServicePage() {
 
       <LegalSection id="billing" title="3. Subscriptions and billing">
         <p>
-          Paid plans are charged monthly in advance through Stripe Checkout.{" "}
-          {LEGAL.productName} never sees or stores your card number. Your
-          subscription renews automatically each month until you cancel.
+          Paid plans are charged in advance, monthly or yearly, by our payment
+          provider, which acts as the merchant of record. That means it is the
+          official seller of your {LEGAL.productName} subscription and handles
+          payment, invoices and sales tax. {LEGAL.productName} never sees or
+          stores your card number.
         </p>
         <p>
-          If a renewal payment fails, Stripe retries it and your account stays
-          on its paid plan through a grace period rather than being cut off
-          immediately. If the payment still cannot be collected, the account
-          moves to the Free plan. Your data is kept.
+          Your subscription renews automatically at the end of each billing
+          period until you cancel.
+        </p>
+        <p>
+          If a renewal payment fails, our payment provider retries it and your
+          account stays on its paid plan during a grace period rather than being
+          cut off immediately.
         </p>
         <p>
           If we change our prices, we will give you advance notice before the
@@ -186,27 +193,17 @@ export default function TermsOfServicePage() {
           <a href={mailtoHref("Cancel my subscription")}>
             {LEGAL.supportEmail}
           </a>
-          . After you cancel, paid features stay available until the end of the
-          billing period you have already paid for, and then the account moves
-          to the Free plan. Nothing is deleted.
+          .
         </p>
         <p>
-          <strong>Refunds in short:</strong> we refund a customer’s first
-          payment in full if the request reaches us by email within{" "}
-          {LEGAL.refund.windowHours} hours of the charge. Renewal payments,
-          requests after that window, and downgrades are not refundable, and we
-          do not give partial or pro-rated refunds. Accidental or duplicate
-          charges are always refunded in full.
+          After you cancel, paid features stay available until the end of the
+          billing period you have already paid for, and you are not charged
+          again.
         </p>
         <p>
-          Refunding a first payment also cancels the subscription straight away,
-          and the account moves to the Free plan with your data left as it is. A
-          refund for an accidental or duplicate charge does not cancel anything.
-        </p>
-        <p>
-          The full rules, including how to ask and how long it takes, are on our{" "}
-          <Link href={LEGAL.routes.refund}>Refund & Cancellation Policy</Link>{" "}
-          page.
+          You can get a full refund of any payment if you ask within{" "}
+          {LEGAL.refund.windowHours} hours of the charge. See our{" "}
+          <Link href={LEGAL.routes.refund}>Refund Policy</Link> for details.
         </p>
       </LegalSection>
 
@@ -248,8 +245,8 @@ export default function TermsOfServicePage() {
           people you work for.
         </p>
         <p>
-          Stripe is used only to charge you for your own {LEGAL.productName}{" "}
-          subscription.
+          Our payment provider is used only to charge you for your own{" "}
+          {LEGAL.productName} subscription.
         </p>
       </LegalSection>
 

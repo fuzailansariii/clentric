@@ -19,7 +19,7 @@ interface LegalFooterProps {
 }
 
 /**
- * Shared footer carrying the four public policy links Stripe expects to find
+ * Shared footer carrying the four public policy links payment providers expect to find
  * on the site, plus the operating business name.
  */
 export function LegalFooter({
