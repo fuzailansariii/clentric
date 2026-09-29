@@ -39,8 +39,8 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>We never sell your data, and we don’t run ad cookies.</li>
           <li>
-            Card numbers never reach us. Stripe handles subscription payments
-            for {LEGAL.productName} plans.
+            Card numbers never reach us. Our payment provider handles
+            subscription payments for {LEGAL.productName} plans.
           </li>
           <li>
             The data you enter about <strong>your</strong> clients is yours. You
@@ -118,8 +118,8 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Subscription data:</strong> your plan, your subscription
-            status, and your Stripe customer and subscription identifiers. We
-            never receive or store card numbers.
+            status, and the customer and subscription identifiers from our
+            payment provider. We never receive or store card numbers.
           </li>
           <li>
             <strong>Usage and technical data:</strong> IP address, browser type,
@@ -167,9 +167,9 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>To handle billing</strong> — starting, renewing and
-            cancelling subscriptions through Stripe, and keeping the records we
-            are required to keep. This is both contractual and a legal
-            obligation.
+            cancelling subscriptions through our payment provider, and keeping
+            the records we are required to keep. This is both contractual and a
+            legal obligation.
           </li>
           <li>
             <strong>To send service email</strong> — invoice and proposal
