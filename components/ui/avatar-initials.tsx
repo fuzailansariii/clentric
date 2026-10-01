@@ -26,9 +26,13 @@ const COLOR_PALETTE = [
 ] as const;
 const ON_COLOR_TEXT = "var(--color-ink-950)";
 
+// First letter of the first and last names ("Mohd Fuzail Ansari" → "MA");
+// a single name gives its first two letters ("Fuzail" → "FU").
 function getInitials(name: string) {
-  const parts = name.trim().split(" ").filter(Boolean);
-  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? "")).toUpperCase();
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
 // Deterministic: the same name always hashes to the same palette color, so a

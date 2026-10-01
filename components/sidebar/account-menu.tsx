@@ -1,8 +1,16 @@
 "use client";
 
 import type { ComponentProps } from "react";
-import { ArrowUp, CreditCard, LogOut, Settings, User } from "lucide-react";
+import {
+  ArrowUp,
+  CreditCard,
+  LogOut,
+  Settings,
+  SunMoon,
+  User,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useTheme } from "next-themes";
 import { useSidebar } from "./sidebar-provider";
 import { useIsCurrentPage } from "@/hooks/use-is-current-page";
 import { DEFAULT_SETTINGS_HREF } from "@/app/(dashboard)/settings/sections";
@@ -10,7 +18,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
 } from "../ui/dropdown-menu";
 
 export type AccountMenuUser = { name: string; email: string };
@@ -45,6 +58,7 @@ export function AccountMenuContent({
   const { closeMobile } = useSidebar();
   const router = useRouter();
   const isCurrentPage = useIsCurrentPage();
+  const { theme, setTheme } = useTheme();
 
   // Navigating also closes the mobile drawer, like the nav links do. The
   // page you're already on isn't refetched; the menu just closes.
@@ -101,6 +115,20 @@ export function AccountMenuContent({
         <Settings className="size-3.5" />
         Settings
       </DropdownMenuItem>
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger className="items-center">
+          <SunMoon className="size-3.5" />
+          Theme
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent>
+          {/* next-themes saves the choice in localStorage, so it survives reloads. */}
+          <DropdownMenuRadioGroup value={theme} onValueChange={setTheme}>
+            <DropdownMenuRadioItem value="light">Light</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="dark">Dark</DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="system">System</DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
       <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"

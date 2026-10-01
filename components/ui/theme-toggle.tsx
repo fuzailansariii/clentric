@@ -6,11 +6,12 @@ import { useHydrated } from "@/hooks/use-hydrated";
 import { cn } from "@/lib/utils";
 
 export function ThemeToggle({ className }: { className?: string }) {
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   // The theme is only known in the browser — render a same-size placeholder
   // until then so the icon doesn't flip after hydration.
   const hydrated = useHydrated();
-  const isDark = theme === "dark";
+  // resolvedTheme, not theme: with "system" chosen, theme is just "system".
+  const isDark = resolvedTheme === "dark";
 
   if (!hydrated) {
     return (
