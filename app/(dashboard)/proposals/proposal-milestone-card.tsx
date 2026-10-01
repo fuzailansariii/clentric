@@ -131,7 +131,7 @@ export default function ProposalMilestoneCard({
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <div className="w-20 shrink-0 @[520px]:w-[68px]">
+                      <div className="w-20 shrink-0 @[520px]:w-17">
                         <Field
                           {...register(
                             `milestones.${index}.items.${itemIndex}.quantity`,
@@ -145,7 +145,7 @@ export default function ProposalMilestoneCard({
                         />
                       </div>
 
-                      <div className="w-28 shrink-0 @[520px]:w-[104px]">
+                      <div className="w-28 shrink-0 @[520px]:w-26">
                         <Field
                           {...register(
                             `milestones.${index}.items.${itemIndex}.rate`,
@@ -160,7 +160,7 @@ export default function ProposalMilestoneCard({
                         />
                       </div>
 
-                      <div className="flex min-w-0 flex-1 flex-col gap-1 @[520px]:w-[104px] @[520px]:flex-none">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1 @[520px]:w-26 @[520px]:flex-none">
                         <span className="text-muted-foreground font-sans text-[13px] font-medium">
                           Amount
                         </span>
