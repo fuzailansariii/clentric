@@ -268,6 +268,8 @@ function revalidateProposalPaths(proposalId: string, clientId?: string) {
   revalidatePath("/proposals");
   revalidatePath(`/proposals/${proposalId}`);
   if (clientId) revalidatePath(`/clients/${clientId}`);
+  // The dashboard's setup steps count sent proposals.
+  revalidatePath("/dashboard");
 }
 
 /**
@@ -378,7 +380,6 @@ export async function createProposalAction(
             named.map(({ milestone, index }) => ({
               proposalId: row.proposalId,
               name: milestone.name!.trim(),
-              description: milestone.description,
               sortOrder: index,
             })),
           )
@@ -606,7 +607,6 @@ export async function duplicateProposalAction(
             source.milestones.map((milestone) => ({
               proposalId: row.proposalId,
               name: milestone.name,
-              description: milestone.description,
               sortOrder: milestone.sortOrder,
             })),
           )
@@ -880,7 +880,6 @@ export async function updateProposalAction(
             named.map(({ milestone, index }) => ({
               proposalId: row.id,
               name: milestone.name!.trim(),
-              description: milestone.description,
               sortOrder: index,
             })),
           )

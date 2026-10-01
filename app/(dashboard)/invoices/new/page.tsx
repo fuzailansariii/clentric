@@ -4,13 +4,18 @@ import { getClientOptions } from "../../clients/queries";
 import { getProjectOptionsByUserId } from "../../projects/queries";
 import { getDocumentDefaults, getIssuerTitle } from "../../settings/queries";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
+import { getSafeReturnTo } from "@/lib/return-to";
 
 export default async function NewInvoice({
   searchParams,
 }: {
-  searchParams: Promise<{ clientId?: string; projectId?: string }>;
+  searchParams: Promise<{
+    clientId?: string;
+    projectId?: string;
+    returnTo?: string;
+  }>;
 }) {
-  const { clientId, projectId } = await searchParams;
+  const { clientId, projectId, returnTo } = await searchParams;
 
   const [clients, projects, defaults, issuerName] = await Promise.all([
     getClientOptions(),
@@ -37,6 +42,7 @@ export default async function NewInvoice({
       projects={projects}
       initialClientId={initialClientId}
       initialProjectId={initialProjectId}
+      returnTo={getSafeReturnTo(returnTo)}
       defaults={
         defaults
           ? {

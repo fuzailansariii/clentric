@@ -1,3 +1,4 @@
+import { getSafeReturnTo } from "@/lib/return-to";
 import { getClientOptions } from "../../clients/queries";
 import { getDocumentDefaults } from "../../settings/queries";
 import ProposalBuilder from "../proposal-builder";
@@ -5,9 +6,9 @@ import ProposalBuilder from "../proposal-builder";
 export default async function NewProposal({
   searchParams,
 }: {
-  searchParams: Promise<{ clientId?: string }>;
+  searchParams: Promise<{ clientId?: string; returnTo?: string }>;
 }) {
-  const { clientId } = await searchParams;
+  const { clientId, returnTo } = await searchParams;
   const [clients, defaults] = await Promise.all([
     getClientOptions(),
     getDocumentDefaults(),
@@ -24,6 +25,7 @@ export default async function NewProposal({
     <ProposalBuilder
       clients={clients}
       initialClientId={initialClientId}
+      returnTo={getSafeReturnTo(returnTo)}
       defaults={
         defaults
           ? {

@@ -11,7 +11,6 @@ type ProposalPreviewProps = {
   content?: string;
   milestones: {
     name?: string;
-    description?: string;
     items?: { description?: string; quantity?: unknown; rate?: unknown }[];
   }[];
   subtotal: number;
@@ -122,11 +121,6 @@ export default function ProposalPreview({
                     {milestone.name?.trim() ||
                       `Milestone ${milestoneIndex + 1}`}
                   </h3>
-                  {milestone.description?.trim() && (
-                    <p className="text-muted-foreground mt-0.5 text-xs">
-                      {milestone.description}
-                    </p>
-                  )}
 
                   <ul className="mt-2 flex flex-col gap-2">
                     {milestone.items.map((item, itemIndex) => {

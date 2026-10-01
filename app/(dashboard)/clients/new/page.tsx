@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { use, useRef, useState } from "react";
 import { useForm, useWatch, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import Link from "next/link";
@@ -22,11 +22,19 @@ import FormSection from "@/components/dashboard/form-section";
 import { createClientAction } from "../actions";
 import { useRouter } from "next/navigation";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
+import { getSafeReturnTo } from "@/lib/return-to";
 import { ArrowRight } from "lucide-react";
 
-export default function NewClientPage() {
+export default function NewClientPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
   const [formError, setFormError] = useState<string | null>(null);
   const router = useRouter();
+  // Set when opened from the dashboard's setup steps: go back there instead.
+  const returnTo = getSafeReturnTo(use(searchParams).returnTo);
+  const backHref = returnTo ?? "/clients";
 
   const {
     handleSubmit,
@@ -51,7 +59,7 @@ export default function NewClientPage() {
       loading: "Creating Client...",
       success: "Client Created",
       onSuccess: ({ clientId }) => {
-        router.push(`/clients/${clientId}`);
+        router.push(returnTo ?? `/clients/${clientId}`);
       },
       onError: setFormError,
     });
@@ -62,7 +70,7 @@ export default function NewClientPage() {
       <PageHeader
         title="Add a new client"
         subtitle="This becomes a permanent record — client, projects and invoices all roll up to it."
-        backHref="/clients"
+        backHref={backHref}
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Clients", href: "/clients" },
@@ -224,7 +232,7 @@ export default function NewClientPage() {
                   Cancel
                 </CustomButton>
               ) : (
-                <Link href="/clients">
+                <Link href={backHref}>
                   <CustomButton
                     type="button"
                     variant="secondary"

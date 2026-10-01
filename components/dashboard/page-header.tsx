@@ -210,9 +210,12 @@ export default function PageHeader({
 
         <div
           className={[
-            "mt-2 flex min-w-0 items-center justify-between gap-3",
+            hasBreadcrumbs && "mt-2",
+            "flex min-w-0 items-center justify-between gap-3",
             "md:gap-4",
-          ].join(" ")}
+          ]
+            .filter(Boolean)
+            .join(" ")}
         >
           {/* =======================================================
               LEFT SIDE
@@ -243,9 +246,9 @@ export default function PageHeader({
                   aria-hidden="true"
                   className={[
                     "bg-primary/10 text-primary",
-                    "flex h-9 w-9 shrink-0 items-center justify-center",
+                    "flex h-6 w-6 shrink-0 items-center justify-center",
                     "rounded-lg",
-                    "sm:h-10 sm:w-10",
+                    "sm:h-8 sm:w-8",
                   ].join(" ")}
                 >
                   {icon}
@@ -263,8 +266,7 @@ export default function PageHeader({
                   className={[
                     "font-space",
                     "min-w-0 truncate",
-                    "text-lg font-medium",
-                    "md:text-2xl",
+                    "text-base font-bold",
                   ].join(" ")}
                 >
                   {title}

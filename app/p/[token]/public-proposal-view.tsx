@@ -71,7 +71,6 @@ export function PublicProposalView({ proposal, token }: Props) {
     ...proposal.milestones.map((milestone) => ({
       id: milestone.id,
       name: milestone.name as string | null,
-      description: milestone.description,
       items: proposal.items.filter((item) => item.milestoneId === milestone.id),
     })),
     ...(ungrouped.length > 0
@@ -79,7 +78,6 @@ export function PublicProposalView({ proposal, token }: Props) {
           {
             id: "ungrouped",
             name: null,
-            description: null,
             items: ungrouped,
           },
         ]
@@ -201,11 +199,6 @@ export function PublicProposalView({ proposal, token }: Props) {
                   <h2 className="font-space text-base font-semibold">
                     {section.name}
                   </h2>
-                )}
-                {section.description && (
-                  <p className="text-muted-foreground mt-1 text-sm">
-                    {section.description}
-                  </p>
                 )}
 
                 <ul className="mt-3 flex flex-col">

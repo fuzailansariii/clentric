@@ -23,12 +23,12 @@ import {
 import { normalize } from "@/lib/normalizeOptionalFields";
 import { ActionResult } from "@/lib/action-result";
 
-
 function revalidateClientEverywhere() {
   revalidatePath("/clients", "layout");
   revalidatePath("/projects", "layout");
   revalidatePath("/invoices", "layout");
   revalidatePath("/proposals", "layout");
+  revalidatePath("/dashboard");
 }
 
 // create client
@@ -51,6 +51,8 @@ export async function createClientAction(
       throw new AppError("INSERT_FAILED", "Client was not created.");
     }
     revalidatePath("/clients");
+    // The dashboard's setup steps count clients.
+    revalidatePath("/dashboard");
 
     return { success: true, data: { clientId: created.id } };
   } catch (err) {

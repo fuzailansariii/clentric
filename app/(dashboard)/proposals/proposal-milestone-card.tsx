@@ -26,8 +26,7 @@ type ProposalMilestoneCardProps = {
 };
 
 /**
- * One collapsible milestone: its name, an optional description, and the line
- * items quoted under it.
+ * One collapsible milestone: its name and the line items quoted under it.
  *
  * Each card owns its own useFieldArray for `milestones.N.items`, which is why
  * this is a component rather than a loop in the builder — hooks cannot run
@@ -97,20 +96,12 @@ export default function ProposalMilestoneCard({
 
       {open && (
         <div className="border-border flex flex-col gap-4 border-t px-3 py-4 sm:px-4">
-          <div className="grid gap-4 @[520px]:grid-cols-2">
-            <Field
-              {...register(`milestones.${index}.name`)}
-              label="Milestone name (optional)"
-              placeholder="e.g. Discovery — leave blank for a single list"
-              error={milestoneErrors?.name?.message}
-            />
-            <Field
-              {...register(`milestones.${index}.description`)}
-              label="Short description (optional)"
-              placeholder="What this stage covers"
-              error={milestoneErrors?.description?.message}
-            />
-          </div>
+          <Field
+            {...register(`milestones.${index}.name`)}
+            label="Milestone name (optional)"
+            placeholder="e.g. Discovery — leave blank for a single list"
+            error={milestoneErrors?.name?.message}
+          />
 
           <div className="flex flex-col gap-3">
             {fields.map((field, itemIndex) => {
@@ -140,7 +131,7 @@ export default function ProposalMilestoneCard({
                     </div>
 
                     <div className="flex items-start gap-3">
-                      <div className="w-20 shrink-0 @[520px]:w-[68px]">
+                      <div className="w-20 shrink-0 @[520px]:w-17">
                         <Field
                           {...register(
                             `milestones.${index}.items.${itemIndex}.quantity`,
@@ -154,7 +145,7 @@ export default function ProposalMilestoneCard({
                         />
                       </div>
 
-                      <div className="w-28 shrink-0 @[520px]:w-[104px]">
+                      <div className="w-28 shrink-0 @[520px]:w-26">
                         <Field
                           {...register(
                             `milestones.${index}.items.${itemIndex}.rate`,
@@ -169,7 +160,7 @@ export default function ProposalMilestoneCard({
                         />
                       </div>
 
-                      <div className="flex min-w-0 flex-1 flex-col gap-1 @[520px]:w-[104px] @[520px]:flex-none">
+                      <div className="flex min-w-0 flex-1 flex-col gap-1 @[520px]:w-26 @[520px]:flex-none">
                         <span className="text-muted-foreground font-sans text-[13px] font-medium">
                           Amount
                         </span>
