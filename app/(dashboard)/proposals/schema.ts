@@ -37,11 +37,6 @@ export const milestoneSchema = z.object({
     .trim()
     .max(200, "Milestone name must be 200 characters or fewer")
     .optional(),
-  description: z
-    .string()
-    .trim()
-    .max(2000, "Milestone description is too long")
-    .optional(),
   items: z.array(lineItemSchema).min(1, "Add at least one line item"),
 });
 

@@ -14,6 +14,7 @@ import {
 } from "./actions";
 import type { ActionResult } from "@/lib/action-result";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
+import type { ReturnTo } from "@/lib/return-to";
 import { useRouter } from "next/navigation";
 import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
@@ -70,6 +71,8 @@ type InvoiceBuilderProps = {
   invoice?: EditableInvoice;
   /** Starting values for a new invoice. Ignored when editing. */
   defaults?: NewInvoiceDefaults;
+  /** Where to go after creating, when opened from the dashboard's setup. */
+  returnTo?: ReturnTo | null;
 };
 
 export default function InvoiceBuilder({
@@ -80,6 +83,7 @@ export default function InvoiceBuilder({
   initialProjectId,
   invoice,
   defaults,
+  returnTo = null,
 }: InvoiceBuilderProps) {
   const [mode, setMode] = useState<"quick" | "detailed">(
     invoice ? "detailed" : "quick",
@@ -260,7 +264,9 @@ export default function InvoiceBuilder({
     watchedTaxRate,
   );
 
-  const invoicePath = invoice ? `/invoices/${invoice.id}` : "/invoices";
+  const invoicePath = invoice
+    ? `/invoices/${invoice.id}`
+    : (returnTo ?? "/invoices");
   const invoiceLabel = invoice
     ? formatInvoiceNumber(invoice.invoiceNumber, invoice.numberPrefix)
     : null;
@@ -286,7 +292,7 @@ export default function InvoiceBuilder({
       loading: "Creating invoice.",
       success: "Invoice created.",
       onSuccess: ({ invoiceId }) => {
-        router.push(`/invoices/${invoiceId}`);
+        router.push(returnTo ?? `/invoices/${invoiceId}`);
         reset();
       },
       onError: setFormError,
@@ -317,8 +323,9 @@ export default function InvoiceBuilder({
         sent
           ? "Invoice created and sent."
           : "Invoice saved as a draft, but it couldn't be sent. Try Send again from the invoice.",
-      onSuccess: ({ invoiceId }) => {
-        router.push(`/invoices/${invoiceId}`);
+      onSuccess: ({ invoiceId, sent }) => {
+        // A failed send lands on the invoice, where its toast says to retry.
+        router.push(sent && returnTo ? returnTo : `/invoices/${invoiceId}`);
         reset();
       },
       onError: setFormError,

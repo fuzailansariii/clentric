@@ -1,5 +1,9 @@
 type WelcomeHeaderProps = {
   name: string;
+  /** No clients, proposals or invoices yet: welcome them instead of a greeting. */
+  isNewUser?: boolean;
+  /** Short status shown after the date, e.g. "Nothing needs you right now." */
+  status?: string;
 };
 
 function getGreeting() {
@@ -9,7 +13,11 @@ function getGreeting() {
   return "Good evening";
 }
 
-export default function WelcomeHeader({ name }: WelcomeHeaderProps) {
+export default function WelcomeHeader({
+  name,
+  isNewUser = false,
+  status,
+}: WelcomeHeaderProps) {
   const today = new Date().toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -19,9 +27,14 @@ export default function WelcomeHeader({ name }: WelcomeHeaderProps) {
   return (
     <div className="flex flex-col gap-1">
       <h1 className="font-space text-2xl font-medium">
-        {getGreeting()}, {name}
+        {isNewUser
+          ? `Welcome to Clentric, ${name}`
+          : `${getGreeting()}, ${name}`}
       </h1>
-      <p className="text-muted-foreground text-sm">{today}</p>
+      <p className="text-muted-foreground text-sm">
+        {today}
+        {status && ` · ${status}`}
+      </p>
     </div>
   );
 }

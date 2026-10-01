@@ -27,10 +27,11 @@ type SidebarProps = {
 
 export const NAV_ITEMS = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  // Work order: win a client, propose, run the project, then bill it.
   { label: "Clients", href: "/clients", icon: Users },
+  { label: "Proposals", href: "/proposals", icon: FileText },
   { label: "Projects", href: "/projects", icon: FolderKanban },
   { label: "Invoices", href: "/invoices", icon: Receipt },
-  { label: "Proposals", href: "/proposals", icon: FileText },
 ];
 
 export const EXTRA_ITEMS = [

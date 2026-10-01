@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { calculateTotals } from "@/lib/calculate-totals";
 import { formatCurrency } from "@/lib/format-currency";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
+import type { ReturnTo } from "@/lib/return-to";
 import { createProposalAction, updateProposalAction } from "./actions";
 import ProposalMilestoneCard from "./proposal-milestone-card";
 import {
@@ -41,7 +42,6 @@ export type EditableProposal = {
   expiresInDays: number;
   milestones: {
     name: string;
-    description: string;
     items: { description: string; quantity: number; rate: number }[];
   }[];
 };
@@ -59,6 +59,8 @@ type ProposalBuilderProps = {
   proposal?: EditableProposal;
   /** Starting values for a new proposal. Ignored when editing. */
   defaults?: NewProposalDefaults;
+  /** Set when opened from the dashboard's setup steps. */
+  returnTo?: ReturnTo | null;
 };
 
 /**
@@ -78,6 +80,7 @@ export default function ProposalBuilder({
   initialClientId,
   proposal,
   defaults,
+  returnTo = null,
 }: ProposalBuilderProps) {
   const router = useRouter();
   const isEditing = Boolean(proposal);
@@ -113,7 +116,6 @@ export default function ProposalBuilder({
           milestones: [
             {
               name: "",
-              description: "",
               items: [{ description: "", quantity: 1, rate: 0 }],
             },
           ],
@@ -181,7 +183,8 @@ export default function ProposalBuilder({
     await runActionWithToast(createProposalAction(data), {
       loading: "Creating proposal...",
       success: "Proposal created",
-      onSuccess: ({ proposalId }) => router.push(`/proposals/${proposalId}`),
+      onSuccess: ({ proposalId }) =>
+        router.push(returnTo ?? `/proposals/${proposalId}`),
     });
   });
 
@@ -282,7 +285,6 @@ export default function ProposalBuilder({
                     onClick={() =>
                       appendMilestone({
                         name: "",
-                        description: "",
                         items: [{ description: "", quantity: 1, rate: 0 }],
                       })
                     }
@@ -406,7 +408,9 @@ export default function ProposalBuilder({
                   variant="secondary"
                   onClick={() =>
                     router.push(
-                      proposal ? `/proposals/${proposal.id}` : "/proposals",
+                      proposal
+                        ? `/proposals/${proposal.id}`
+                        : (returnTo ?? "/proposals"),
                     )
                   }
                 >

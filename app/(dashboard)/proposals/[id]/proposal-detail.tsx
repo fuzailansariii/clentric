@@ -48,7 +48,6 @@ export function ProposalDetailView({
   const grouped = proposal.milestones.map((milestone) => ({
     id: milestone.id,
     name: milestone.name,
-    description: milestone.description,
     items: proposal.items.filter((item) => item.milestoneId === milestone.id),
   }));
 
@@ -60,7 +59,6 @@ export function ProposalDetailView({
           {
             id: "ungrouped",
             name: null,
-            description: null,
             items: ungrouped,
           },
         ]
@@ -137,11 +135,6 @@ export function ProposalDetailView({
                             {section.name}
                           </h3>
                         )}
-                        {section.description && (
-                          <p className="text-muted-foreground mt-1 text-sm">
-                            {section.description}
-                          </p>
-                        )}
 
                         {/* No table here on purpose: at phone width a
                             four-column table either scrolls sideways or
@@ -150,7 +143,7 @@ export function ProposalDetailView({
                         <ul
                           className={cn(
                             "flex flex-col",
-                            (section.name || section.description) && "mt-3",
+                            section.name && "mt-3",
                           )}
                         >
                           {section.items.map((item) => (

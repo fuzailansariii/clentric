@@ -35,6 +35,8 @@ function revalidateInvoicePaths(invoiceId: string, clientId: string) {
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath(`/clients/${clientId}`);
+  // Setup steps and the outstanding total.
+  revalidatePath("/dashboard");
 }
 
 function msAgo(ms: number) {

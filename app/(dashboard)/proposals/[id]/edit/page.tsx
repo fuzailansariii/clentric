@@ -34,7 +34,6 @@ export default async function EditProposalPage({
   // without a stage becomes one unnamed group so nothing is silently dropped.
   const grouped = proposal.milestones.map((milestone) => ({
     name: milestone.name,
-    description: milestone.description ?? "",
     items: proposal.items
       .filter((item) => item.milestoneId === milestone.id)
       .map((item) => ({
@@ -48,7 +47,6 @@ export default async function EditProposalPage({
   if (ungrouped.length > 0) {
     grouped.push({
       name: "",
-      description: "",
       items: ungrouped.map((item) => ({
         description: item.description,
         quantity: Number(item.quantity),
@@ -83,7 +81,6 @@ export default async function EditProposalPage({
         : [
             {
               name: "",
-              description: "",
               items: [{ description: "", quantity: 1, rate: 0 }],
             },
           ],
