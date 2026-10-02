@@ -7,7 +7,7 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import SidebarFooter from "@/components/sidebar/sidebar-footer";
 import { logoutAction } from "../(auth)/action";
-import { getDashboardData } from "./queries";
+import { getDashboardData, getSidebarCounts } from "./queries";
 import { Toaster } from "@/components/ui/sonner";
 import { VerticalScale } from "@/components/ui/scale-border";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -32,7 +32,10 @@ export default async function DashboardLayout({
 
   if (!authUser) redirect("/login");
 
-  const { profile, subscription } = await getDashboardData(authUser.id);
+  const [{ profile, subscription }, sidebarCounts] = await Promise.all([
+    getDashboardData(authUser.id),
+    getSidebarCounts(authUser.id),
+  ]);
 
   // Pending deletion: no app, only the choice to restore or leave. The
   // pages below would be refused anyway (requireUser locks the account).
@@ -54,6 +57,7 @@ export default async function DashboardLayout({
       <TooltipProvider>
         <div className="fixed inset-0 flex overflow-hidden">
           <Sidebar
+            counts={sidebarCounts}
             footer={
               <SidebarFooter
                 user={{

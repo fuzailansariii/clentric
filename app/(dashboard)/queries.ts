@@ -3,7 +3,20 @@ import { cache } from "react";
 import { db } from "@/src/db";
 import { users } from "@/src/db/schema/users";
 import { subscriptions } from "@/src/db/schema/subscriptions";
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { invoices } from "@/src/db/schema/invoices";
+import { proposals } from "@/src/db/schema/proposals";
+import { logError } from "@/lib/errors";
+import {
+  and,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 
 // cache(): the dashboard layout and the dashboard page both read this in
 // the same request; they share one database round trip.
@@ -43,3 +56,46 @@ export const getDashboardData = cache(async (userId: string) => {
     subscription: userSubscriptions[0] ?? null,
   };
 });
+
+export type SidebarCounts = { openProposals: number; overdueInvoices: number };
+
+/** Nav badges; zeros on failure so the layout never breaks over a count. */
+export async function getSidebarCounts(userId: string): Promise<SidebarCounts> {
+  try {
+    const [proposalRows, invoiceRows] = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(proposals)
+        .where(
+          and(
+            eq(proposals.userId, userId),
+            isNull(proposals.deletedAt),
+            inArray(proposals.status, ["sent", "viewed"]),
+            or(
+              isNull(proposals.expiresAt),
+              gt(proposals.expiresAt, sql`now()`),
+            ),
+          ),
+        ),
+      db
+        .select({ value: count() })
+        .from(invoices)
+        .where(
+          and(
+            eq(invoices.userId, userId),
+            isNull(invoices.deletedAt),
+            eq(invoices.status, "sent"),
+            sql`${invoices.dueDate} < current_date`,
+          ),
+        ),
+    ]);
+
+    return {
+      openProposals: proposalRows[0]?.value ?? 0,
+      overdueInvoices: invoiceRows[0]?.value ?? 0,
+    };
+  } catch (error) {
+    logError("getSidebarCounts", error);
+    return { openProposals: 0, overdueInvoices: 0 };
+  }
+}

@@ -16,15 +16,20 @@ type NavItem = {
   activePrefix?: string;
 };
 
+export type NavBadge = { count: number; tone: "neutral" | "danger" };
+
 export function SidebarNavLink({
   item,
   isCollapsed = false,
   onClick,
+  badge,
 }: {
   item: NavItem;
   isCollapsed?: boolean;
   onClick?: () => void;
+  badge?: NavBadge;
 }) {
+  const showBadge = badge !== undefined && badge.count > 0;
   const pathname = usePathname();
   const isCurrentPage = useIsCurrentPage();
   const Icon = item.icon;
@@ -45,7 +50,13 @@ export function SidebarNavLink({
       onClick={handleClick}
       aria-current={isActive ? "page" : undefined}
       // Collapsed links show only an icon, so they need their own name.
-      aria-label={isCollapsed ? item.label : undefined}
+      aria-label={
+        isCollapsed
+          ? showBadge
+            ? `${item.label} (${badge.count})`
+            : item.label
+          : undefined
+      }
       className={cn(
         "text-sidebar-foreground relative flex items-center gap-3 rounded-lg px-3 py-2.5 font-sans text-sm",
         isCollapsed && "justify-center px-0",
@@ -56,6 +67,27 @@ export function SidebarNavLink({
     >
       <Icon size={18} className="shrink-0" />
       {!isCollapsed && <span className="truncate">{item.label}</span>}
+      {showBadge &&
+        (isCollapsed ? (
+          <span
+            aria-hidden="true"
+            className={cn(
+              "absolute top-1.5 right-2.5 size-2 rounded-full",
+              badge.tone === "danger" ? "bg-danger-600" : "bg-primary",
+            )}
+          />
+        ) : (
+          <span
+            className={cn(
+              "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium tabular-nums",
+              badge.tone === "danger"
+                ? "bg-danger-600/15 text-danger-600"
+                : "bg-foreground/8 text-muted-foreground",
+            )}
+          >
+            {badge.count}
+          </span>
+        ))}
     </Link>
   );
 
