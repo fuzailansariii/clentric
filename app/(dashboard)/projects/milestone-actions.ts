@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { ActionResult } from "@/lib/action-result";
+import { logActivity, removeActivity } from "@/lib/activity";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
 import { db } from "@/src/db";
@@ -198,6 +199,16 @@ export async function setMilestoneStatusAction(
     }
 
     revalidateMilestonePaths(updated.projectId);
+    const activity = {
+      userId: user.id,
+      action: "milestone.completed",
+      entityId: parsedId.data,
+    } as const;
+    if (parsedStatus.data === "completed") {
+      logActivity(activity);
+    } else {
+      await removeActivity(activity);
+    }
 
     return { success: true };
   } catch (error) {

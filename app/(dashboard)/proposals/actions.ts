@@ -15,6 +15,7 @@ import { projects } from "@/src/db/schema/projects";
 import { proposals } from "@/src/db/schema/proposals";
 import { invoices } from "@/src/db/schema/invoices";
 import { createProjectFromProposal } from "@/lib/create-project-from-proposal";
+import { logActivity } from "@/lib/activity";
 import {
   issuerSnapshotSql,
   liveIssuer,
@@ -413,6 +414,11 @@ export async function createProposalAction(
     });
 
     revalidateProposalPaths(created.proposalId, parsed.data.clientId);
+    logActivity({
+      userId: user.id,
+      action: "proposal.created",
+      entityId: created.proposalId,
+    });
 
     return { success: true, data: { proposalId: created.proposalId } };
   } catch (error) {
@@ -479,6 +485,11 @@ export async function sendProposalAction(
     // with "Copy client link".
 
     revalidateProposalPaths(row.id, row.clientId);
+    logActivity({
+      userId: user.id,
+      action: "proposal.sent",
+      entityId: row.id,
+    });
     return { success: true };
   } catch (error) {
     logError("sendProposalAction", error);
@@ -523,6 +534,11 @@ export async function revokeProposalAction(
     }
 
     revalidateProposalPaths(row.id, row.clientId);
+    logActivity({
+      userId: user.id,
+      action: "proposal.revoked",
+      entityId: row.id,
+    });
     return { success: true };
   } catch (error) {
     logError("revokeProposalAction", error);
@@ -654,6 +670,11 @@ export async function duplicateProposalAction(
 
     // The copy also appears on its client's Proposals tab.
     revalidateProposalPaths(created.proposalId, created.clientId);
+    logActivity({
+      userId: user.id,
+      action: "proposal.created",
+      entityId: created.proposalId,
+    });
 
     return { success: true, data: { proposalId: created.proposalId } };
   } catch (error) {
@@ -741,6 +762,11 @@ export async function createProjectFromProposalAction(
     revalidatePath(`/proposals/${parsed.data.proposalId}`);
     revalidatePath("/projects");
     revalidatePath(`/projects/${projectId}`);
+    logActivity({
+      userId: user.id,
+      action: "project.created",
+      entityId: projectId,
+    });
 
     return { success: true, data: { projectId } };
   } catch (error) {

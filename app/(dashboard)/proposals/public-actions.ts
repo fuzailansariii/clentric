@@ -3,6 +3,7 @@
 import { and, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
+import { logActivity } from "@/lib/activity";
 import { AppError, logError } from "@/lib/errors";
 import { getNextInvoiceNumber } from "@/lib/get-next-invoice-number";
 import { issuerSnapshotSql, resolvePayment } from "@/lib/issuer-snapshot";
@@ -54,7 +55,7 @@ export async function viewProposalAction(token: string): Promise<ActionResult> {
       return { success: false, error: "Too many requests. Try again shortly." };
     }
 
-    await db
+    const [viewed] = await db
       .update(proposals)
       .set({ status: "viewed", viewedAt: new Date(), updatedAt: new Date() })
       .where(
@@ -65,7 +66,17 @@ export async function viewProposalAction(token: string): Promise<ActionResult> {
           isNull(proposals.deletedAt),
           ownerIsActive,
         ),
-      );
+      )
+      .returning({ id: proposals.id, userId: proposals.userId });
+
+    // Only the first open matches the WHERE, so only it is an event.
+    if (viewed) {
+      logActivity({
+        userId: viewed.userId,
+        action: "proposal.viewed",
+        entityId: viewed.id,
+      });
+    }
 
     // Success either way: a second open is not an error, it just changes
     // nothing.
@@ -202,12 +213,15 @@ export async function respondProposalAction(
             updatedAt: now,
           })
           .where(stillOpen)
-          .returning({ id: proposals.id });
+          .returning({ id: proposals.id, userId: proposals.userId });
 
         if (!declined) throw new AppError("GONE", GONE);
 
         // Declining creates nothing.
-        return { response, deposit: null } satisfies RespondResult;
+        return {
+          proposal: declined,
+          data: { response, deposit: null } satisfies RespondResult,
+        };
       }
 
       const [accepted] = await tx
@@ -240,7 +254,10 @@ export async function respondProposalAction(
       await createProjectFromProposal(tx, { ...accepted, depositInvoiceId });
 
       if (!depositInvoiceId) {
-        return { response, deposit: null } satisfies RespondResult;
+        return {
+          proposal: accepted,
+          data: { response, deposit: null } satisfies RespondResult,
+        };
       }
 
       const percent = Number(accepted.depositPercent);
@@ -259,20 +276,39 @@ export async function respondProposalAction(
         .limit(1);
 
       return {
-        response,
-        deposit: {
-          amount: amount.toFixed(2),
-          percent,
-          payment: resolvePayment(
-            deposit?.issuerSnapshot,
-            deposit?.paymentDetails ?? null,
-            { methods: [], instructions: null },
-          ),
-        },
-      } satisfies RespondResult;
+        proposal: accepted,
+        data: {
+          response,
+          deposit: {
+            amount: amount.toFixed(2),
+            percent,
+            payment: resolvePayment(
+              deposit?.issuerSnapshot,
+              deposit?.paymentDetails ?? null,
+              { methods: [], instructions: null },
+            ),
+          },
+        } satisfies RespondResult,
+      };
     });
 
-    return { success: true, data: result };
+    // Logged after commit, so a failed log can't undo the client's answer.
+    if (response === "declined") {
+      logActivity({
+        userId: result.proposal.userId,
+        action: "proposal.declined",
+        entityId: result.proposal.id,
+        metadata: { reason: declineReason || null },
+      });
+    } else {
+      logActivity({
+        userId: result.proposal.userId,
+        action: "proposal.accepted",
+        entityId: result.proposal.id,
+      });
+    }
+
+    return { success: true, data: result.data };
   } catch (error) {
     if (error instanceof AppError) {
       return { success: false, error: error.message };
@@ -322,7 +358,7 @@ export async function markPaymentSentAction(
       return { success: false, error: GONE };
     }
 
-    await db
+    const [claimed] = await db
       .update(invoices)
       .set({
         paymentClaimedAt: new Date(),
@@ -335,7 +371,17 @@ export async function markPaymentSentAction(
           eq(invoices.userId, proposal.userId),
           isNull(invoices.deletedAt),
         ),
-      );
+      )
+      .returning({ id: invoices.id });
+
+    if (claimed) {
+      logActivity({
+        userId: proposal.userId,
+        action: "invoice.payment_claimed",
+        entityId: claimed.id,
+        metadata: { note: note || null },
+      });
+    }
 
     return { success: true };
   } catch (error) {

@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "npm run typecheck && npm run lint"
+    "test": "npm run typecheck && npm run lint && vitest run"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
@@ -55,6 +55,7 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }

@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
     const user = await requireUser();
 
-    // Eight queries per export; a handful a minute is plenty for a person.
+    // Nine queries per export; a handful a minute is plenty for a person.
     if (
       isRateLimited(`account:export:${user.id}`, { max: 5, windowMs: 60_000 })
     ) {
@@ -192,6 +192,16 @@ export async function GET(request: Request) {
               "sortOrder",
             ],
             data.invoiceItems,
+          ),
+        },
+        {
+          name: "activity.csv",
+          content: toCsv(
+            ["id", "action", "entityType", "entityId", "details", "createdAt"],
+            data.activity.map(({ metadata, ...row }) => ({
+              ...row,
+              details: metadata ? JSON.stringify(metadata) : null,
+            })),
           ),
         },
       ],

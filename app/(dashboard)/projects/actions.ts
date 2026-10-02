@@ -13,6 +13,7 @@ import { projects } from "@/src/db/schema/projects";
 import { normalize } from "@/lib/normalizeOptionalFields";
 import { revalidatePath } from "next/cache";
 import { ActionResult } from "@/lib/action-result";
+import { logActivity } from "@/lib/activity";
 
 // PROJECT ACTIONS ---------------
 
@@ -55,9 +56,9 @@ export async function createProjectAction(
             hourlyRate: sql<
               string | null
             >`${data.hourlyRate ?? null}::numeric`.as("hourly_rate"),
-            deadline: sql<
-              string | null
-            >`${data.deadline ?? null}::date`.as("deadline"),
+            deadline: sql<string | null>`${data.deadline ?? null}::date`.as(
+              "deadline",
+            ),
             status: sql<
               typeof data.status
             >`${data.status}::project_status_enum`.as("status"),
@@ -82,6 +83,11 @@ export async function createProjectAction(
 
     revalidatePath(`/clients/${clientId}`);
     revalidatePath(`/projects`);
+    logActivity({
+      userId: user.id,
+      action: "project.created",
+      entityId: created.id,
+    });
 
     return {
       success: true,

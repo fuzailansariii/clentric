@@ -8,12 +8,13 @@ import {
   type OnboardingProgress,
 } from "@/components/dashboard/onboarding-steps";
 import PageHeader from "@/components/dashboard/page-header";
+import { RecentActivity } from "@/components/dashboard/recent-activity";
 import WelcomeHeader from "@/components/dashboard/welcome-header";
 import { requireUser } from "@/lib/current-user";
 import { formatCurrency } from "@/lib/format-currency";
 import { SETUP_HIDDEN_COOKIE } from "@/lib/setup-hidden-cookie";
 import { getDashboardData } from "../queries";
-import { getDashboardOverview } from "./queries";
+import { getDashboardOverview, getRecentActivity } from "./queries";
 
 type Overview = Awaited<ReturnType<typeof getDashboardOverview>>;
 
@@ -34,9 +35,10 @@ function getStatus(overview: Overview) {
 
 export default async function Dashboard() {
   const user = await requireUser();
-  const [{ profile }, overview, cookieStore] = await Promise.all([
+  const [{ profile }, overview, activity, cookieStore] = await Promise.all([
     getDashboardData(user.id),
     getDashboardOverview(),
+    getRecentActivity(),
     cookies(),
   ]);
 
@@ -82,6 +84,10 @@ export default async function Dashboard() {
             />
           </div>
         )}
+
+        <div className="mt-6">
+          <RecentActivity items={activity} />
+        </div>
       </DashboardContainer>
     </>
   );
