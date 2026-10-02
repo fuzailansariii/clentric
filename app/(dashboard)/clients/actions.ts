@@ -22,6 +22,7 @@ import {
 } from "drizzle-orm";
 import { normalize } from "@/lib/normalizeOptionalFields";
 import { ActionResult } from "@/lib/action-result";
+import { logActivity } from "@/lib/activity";
 
 function revalidateClientEverywhere() {
   revalidatePath("/clients", "layout");
@@ -53,6 +54,11 @@ export async function createClientAction(
     revalidatePath("/clients");
     // The dashboard's setup steps count clients.
     revalidatePath("/dashboard");
+    logActivity({
+      userId: user.id,
+      action: "client.created",
+      entityId: created.id,
+    });
 
     return { success: true, data: { clientId: created.id } };
   } catch (err) {

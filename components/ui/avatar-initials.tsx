@@ -1,10 +1,11 @@
 import { cn } from "@/lib/utils";
 
-type AvatarSize = "sm" | "md" | "lg";
+type AvatarSize = "xs" | "sm" | "md" | "lg";
 type AvatarVariant = "neutral" | "colored" | "accent";
 type AvatarShape = "square" | "circle";
 
 const sizeStyles: Record<AvatarSize, string> = {
+  xs: "size-5 text-[8px]",
   sm: "h-7 w-7 text-[10px]",
   md: "h-9 w-9 text-sm",
   lg: "h-11 w-11 text-base",
@@ -110,7 +111,14 @@ export function AvatarInitials({
         className,
       )}
     >
-      <span className="text-secondary-foreground font-mono font-extrabold">
+      <span
+        className={cn(
+          "text-secondary-foreground",
+          size === "xs"
+            ? "font-sans font-semibold"
+            : "font-mono font-extrabold",
+        )}
+      >
         {initials}
       </span>
     </div>

@@ -4,7 +4,7 @@ import type { MouseEvent } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { useIsCurrentPage } from "@/hooks/use-is-current-page";
-import { Logo } from "../logo";
+import { Logo, LogoMark } from "../logo";
 
 const DASHBOARD_HREF = "/dashboard";
 
@@ -12,9 +12,12 @@ const DASHBOARD_HREF = "/dashboard";
 export function DashboardLogoLink({
   className,
   onClick,
+  variant = "wordmark",
 }: {
   className?: string;
   onClick?: () => void;
+  /** "brand": app icon + name; "mark": icon only, for the collapsed sidebar. */
+  variant?: "wordmark" | "brand" | "mark";
 }) {
   const isCurrentPage = useIsCurrentPage();
 
@@ -34,7 +37,21 @@ export function DashboardLogoLink({
         className,
       )}
     >
-      <Logo className="block h-5" aria-hidden />
+      {variant === "wordmark" ? (
+        <Logo className="block h-5" aria-hidden />
+      ) : (
+        <span className="flex items-center gap-2.5">
+          <LogoMark
+            className="dark:ring-border size-7 rounded-md dark:ring-1"
+            aria-hidden
+          />
+          {variant === "brand" && (
+            <span className="text-foreground text-base font-semibold tracking-tight">
+              Clentric
+            </span>
+          )}
+        </span>
+      )}
     </Link>
   );
 }

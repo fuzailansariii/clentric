@@ -44,3 +44,33 @@ export function formatPercent(value: number): string {
     maximumFractionDigits: 2,
   }).format(value);
 }
+
+/** "$14,850": whole units for headline figures. */
+export function formatCurrencyWhole(value: string, currency = "USD"): string {
+  const amount = Number(value);
+  if (Number.isNaN(amount)) return "-";
+
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${currency} ${Math.round(amount)}`;
+  }
+}
+
+/** "$25k" for chart axes. */
+export function formatCurrencyCompact(value: number, currency = "USD"): string {
+  try {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency,
+      notation: "compact",
+      maximumFractionDigits: 1,
+    }).format(value);
+  } catch {
+    return `${currency} ${value}`;
+  }
+}

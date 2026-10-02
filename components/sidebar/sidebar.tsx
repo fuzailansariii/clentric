@@ -14,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./sidebar-provider";
 import { CustomButton } from "../ui/custom-button";
-import { SidebarNavLink } from "./sidebar-nav-links";
+import { SidebarNavLink, type NavBadge } from "./sidebar-nav-links";
 import { ReactNode } from "react";
 import { DashboardLogoLink } from "./dashboard-logo-link";
 import { DEFAULT_SETTINGS_HREF } from "@/app/(dashboard)/settings/sections";
@@ -23,18 +23,24 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 type SidebarProps = {
   /** Desktop-only account section; on mobile the topbar avatar covers it. */
   footer?: ReactNode;
+  counts?: { openProposals: number; overdueInvoices: number };
 };
 
-export const NAV_ITEMS = [
-  { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  // Work order: win a client, propose, run the project, then bill it.
+const HOME_ITEM = {
+  label: "Dashboard",
+  href: "/dashboard",
+  icon: LayoutDashboard,
+};
+
+// Work order: win a client, propose, run the project, then bill it.
+const WORKSPACE_ITEMS = [
   { label: "Clients", href: "/clients", icon: Users },
   { label: "Proposals", href: "/proposals", icon: FileText },
   { label: "Projects", href: "/projects", icon: FolderKanban },
   { label: "Invoices", href: "/invoices", icon: Receipt },
 ];
 
-export const EXTRA_ITEMS = [
+const EXTRA_ITEMS = [
   {
     label: "Settings",
     href: DEFAULT_SETTINGS_HREF,
@@ -43,9 +49,14 @@ export const EXTRA_ITEMS = [
   },
 ];
 
-export default function Sidebar({ footer }: SidebarProps) {
+export default function Sidebar({ footer, counts }: SidebarProps) {
   const { isCollapsed, toggleCollapsed, closeMobile, isMobileOpen } =
     useSidebar();
+
+  const badges: Record<string, NavBadge | undefined> = {
+    "/proposals": counts && { count: counts.openProposals, tone: "neutral" },
+    "/invoices": counts && { count: counts.overdueInvoices, tone: "danger" },
+  };
 
   return (
     <>
@@ -58,52 +69,38 @@ export default function Sidebar({ footer }: SidebarProps) {
       >
         <div
           className={cn(
-            "flex h-14 w-full items-center border-b",
-            isCollapsed ? "justify-center px-2" : "justify-between px-2",
+            "flex h-14 w-full shrink-0 items-center border-b",
+            isCollapsed ? "justify-center px-2" : "px-5",
           )}
         >
-          {!isCollapsed && <DashboardLogoLink className="ml-3" />}
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <CustomButton
-                variant="ghost"
-                className="hover:bg-sidebar-accent/80 hover:text-foreground flex items-center"
-                onClick={toggleCollapsed}
-                aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-              >
-                {isCollapsed ? (
-                  <PanelLeftOpen className="size-5" />
-                ) : (
-                  <PanelLeftClose className="size-5" />
-                )}
-              </CustomButton>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              {isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-            </TooltipContent>
-          </Tooltip>
+          <DashboardLogoLink variant={isCollapsed ? "mark" : "brand"} />
         </div>
 
-        {/* Main links scroll on short screens; Settings and the account
-            footer stay pinned to the bottom. */}
-        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-5">
-          {!isCollapsed && (
-            <h2 className="text-secondary-foreground/80 mb-3 ml-2 font-sans text-xs font-bold tracking-wider uppercase">
-              Main
+        {/* Main links scroll on short screens; Collapse, Settings and the
+            account footer stay pinned to the bottom. */}
+        <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 py-4">
+          <SidebarNavLink item={HOME_ITEM} isCollapsed={isCollapsed} />
+
+          {isCollapsed ? (
+            <div aria-hidden="true" className="bg-border mx-2 my-3 h-px" />
+          ) : (
+            <h2 className="text-muted-foreground mt-4 mb-1.5 ml-3 font-sans text-xs font-medium">
+              Workspace
             </h2>
           )}
 
-          {NAV_ITEMS.map((item) => (
+          {WORKSPACE_ITEMS.map((item) => (
             <SidebarNavLink
               key={item.href}
               item={item}
               isCollapsed={isCollapsed}
+              badge={badges[item.href]}
             />
           ))}
         </nav>
 
         <div className="flex shrink-0 flex-col gap-0.5 px-3 pb-2">
+          <CollapseButton isCollapsed={isCollapsed} onClick={toggleCollapsed} />
           {EXTRA_ITEMS.map((item) => (
             <SidebarNavLink
               key={item.href}
@@ -140,7 +137,7 @@ export default function Sidebar({ footer }: SidebarProps) {
           )}
         >
           <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-            <DashboardLogoLink onClick={closeMobile} />
+            <DashboardLogoLink variant="brand" onClick={closeMobile} />
             <CustomButton
               variant="ghost"
               size="md"
@@ -154,14 +151,16 @@ export default function Sidebar({ footer }: SidebarProps) {
           {/* Main links scroll on short screens; Settings stays pinned to the
               bottom. The account menu lives on the topbar avatar instead. */}
           <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-5">
-            <h2 className="text-secondary-foreground/80 mb-2 ml-2 font-sans text-xs font-bold tracking-wider uppercase">
-              Main
+            <SidebarNavLink item={HOME_ITEM} onClick={closeMobile} />
+            <h2 className="text-muted-foreground mt-4 mb-1.5 ml-3 font-sans text-xs font-medium">
+              Workspace
             </h2>
-            {NAV_ITEMS.map((item) => (
+            {WORKSPACE_ITEMS.map((item) => (
               <SidebarNavLink
                 key={item.href}
                 item={item}
                 onClick={closeMobile}
+                badge={badges[item.href]}
               />
             ))}
           </nav>
@@ -178,5 +177,40 @@ export default function Sidebar({ footer }: SidebarProps) {
         </aside>
       </div>
     </>
+  );
+}
+
+function CollapseButton({
+  isCollapsed,
+  onClick,
+}: {
+  isCollapsed: boolean;
+  onClick: () => void;
+}) {
+  const Icon = isCollapsed ? PanelLeftOpen : PanelLeftClose;
+  const label = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
+
+  const button = (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={isCollapsed ? label : undefined}
+      className={cn(
+        "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground focus-visible:ring-ring flex cursor-pointer items-center gap-3 rounded-lg px-3 py-2.5 font-sans text-sm transition-colors focus-visible:ring-2 focus-visible:outline-none",
+        isCollapsed && "justify-center px-0",
+      )}
+    >
+      <Icon size={18} className="shrink-0" />
+      {!isCollapsed && <span>Collapse</span>}
+    </button>
+  );
+
+  if (!isCollapsed) return button;
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{button}</TooltipTrigger>
+      <TooltipContent side="right">{label}</TooltipContent>
+    </Tooltip>
   );
 }

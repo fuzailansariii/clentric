@@ -14,6 +14,7 @@ import { getNextInvoiceNumber } from "@/lib/get-next-invoice-number";
 import { invoices } from "@/src/db/schema/invoices";
 import { users } from "@/src/db/schema/users";
 import { revalidatePath } from "next/cache";
+import { logActivity, removeActivity } from "@/lib/activity";
 import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { clients } from "@/src/db/schema/clients";
 import { and, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
@@ -35,7 +36,6 @@ function revalidateInvoicePaths(invoiceId: string, clientId: string) {
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath(`/clients/${clientId}`);
-  // Setup steps and the outstanding total.
   revalidatePath("/dashboard");
 }
 
@@ -125,9 +125,6 @@ export async function createInvoiceAction(
           currency: parsed.data.currency,
           taxRate: parsed.data.taxRate.toFixed(2),
           invoiceNumber,
-          // The user's prefix as it is right now, read inside this INSERT
-          // and stored on the invoice, so renaming the prefix later never
-          // renames this one.
           numberPrefix: sql`(select ${users.invoicePrefix} from ${users} where ${users.id} = ${user.id})`,
           notes: parsed.data.notes || null,
           taxAmount: taxAmount.toFixed(2),
@@ -157,6 +154,11 @@ export async function createInvoiceAction(
     });
 
     revalidateInvoicePaths(newInvoice.invoiceId, parsed.data.clientId);
+    logActivity({
+      userId: user.id,
+      action: "invoice.created",
+      entityId: newInvoice.invoiceId,
+    });
 
     return {
       success: true,
@@ -428,6 +430,11 @@ export async function updateInvoiceStatusAction(
     }
 
     revalidateInvoicePaths(updated.id, updated.clientId);
+    await removeActivity({
+      userId: user.id,
+      action: isUndoSend ? "invoice.sent" : "invoice.paid",
+      entityId: updated.id,
+    });
     return { success: true };
   } catch (error) {
     logError("updateInvoiceStatusAction", error);
@@ -453,7 +460,11 @@ export async function sendInvoiceAction(
     const user = await requireUser();
 
     const [invoice] = await db
-      .select({ id: invoices.id, status: invoices.status })
+      .select({
+        id: invoices.id,
+        status: invoices.status,
+        sentAt: invoices.sentAt,
+      })
       .from(invoices)
       .where(
         and(
@@ -476,11 +487,7 @@ export async function sendInvoiceAction(
       .update(invoices)
       .set({
         status: "sent",
-        // Keeps the first send time: overwriting it on a re-send would
-        // reopen the 5-minute "Undo send" window. Undo clears sentAt, so a
         sentAt: sql`coalesce(${invoices.sentAt}, now())`,
-        // Freezes the sender's details in this same statement, so later
-        // profile edits never change what the client received. Re-sending
         issuerSnapshot: sql`coalesce(${invoices.issuerSnapshot}, ${issuerSnapshotSql(user.id)})`,
         updatedAt: new Date(),
       })
@@ -489,7 +496,6 @@ export async function sendInvoiceAction(
           eq(invoices.id, parsedId.data),
           eq(invoices.userId, user.id),
           isNull(invoices.deletedAt),
-          // Enforced in the write: it may have been paid since the read.
           ne(invoices.status, "paid"),
         ),
       )
@@ -504,6 +510,13 @@ export async function sendInvoiceAction(
     // invoice as sent — the freelancer delivers it themselves.
 
     revalidateInvoicePaths(updated.id, updated.clientId);
+    if (!invoice.sentAt) {
+      logActivity({
+        userId: user.id,
+        action: "invoice.sent",
+        entityId: updated.id,
+      });
+    }
 
     return { success: true };
   } catch (error) {
@@ -562,15 +575,10 @@ export async function sendReminderAction(
     const cooldownMessage =
       "A reminder was already sent for this invoice in the last 24 hours.";
 
-    // Cap reminders at once per rolling 24h window so a client isn't
-    // bombarded if someone clicks the bell repeatedly.
     if (isReminderOnCooldown(invoice.lastReminderSentAt)) {
       throw new AppError("BAD_REQUEST", cooldownMessage);
     }
 
-    // The check above is for a friendly message; this WHERE enforces it.
-    // Two sends at the same moment (two tabs, list + detail page) both pass
-    // the read, but only one of them still matches here.
     const [updated] = await db
       .update(invoices)
       .set({ lastReminderSentAt: new Date(), updatedAt: new Date() })
@@ -598,6 +606,11 @@ export async function sendReminderAction(
     // the contact form (app/contact/actions.ts).
 
     revalidateInvoicePaths(updated.id, updated.clientId);
+    logActivity({
+      userId: user.id,
+      action: "invoice.reminder_sent",
+      entityId: updated.id,
+    });
 
     return { success: true };
   } catch (error) {
@@ -646,6 +659,11 @@ export async function markInvoicePaidAction(
     }
 
     revalidateInvoicePaths(updated.id, updated.clientId);
+    logActivity({
+      userId: user.id,
+      action: "invoice.paid",
+      entityId: updated.id,
+    });
 
     return { success: true };
   } catch (error) {

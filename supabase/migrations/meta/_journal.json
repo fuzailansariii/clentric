@@ -85,6 +85,20 @@
       "when": 1790705380237,
       "tag": "0011_agency_waitlist",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1790959600927,
+      "tag": "0012_activity_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1790961170243,
+      "tag": "0013_activity_event_unique",
+      "breakpoints": true
     }
   ]
 }

@@ -8,25 +8,39 @@ import {
   type OnboardingProgress,
 } from "@/components/dashboard/onboarding-steps";
 import PageHeader from "@/components/dashboard/page-header";
+import { ActiveProjects } from "@/components/dashboard/active-projects";
+import { NeedsAttention } from "@/components/dashboard/needs-attention";
+import { OpenProposals } from "@/components/dashboard/open-proposals";
+import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { RevenueCard } from "@/components/dashboard/revenue-card";
+import { StatTiles } from "@/components/dashboard/stat-tiles";
 import WelcomeHeader from "@/components/dashboard/welcome-header";
 import { requireUser } from "@/lib/current-user";
-import { formatCurrency } from "@/lib/format-currency";
+import { formatCurrencyWhole } from "@/lib/format-currency";
 import { SETUP_HIDDEN_COOKIE } from "@/lib/setup-hidden-cookie";
 import { getDashboardData } from "../queries";
-import { getDashboardOverview } from "./queries";
+import {
+  getActiveProjects,
+  getDashboardOverview,
+  getOpenProposals,
+  getRecentActivity,
+} from "./queries";
+import { getAttentionItems } from "./attention-queries";
+import { getDashboardMoney, type DashboardMoney } from "./money-queries";
 
-type Overview = Awaited<ReturnType<typeof getDashboardOverview>>;
+function getStatus(money: DashboardMoney | null) {
+  if (money === null) return "Here's where things stand.";
 
-function getStatus(overview: Overview) {
+  const fmt = (value: string) => formatCurrencyWhole(value, money.currency);
   const owed =
-    Number(overview.outstanding) > 0
-      ? ` ${formatCurrency(overview.outstanding)} is outstanding.`
+    Number(money.outstanding) > 0
+      ? ` ${fmt(money.outstanding)} is outstanding.`
       : "";
 
-  if (overview.overdueCount > 0) {
+  if (money.overdueCount > 0) {
     const invoiceWord =
-      overview.overdueCount === 1 ? "invoice is" : "invoices are";
-    return `${overview.overdueCount} ${invoiceWord} overdue (${formatCurrency(overview.overdue)}).${owed}`;
+      money.overdueCount === 1 ? "invoice is" : "invoices are";
+    return `${money.overdueCount} ${invoiceWord} overdue (${fmt(money.overdue)}).${owed}`;
   }
 
   return `Nothing needs you right now.${owed}`;
@@ -34,9 +48,23 @@ function getStatus(overview: Overview) {
 
 export default async function Dashboard() {
   const user = await requireUser();
-  const [{ profile }, overview, cookieStore] = await Promise.all([
+  const [
+    { profile },
+    overview,
+    money,
+    attention,
+    activeProjects,
+    openProposals,
+    activity,
+    cookieStore,
+  ] = await Promise.all([
     getDashboardData(user.id),
     getDashboardOverview(),
+    getDashboardMoney(),
+    getAttentionItems(),
+    getActiveProjects(),
+    getOpenProposals(),
+    getRecentActivity(),
     cookies(),
   ]);
 
@@ -67,9 +95,7 @@ export default async function Dashboard() {
           name={name}
           isNewUser={isNewUser}
           status={
-            isNewUser
-              ? "Three steps to your first payment"
-              : getStatus(overview)
+            isNewUser ? "Three steps to your first payment" : getStatus(money)
           }
         />
 
@@ -82,6 +108,30 @@ export default async function Dashboard() {
             />
           </div>
         )}
+
+        <div className="mt-6">
+          <NeedsAttention items={attention} />
+        </div>
+
+        <div className="mt-6">
+          <StatTiles money={money} />
+        </div>
+
+        <div className="mt-6">
+          <RevenueCard money={money} />
+        </div>
+
+        {/* Side by side once the content area (not the viewport) is wide enough. */}
+        <div className="@container mt-6">
+          <div className="grid gap-6 @3xl:grid-cols-2">
+            <OpenProposals data={openProposals} />
+            <ActiveProjects data={activeProjects} />
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <RecentActivity items={activity} />
+        </div>
       </DashboardContainer>
     </>
   );

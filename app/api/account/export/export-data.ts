@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
 import { projects } from "@/src/db/schema/projects";
@@ -9,6 +9,7 @@ import { proposalMilestones } from "@/src/db/schema/proposal-milestones";
 import { proposalItems } from "@/src/db/schema/proposal-items";
 import { invoices } from "@/src/db/schema/invoices";
 import { invoiceItems } from "@/src/db/schema/invoice-items";
+import { activityLog } from "@/src/db/schema/activity-logs";
 
 /**
  * Everything a user owns, for "Export your data". Every read is scoped to
@@ -16,7 +17,7 @@ import { invoiceItems } from "@/src/db/schema/invoice-items";
  * only through a live parent the user owns. Columns are listed explicitly:
  * internal fields (user ids, public proposal tokens, snapshots) stay out.
  *
- * Runs as eight independent reads in one Promise.all.
+ * Runs as nine independent reads in one Promise.all.
  */
 export async function getAccountExport(userId: string) {
   const [
@@ -28,6 +29,7 @@ export async function getAccountExport(userId: string) {
     proposalItemRows,
     invoiceRows,
     invoiceItemRows,
+    activityRows,
   ] = await Promise.all([
     db
       .select({
@@ -172,6 +174,19 @@ export async function getAccountExport(userId: string) {
       .innerJoin(invoices, eq(invoiceItems.invoiceId, invoices.id))
       .where(and(eq(invoices.userId, userId), isNull(invoices.deletedAt)))
       .orderBy(asc(invoiceItems.invoiceId), asc(invoiceItems.sortOrder)),
+
+    db
+      .select({
+        id: activityLog.id,
+        action: activityLog.action,
+        entityType: activityLog.entityType,
+        entityId: activityLog.entityId,
+        metadata: activityLog.metadata,
+        createdAt: activityLog.createdAt,
+      })
+      .from(activityLog)
+      .where(eq(activityLog.userId, userId))
+      .orderBy(desc(activityLog.createdAt)),
   ]);
 
   return {
@@ -183,6 +198,7 @@ export async function getAccountExport(userId: string) {
     proposalItems: proposalItemRows,
     invoices: invoiceRows,
     invoiceItems: invoiceItemRows,
+    activity: activityRows,
   };
 }
 
@@ -228,5 +244,6 @@ export function toJsonExport(data: AccountExport, exportedAt: Date) {
       ...invoice,
       items: childrenOf(invoiceItems, invoice),
     })),
+    activity: data.activity,
   };
 }
