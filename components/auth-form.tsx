@@ -18,8 +18,9 @@ import { useHydrated } from "@/hooks/use-hydrated";
 type AuthFormProps = {
   mode: "login" | "register";
   onSubmitDetails: (data: { name?: string; email: string }) => Promise<void>;
-  onVerifyCode: (code: string) => Promise<void>;
-  onResendCode: () => Promise<void>;
+  /** Gets the email the code was sent to, so a reload can't lose it. */
+  onVerifyCode: (code: string, email: string) => Promise<void>;
+  onResendCode: (email: string) => Promise<void>;
   onOAuth: (provider: "google") => Promise<void>;
   switchHref: string;
 };
@@ -125,6 +126,16 @@ function AuthFormContent({
   const onSubmit = (event: SubmitEvent<HTMLFormElement>) =>
     handleSubmit(submitDetails)(event);
 
+  const startOver = (message: string) => {
+    sessionStorage.removeItem(`auth_${mode}_email`);
+    sessionStorage.removeItem(`auth_${mode}_step`);
+    sessionStorage.removeItem(`auth_${mode}_sentAt`);
+    setSubmittedEmail("");
+    setCode("");
+    setStep("details");
+    setError(message);
+  };
+
   //   OTP verification
   const handleVerifySubmit = async (
     e: SubmitEvent<HTMLFormElement> | undefined,
@@ -140,10 +151,14 @@ function AuthFormContent({
       setError(result.error.issues[0].message);
       return;
     }
+    if (!submittedEmail) {
+      startOver("Enter your email again to get a new code.");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      await onVerifyCode(codeToVerify);
+      await onVerifyCode(codeToVerify, submittedEmail);
       sessionStorage.removeItem(`auth_${mode}_email`);
       sessionStorage.removeItem(`auth_${mode}_step`);
       sessionStorage.removeItem(`auth_${mode}_sentAt`);
@@ -160,9 +175,14 @@ function AuthFormContent({
   //   Resend handler
   const handleResend = async () => {
     if (resendIn > 0) return;
+    if (!submittedEmail) {
+      startOver("Enter your email again to get a new code.");
+      return;
+    }
     setError(null);
     try {
-      await onResendCode();
+      await onResendCode(submittedEmail);
+      sessionStorage.setItem(`auth_${mode}_sentAt`, Date.now().toString());
       setResendIn(RESEND_SECONDS);
     } catch (error) {
       setError(
