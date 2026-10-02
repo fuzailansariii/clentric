@@ -25,7 +25,7 @@ export function IconTile({
       className={cn(
         "inline-flex shrink-0 items-center justify-center",
         size === "sm"
-          ? "size-8 rounded-lg [&_svg]:size-[15px]"
+          ? "size-8 rounded-lg [&_svg]:size-3.75"
           : "size-9 rounded-[10px] [&_svg]:size-4",
         statusToneStyles[tone],
         className,
