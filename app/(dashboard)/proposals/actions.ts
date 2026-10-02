@@ -762,6 +762,7 @@ export async function createProjectFromProposalAction(
     revalidatePath(`/proposals/${parsed.data.proposalId}`);
     revalidatePath("/projects");
     revalidatePath(`/projects/${projectId}`);
+    revalidatePath("/dashboard");
     logActivity({
       userId: user.id,
       action: "project.created",

@@ -1,7 +1,11 @@
 import Link from "next/link";
-import { CircleAlert, History, type LucideIcon } from "lucide-react";
+import { CircleAlert, History } from "lucide-react";
 import type { ActivityItem } from "@/app/(dashboard)/dashboard/queries";
 import { ActivityTime } from "@/components/dashboard/activity-time";
+import {
+  DashboardCard,
+  DashboardCardEmpty,
+} from "@/components/dashboard/dashboard-card";
 import { statusToneStyles } from "@/components/ui/status-badge";
 import { describeActivity } from "@/lib/activity-display";
 import { formatShortAgo } from "@/lib/format-date";
@@ -10,25 +14,15 @@ import { cn } from "@/lib/utils";
 /** `null` means the feed failed to load. */
 export function RecentActivity({ items }: { items: ActivityItem[] | null }) {
   return (
-    // Container query: the open sidebar eats into the width.
-    <section
-      aria-labelledby="recent-activity-title"
-      className="border-border bg-card @container overflow-hidden rounded-xl border shadow-sm"
-    >
-      <header className="border-border border-b px-4 py-3.5">
-        <h2 id="recent-activity-title" className="text-sm font-semibold">
-          Recent activity
-        </h2>
-      </header>
-
+    <DashboardCard id="recent-activity-title" title="Recent activity">
       {items === null ? (
-        <EmptyState
+        <DashboardCardEmpty
           icon={CircleAlert}
           title="Couldn't load activity"
           text="Refresh the page to try again."
         />
       ) : items.length === 0 ? (
-        <EmptyState
+        <DashboardCardEmpty
           icon={History}
           title="No activity yet"
           text="Sent invoices, viewed proposals and client payments will show up here."
@@ -44,35 +38,7 @@ export function RecentActivity({ items }: { items: ActivityItem[] | null }) {
           ))}
         </ol>
       )}
-    </section>
-  );
-}
-
-function EmptyState({
-  icon: Icon,
-  title,
-  text,
-}: {
-  icon: LucideIcon;
-  title: string;
-  text: string;
-}) {
-  return (
-    <div className="flex flex-col items-center gap-3 px-4 py-10 text-center @3xl:py-12">
-      <span
-        aria-hidden="true"
-        className={cn(
-          "inline-flex size-9 items-center justify-center rounded-full [&_svg]:size-4",
-          statusToneStyles.neutral,
-        )}
-      >
-        <Icon />
-      </span>
-      <div className="flex max-w-xs flex-col gap-0.5">
-        <h3 className="text-sm font-medium">{title}</h3>
-        <p className="text-muted-foreground text-xs leading-relaxed">{text}</p>
-      </div>
-    </div>
+    </DashboardCard>
   );
 }
 

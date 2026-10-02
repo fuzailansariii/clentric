@@ -1,6 +1,17 @@
 import "server-only";
 import { unstable_rethrow } from "next/navigation";
-import { and, count, desc, eq, isNull, or, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  gt,
+  inArray,
+  isNull,
+  or,
+  sql,
+} from "drizzle-orm";
 import type { AnyPgColumn } from "drizzle-orm/pg-core";
 import type {
   ActivityAction,
@@ -17,10 +28,6 @@ import { milestones } from "@/src/db/schema/milestones";
 import { projects } from "@/src/db/schema/projects";
 import { proposals } from "@/src/db/schema/proposals";
 
-// Same split as the invoices page: sent and not yet due vs past due.
-const isOutstanding = sql`${invoices.status} = 'sent' and ${invoices.dueDate} >= current_date`;
-const isOverdue = sql`${invoices.status} = 'sent' and ${invoices.dueDate} < current_date`;
-
 export async function getDashboardOverview() {
   try {
     const user = await requireUser();
@@ -35,13 +42,7 @@ export async function getDashboardOverview() {
         .from(proposals)
         .where(and(eq(proposals.userId, user.id), isNull(proposals.deletedAt))),
       db
-        .select({
-          count: count(),
-          outstanding: sql<string>`coalesce(sum(${invoices.total}) filter (where ${isOutstanding}), 0)::text`,
-          overdueCount:
-            sql<number>`count(*) filter (where ${isOverdue})`.mapWith(Number),
-          overdue: sql<string>`coalesce(sum(${invoices.total}) filter (where ${isOverdue}), 0)::text`,
-        })
+        .select({ count: count() })
         .from(invoices)
         .where(and(eq(invoices.userId, user.id), isNull(invoices.deletedAt))),
     ]);
@@ -52,9 +53,6 @@ export async function getDashboardOverview() {
       clientCount: clientRows[0]?.count ?? 0,
       proposalCount: proposalRows[0]?.count ?? 0,
       invoiceCount: invoiceRow?.count ?? 0,
-      outstanding: invoiceRow?.outstanding ?? "0",
-      overdueCount: invoiceRow?.overdueCount ?? 0,
-      overdue: invoiceRow?.overdue ?? "0",
     };
   } catch (error) {
     unstable_rethrow(error);
@@ -180,6 +178,154 @@ export async function getRecentActivity(
   } catch (error) {
     unstable_rethrow(error);
     logError("getRecentActivity", error);
+    return null;
+  }
+}
+
+const DASHBOARD_LIST_LIMIT = 5;
+
+export type ActiveProject = {
+  id: string;
+  title: string;
+  status: "in_progress" | "not_started";
+  clientName: string;
+  daysUntilDeadline: number | null;
+  totalMilestones: number;
+  completedMilestones: number;
+  /** First unfinished milestone in project order. */
+  nextMilestone: { title: string; dueDate: string | null } | null;
+};
+
+/** In-progress first, then nearest deadline; null on failure. */
+export async function getActiveProjects(): Promise<{
+  items: ActiveProject[];
+  total: number;
+} | null> {
+  try {
+    const user = await requireUser();
+
+    const rows = await db
+      .select({
+        id: projects.id,
+        title: projects.title,
+        status: projects.status,
+        clientName: clients.name,
+        daysUntilDeadline: sql<
+          number | null
+        >`(${projects.deadline} - current_date)`,
+        totalMilestones: sql<number>`(select count(*)::int from ${milestones} where ${milestones.projectId} = ${projects.id})`,
+        completedMilestones: sql<number>`(select count(*)::int from ${milestones} where ${milestones.projectId} = ${projects.id} and ${milestones.status} = 'completed')`,
+        nextMilestone: sql<{
+          title: string;
+          dueDate: string | null;
+        } | null>`(select json_build_object('title', ${milestones.title}, 'dueDate', ${milestones.dueDate}) from ${milestones} where ${milestones.projectId} = ${projects.id} and ${milestones.status} = 'pending' order by ${milestones.sortOrder}, ${milestones.createdAt} limit 1)`,
+        total: sql<number>`count(*) over ()`.mapWith(Number),
+      })
+      .from(projects)
+      .innerJoin(clients, eq(clients.id, projects.clientId))
+      .where(
+        and(
+          eq(projects.userId, user.id),
+          isNull(projects.deletedAt),
+          isNull(clients.deletedAt),
+          inArray(projects.status, ["in_progress", "not_started"]),
+        ),
+      )
+      .orderBy(
+        sql`${projects.status} = 'in_progress' desc`,
+        sql`${projects.deadline} asc nulls last`,
+        desc(projects.updatedAt),
+      )
+      .limit(DASHBOARD_LIST_LIMIT);
+
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        status: row.status as ActiveProject["status"],
+        clientName: row.clientName,
+        daysUntilDeadline:
+          row.daysUntilDeadline === null ? null : Number(row.daysUntilDeadline),
+        totalMilestones: Number(row.totalMilestones),
+        completedMilestones: Number(row.completedMilestones),
+        nextMilestone: row.nextMilestone,
+      })),
+      total: rows[0]?.total ?? 0,
+    };
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getActiveProjects", error);
+    return null;
+  }
+}
+
+export type OpenProposal = {
+  id: string;
+  title: string;
+  status: "sent" | "viewed";
+  clientName: string;
+  total: string;
+  currency: string;
+  expiresAt: Date | null;
+  daysUntilExpiry: number | null;
+};
+
+/** Sent or viewed and not yet expired, soonest expiry first; null on failure. */
+export async function getOpenProposals(): Promise<{
+  items: OpenProposal[];
+  total: number;
+} | null> {
+  try {
+    const user = await requireUser();
+
+    const rows = await db
+      .select({
+        id: proposals.id,
+        title: proposals.title,
+        status: proposals.status,
+        clientName: clients.name,
+        total: proposals.total,
+        currency: proposals.currency,
+        expiresAt: proposals.expiresAt,
+        daysUntilExpiry: sql<
+          number | null
+        >`ceil(extract(epoch from (${proposals.expiresAt} - now())) / 86400)::int`,
+        count: sql<number>`count(*) over ()`.mapWith(Number),
+      })
+      .from(proposals)
+      .innerJoin(clients, eq(clients.id, proposals.clientId))
+      .where(
+        and(
+          eq(proposals.userId, user.id),
+          isNull(proposals.deletedAt),
+          isNull(clients.deletedAt),
+          inArray(proposals.status, ["sent", "viewed"]),
+          or(isNull(proposals.expiresAt), gt(proposals.expiresAt, sql`now()`)),
+        ),
+      )
+      .orderBy(
+        sql`${proposals.expiresAt} asc nulls last`,
+        asc(proposals.createdAt),
+      )
+      .limit(DASHBOARD_LIST_LIMIT);
+
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        status: row.status as OpenProposal["status"],
+        clientName: row.clientName,
+        total: row.total,
+        currency: row.currency,
+        expiresAt: row.expiresAt,
+        daysUntilExpiry:
+          row.daysUntilExpiry === null ? null : Number(row.daysUntilExpiry),
+      })),
+      total: rows[0]?.count ?? 0,
+    };
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getOpenProposals", error);
     return null;
   }
 }

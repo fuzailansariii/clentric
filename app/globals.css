@@ -57,6 +57,8 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-chart-paid: var(--chart-paid);
+  --color-chart-invoiced: var(--chart-invoiced);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -110,6 +112,8 @@
   --chart-3: #2f8f5b;
   --chart-4: #6b6b6b;
   --chart-5: #c0432c;
+  --chart-paid: #3454d1;
+  --chart-invoiced: #8196ee;
 
   --sidebar: #fafaf9;
   --sidebar-foreground: #111111;
@@ -146,6 +150,8 @@
   --chart-3: #2f8f5b;
   --chart-4: #a3a3a3;
   --chart-5: #c0432c;
+  --chart-paid: #7088e8;
+  --chart-invoiced: #3b55c8;
 
   --sidebar: #000000;
   --sidebar-foreground: #f5f5f5;

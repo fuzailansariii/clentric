@@ -28,6 +28,7 @@ function revalidateMilestonePaths(projectId: string) {
   revalidatePath(`/projects/${projectId}`);
   revalidatePath("/projects");
   revalidatePath("/(dashboard)/clients/[id]", "page");
+  revalidatePath("/dashboard");
 }
 
 // Create Milestone Action

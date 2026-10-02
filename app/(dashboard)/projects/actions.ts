@@ -83,6 +83,7 @@ export async function createProjectAction(
 
     revalidatePath(`/clients/${clientId}`);
     revalidatePath(`/projects`);
+    revalidatePath("/dashboard");
     logActivity({
       userId: user.id,
       action: "project.created",
@@ -174,6 +175,7 @@ export async function updateProjectAction(
     revalidatePath(`/clients/${updated.clientId}`);
     revalidatePath(`/projects`);
     revalidatePath(`/projects/${updated.id}`);
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
     logError("updateProjectAction", error);
@@ -222,6 +224,7 @@ export async function deleteProjectAction(
     revalidatePath(`/clients/${deleted.clientId}`);
     revalidatePath(`/projects`);
     revalidatePath(`/projects/${deleted.id}`);
+    revalidatePath("/dashboard");
     return { success: true };
   } catch (error) {
     logError("deleteProjectAction", error);
