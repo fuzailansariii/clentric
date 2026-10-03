@@ -12,6 +12,7 @@ import {
   projectSearchParamsSchema,
 } from "./schema";
 import { db } from "@/src/db";
+import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { and, asc, count, desc, eq, ilike, isNull, sql } from "drizzle-orm";
 import { projects, projectStatusEnum } from "@/src/db/schema/projects";
 import { clients } from "@/src/db/schema/clients";
@@ -412,8 +413,24 @@ export async function getProposalForProject(proposalId: string) {
     const user = await requireUser();
 
     const [row] = await db
-      .select({ id: proposals.id, title: proposals.title })
+      .select({
+        id: proposals.id,
+        title: proposals.title,
+        // The deposit the project is waiting on, if any.
+        depositInvoiceId: invoices.id,
+        depositNumber: invoices.invoiceNumber,
+        depositPrefix: invoices.numberPrefix,
+        depositStatus: invoices.status,
+      })
       .from(proposals)
+      .leftJoin(
+        invoices,
+        and(
+          eq(invoices.id, proposals.depositInvoiceId),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+        ),
+      )
       .where(
         and(
           eq(proposals.id, proposalId),
@@ -423,7 +440,23 @@ export async function getProposalForProject(proposalId: string) {
       )
       .limit(1);
 
-    return row ?? null;
+    if (!row) return null;
+
+    return {
+      id: row.id,
+      title: row.title,
+      deposit:
+        row.depositInvoiceId && row.depositNumber !== null
+          ? {
+              id: row.depositInvoiceId,
+              number: formatInvoiceNumber(
+                row.depositNumber,
+                row.depositPrefix ?? "INV-",
+              ),
+              paid: row.depositStatus === "paid",
+            }
+          : null,
+    };
   } catch (error) {
     unstable_rethrow(error);
     logError("getProposalForProject", error);

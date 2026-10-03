@@ -69,7 +69,11 @@ export function ProjectDetail({
   milestones: MilestoneItem[];
   invoices: ProjectInvoiceRow[];
   /** Set when this project was created by accepting a proposal. */
-  fromProposal: { id: string; title: string } | null;
+  fromProposal: {
+    id: string;
+    title: string;
+    deposit: { id: string; number: string; paid: boolean } | null;
+  } | null;
   initialEdit?: boolean;
 }) {
   const [activeSection, setActiveSection] =
@@ -334,7 +338,9 @@ export function ProjectDetail({
                     value: formatCurrency(project.budget, project.currency),
                     hint: project.hourlyRate
                       ? `${formatCurrency(project.hourlyRate, project.currency)}/hr for hour lines`
-                      : undefined,
+                      : fromProposal
+                        ? "Fixed price (from proposal)"
+                        : undefined,
                   },
                   {
                     label: "Deadline",
@@ -377,6 +383,22 @@ export function ProjectDetail({
                   },
                 ]}
               />
+
+              {/* Waiting on the deposit: marking it paid starts the project. */}
+              {project.status === "not_started" &&
+                fromProposal?.deposit &&
+                !fromProposal.deposit.paid && (
+                  <p className="bg-ledger-50 text-ledger-700 dark:bg-ledger-500/15 dark:text-ledger-500 mt-4 rounded-md px-3 py-2 text-[13px]">
+                    Waiting for deposit{" "}
+                    <Link
+                      href={`/invoices/${fromProposal.deposit.id}`}
+                      className="font-mono font-medium underline underline-offset-2"
+                    >
+                      {fromProposal.deposit.number}
+                    </Link>
+                    . The project starts when you mark it as paid.
+                  </p>
+                )}
 
               {/* Where this project came from. Only set when it was created
                   by accepting a proposal. */}
@@ -457,12 +479,16 @@ export function ProjectDetail({
                   <dd className="mt-1 font-medium">
                     {project.hourlyRate
                       ? `${formatCurrency(project.hourlyRate, project.currency)}/hr`
-                      : "Not set"}
+                      : fromProposal
+                        ? "Fixed price"
+                        : "Not set"}
                   </dd>
                   <dd className="text-muted-foreground mt-0.5 text-xs">
                     {project.hourlyRate
                       ? "Prefills hour lines on invoices"
-                      : "Invoices use the client's rate"}
+                      : fromProposal
+                        ? "From the proposal. Set a rate only for extra hourly work."
+                        : "Invoices use the client's rate"}
                   </dd>
                 </div>
               </dl>

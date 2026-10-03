@@ -39,6 +39,7 @@ export type EditableProposal = {
   content: string;
   taxRate: number;
   depositPercent: number;
+  deliveryDays: number;
   expiresInDays: number;
   milestones: {
     name: string;
@@ -102,6 +103,8 @@ export default function ProposalBuilder({
           currency: "USD",
           taxRate: proposal.taxRate,
           depositPercent: proposal.depositPercent,
+          // Blank, not "0", when no delivery time was given.
+          deliveryDays: proposal.deliveryDays || "",
           expiresInDays: proposal.expiresInDays,
           milestones: proposal.milestones,
         }
@@ -112,6 +115,7 @@ export default function ProposalBuilder({
           currency: "USD",
           taxRate: 0,
           depositPercent: defaults?.depositPercent ?? 0,
+          deliveryDays: "",
           expiresInDays: defaults?.expiresInDays ?? EXPIRY_DEFAULT_DAYS,
           milestones: [
             {
@@ -141,6 +145,7 @@ export default function ProposalBuilder({
   const watchedMilestones = useWatch({ control, name: "milestones" }) ?? [];
   const watchedTaxRate = useWatch({ control, name: "taxRate" });
   const watchedDeposit = useWatch({ control, name: "depositPercent" });
+  const watchedDelivery = useWatch({ control, name: "deliveryDays" });
   const watchedTitle = useWatch({ control, name: "title" });
   const watchedContent = useWatch({ control, name: "content" });
   const watchedClientId = useWatch({ control, name: "clientId" });
@@ -354,6 +359,18 @@ export default function ProposalBuilder({
                           suffix="%"
                           error={errors.depositPercent?.message}
                         />
+
+                        <Field
+                          {...register("deliveryDays")}
+                          label="Delivery time (optional)"
+                          type="number"
+                          min="0"
+                          max="365"
+                          step="1"
+                          placeholder="e.g. 30"
+                          suffix="days"
+                          error={errors.deliveryDays?.message}
+                        />
                       </div>
                     )}
                   </div>
@@ -389,6 +406,7 @@ export default function ProposalBuilder({
               <ProposalPreview
                 title={watchedTitle}
                 clientName={selectedClient?.name}
+                deliveryDays={Number(watchedDelivery) || 0}
                 clientCompany={selectedClient?.company}
                 content={watchedContent}
                 milestones={watchedMilestones}

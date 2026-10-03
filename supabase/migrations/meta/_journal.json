@@ -113,6 +113,27 @@
       "when": 1791022993413,
       "tag": "0015_invoice_template",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1791043445588,
+      "tag": "0016_purge_deleted_accounts",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791044619004,
+      "tag": "0017_user_country",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791048140432,
+      "tag": "0018_proposal_delivery_days",
+      "breakpoints": true
     }
   ]
 }

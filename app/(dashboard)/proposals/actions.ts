@@ -2,7 +2,7 @@
 
 import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
-import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { ActionResult } from "@/lib/action-result";
 import { requireUser } from "@/lib/current-user";
 import { AppError, isUniqueViolation, logError } from "@/lib/errors";
@@ -14,6 +14,8 @@ import { proposalMilestones } from "@/src/db/schema/proposal-milestones";
 import { projects } from "@/src/db/schema/projects";
 import { proposals } from "@/src/db/schema/proposals";
 import { invoices } from "@/src/db/schema/invoices";
+import { emailSends } from "@/src/db/schema/email-sends";
+import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { createProjectFromProposal } from "@/lib/create-project-from-proposal";
 import { logActivity } from "@/lib/activity";
 import { emailProposal } from "@/lib/email/document-emails";
@@ -54,6 +56,7 @@ export type PublicProposal = {
   taxRate: string;
   total: string;
   depositPercent: string;
+  deliveryDays: number | null;
   status: "sent" | "viewed" | "accepted" | "rejected";
   expiresAt: Date | null;
   viewedAt: Date | null;
@@ -121,6 +124,7 @@ export async function getProposalByToken(
         taxRate: true,
         total: true,
         depositPercent: true,
+        deliveryDays: true,
         status: true,
         expiresAt: true,
         viewedAt: true,
@@ -146,6 +150,7 @@ export async function getProposalByToken(
             phone: true,
             taxId: true,
             address: true,
+            country: true,
             avatar: true,
             brandColor: true,
             // No payment details here: the page only shows how to pay
@@ -204,23 +209,42 @@ export async function getProposalByToken(
     let deposit: PublicProposal["deposit"] = null;
     let paymentClaimed = false;
     if (proposal.status === "accepted" && depositInvoiceId) {
-      const [invoice] = await db
-        .select({
-          total: invoices.total,
-          status: invoices.status,
-          paymentClaimedAt: invoices.paymentClaimedAt,
-          issuerSnapshot: invoices.issuerSnapshot,
-          paymentDetails: invoices.paymentDetails,
-        })
-        .from(invoices)
-        .where(
-          and(
-            eq(invoices.id, depositInvoiceId),
-            eq(invoices.userId, userId),
-            isNull(invoices.deletedAt),
-          ),
-        )
-        .limit(1);
+      const [[invoice], [sent]] = await Promise.all([
+        db
+          .select({
+            total: invoices.total,
+            status: invoices.status,
+            paymentClaimedAt: invoices.paymentClaimedAt,
+            issuerSnapshot: invoices.issuerSnapshot,
+            paymentDetails: invoices.paymentDetails,
+            invoiceNumber: invoices.invoiceNumber,
+            numberPrefix: invoices.numberPrefix,
+            dueDate: invoices.dueDate,
+          })
+          .from(invoices)
+          .where(
+            and(
+              eq(invoices.id, depositInvoiceId),
+              eq(invoices.userId, userId),
+              isNull(invoices.deletedAt),
+            ),
+          )
+          .limit(1),
+        // Only claim an email went out if one was recorded.
+        db
+          .select({ recipient: emailSends.recipient })
+          .from(emailSends)
+          .where(
+            and(
+              eq(emailSends.entityId, depositInvoiceId),
+              eq(emailSends.userId, userId),
+              eq(emailSends.kind, "invoice"),
+              ne(emailSends.status, "failed"),
+            ),
+          )
+          .orderBy(desc(emailSends.createdAt))
+          .limit(1),
+      ]);
 
       if (invoice) {
         deposit = {
@@ -231,6 +255,12 @@ export async function getProposalByToken(
             invoice.paymentDetails,
             { methods: [], instructions: null },
           ),
+          invoiceNumber: formatInvoiceNumber(
+            invoice.invoiceNumber,
+            invoice.numberPrefix,
+          ),
+          dueDate: invoice.dueDate,
+          emailedTo: sent?.recipient ?? null,
         };
         paymentClaimed =
           invoice.paymentClaimedAt !== null || invoice.status === "paid";
@@ -356,6 +386,7 @@ export async function createProposalAction(
           taxRate: parsed.data.taxRate.toFixed(2),
           total: total.toFixed(2),
           depositPercent: parsed.data.depositPercent.toFixed(2),
+          deliveryDays: parsed.data.deliveryDays || null,
           token: generateProposalToken(),
           expiresAt,
         })
@@ -637,6 +668,7 @@ export async function duplicateProposalAction(
           taxRate: source.taxRate,
           total: source.total,
           depositPercent: source.depositPercent,
+          deliveryDays: source.deliveryDays,
           token: generateProposalToken(),
           // Re-based from today rather than copied, so a duplicate of an old
           // proposal does not arrive already expired.
@@ -760,6 +792,7 @@ export async function createProjectFromProposalAction(
           total: proposals.total,
           currency: proposals.currency,
           depositInvoiceId: proposals.depositInvoiceId,
+          deliveryDays: proposals.deliveryDays,
         })
         .from(proposals)
         .where(
@@ -898,6 +931,7 @@ export async function updateProposalAction(
           taxRate: parsed.data.taxRate.toFixed(2),
           total: total.toFixed(2),
           depositPercent: parsed.data.depositPercent.toFixed(2),
+          deliveryDays: parsed.data.deliveryDays || null,
           // Stored as createdAt + N days, not now + N: a draft's window is
           // read back as expiresAt - createdAt (by the edit page, and by
           // sendProposalAction, which re-bases it from the moment it's

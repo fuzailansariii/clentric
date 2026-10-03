@@ -692,6 +692,25 @@ export function InvoiceDetail({
             </RailCard>
 
             <RailCard title="Quick actions">
+              {/* The client tapped "I've made the payment": check the
+                  reference against your account, then mark it paid. */}
+              {isOutstanding && invoice.paymentClaimedAt && (
+                <div className="bg-ledger-50 text-ledger-700 dark:bg-ledger-500/15 dark:text-ledger-500 mb-3 rounded-md px-3.5 py-3 text-[13px] leading-[1.5]">
+                  <p className="font-medium">Client says they&rsquo;ve paid</p>
+                  {invoice.paymentClaimedNote && (
+                    <p className="mt-1 wrap-anywhere">
+                      Reference:{" "}
+                      <span className="font-mono font-medium">
+                        {invoice.paymentClaimedNote}
+                      </span>
+                    </p>
+                  )}
+                  <p className="mt-1 opacity-80" suppressHydrationWarning>
+                    {formatDate(invoice.paymentClaimedAt)} · check your account,
+                    then mark it as paid.
+                  </p>
+                </div>
+              )}
               <div className="grid gap-2">
                 {/* Primary — the one step that moves this invoice forward */}
                 {isDraft && (

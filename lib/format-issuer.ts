@@ -1,6 +1,7 @@
 import type { IssuerDetails } from "./issuer-snapshot";
 import { formatProfession } from "./professions";
 import { formatWebsite } from "./format-website";
+import { countryName } from "./countries";
 
 /**
  * The "From" block every document prints, so the invoice page, the PDF and
@@ -16,15 +17,13 @@ export function formatIssuer(issuer: IssuerDetails): {
 } {
   const personName = issuer.name?.trim() || null;
   const businessName = issuer.businessName?.trim() || null;
+  // Kept short on purpose: no address, tax ID or phone, even when stored.
   const lines = [
     businessName ? personName : null,
     formatProfession(issuer.profession),
-    // Addresses are typed over several lines; keep them that way.
-    ...(issuer.address?.split(/\r?\n/) ?? []),
     issuer.email,
-    // Phone is no longer collected or printed; old snapshots still carry it.
     issuer.website ? formatWebsite(issuer.website) : null,
-    issuer.taxId ? `Tax ID ${issuer.taxId}` : null,
+    countryName(issuer.country),
   ];
 
   return {

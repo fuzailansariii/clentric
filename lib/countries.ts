@@ -6,6 +6,13 @@ export function getFlagEmoji(countryCode: string) {
     .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
 }
 
+/** "India" from "IN"; the code itself when it's unknown. */
+export function countryName(code: string | null | undefined): string | null {
+  if (!code) return null;
+  const upper = code.toUpperCase();
+  return countries.find((c) => c.cca2 === upper)?.name.common ?? code;
+}
+
 export const countryOptions = countries
   .filter((c) => c.idd.root)
   .map((country) => ({

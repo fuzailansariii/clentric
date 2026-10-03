@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { CheckCircle2, Loader2 } from "lucide-react";
+import { CheckCircle2, Loader2, Mail } from "lucide-react";
 
 import { AvatarInitials } from "@/components/ui/avatar-initials";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -106,7 +106,7 @@ export function PublicProposalView({ proposal, token }: Props) {
     startTransition(async () => {
       const result = await markPaymentSentAction({
         token,
-        note: paymentNote || undefined,
+        note: paymentNote.trim(),
       });
       if (result.success) {
         setPaymentClaimed(true);
@@ -260,6 +260,16 @@ export function PublicProposalView({ proposal, token }: Props) {
                 </dd>
               </div>
             )}
+            {proposal.deliveryDays ? (
+              <div className="flex justify-between pt-1 text-[13px]">
+                <dt className="text-muted-foreground">Delivery</dt>
+                <dd className="font-medium">
+                  {proposal.deliveryDays}{" "}
+                  {proposal.deliveryDays === 1 ? "day" : "days"} after work
+                  starts
+                </dd>
+              </div>
+            ) : null}
           </dl>
 
           {error && (
@@ -345,79 +355,152 @@ export function PublicProposalView({ proposal, token }: Props) {
 
               {outcome.deposit ? (
                 <>
-                  <p className="text-sm">
-                    To get started, please send{" "}
-                    <strong className="tabular-nums">
-                      {formatCurrency(outcome.deposit.amount, currency)}
-                    </strong>{" "}
-                    ({formatPercent(outcome.deposit.percent)}% deposit) using
-                    the details below.
-                  </p>
+                  <ol className="flex flex-col gap-1.5 text-sm">
+                    <li>
+                      <span className="font-medium">1.</span> Pay the{" "}
+                      {formatPercent(outcome.deposit.percent)}% deposit using
+                      the details below.
+                    </li>
+                    <li>
+                      <span className="font-medium">2.</span> Enter your payment
+                      reference and tap &ldquo;I&rsquo;ve made the
+                      payment&rdquo;, so {ownerName} can confirm it when it
+                      arrives.
+                    </li>
+                  </ol>
 
-                  {hasPaymentDetails(outcome.deposit.payment) ? (
-                    <div className="bg-muted/50 border-border rounded-lg border px-4 py-3">
+                  {/* The deposit invoice, summarised: what the client pays
+                      against, and where its PDF copy went. */}
+                  <div className="border-border overflow-hidden rounded-lg border">
+                    <div className="bg-muted/50 flex items-baseline justify-between gap-3 px-4 py-3">
                       <p className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.18em] uppercase">
-                        Payment details
+                        Deposit invoice
                       </p>
-                      <div className="mt-2 flex flex-col gap-3 text-sm leading-relaxed wrap-anywhere">
-                        {outcome.deposit.payment.methods.map((method) => {
-                          const { label, lines } = formatPaymentMethod(method);
-                          return (
-                            <div key={method.type}>
-                              <p className="font-medium">{label}</p>
-                              {lines.map((line, index) => (
-                                <p
-                                  key={index}
-                                  className="text-muted-foreground"
-                                >
-                                  {line}
-                                </p>
-                              ))}
-                            </div>
-                          );
-                        })}
-                        {outcome.deposit.payment.instructions?.trim() && (
-                          <p className="whitespace-pre-line">
-                            {outcome.deposit.payment.instructions}
-                          </p>
-                        )}
-                      </div>
+                      <p className="font-mono text-sm font-medium">
+                        {outcome.deposit.invoiceNumber}
+                      </p>
                     </div>
-                  ) : (
-                    <p className="text-muted-foreground text-sm">
-                      {ownerName} will send payment details shortly.
-                    </p>
-                  )}
+
+                    <dl className="divide-border divide-y px-4 text-sm">
+                      <div className="flex justify-between gap-3 py-2.5">
+                        <dt className="text-muted-foreground">Amount due</dt>
+                        <dd className="font-semibold tabular-nums">
+                          {formatCurrency(outcome.deposit.amount, currency)}
+                        </dd>
+                      </div>
+                      {outcome.deposit.dueDate && (
+                        <div className="flex justify-between gap-3 py-2.5">
+                          <dt className="text-muted-foreground">Due date</dt>
+                          <dd>{formatDate(outcome.deposit.dueDate)}</dd>
+                        </div>
+                      )}
+                    </dl>
+
+                    <div className="border-border border-t px-4 py-3">
+                      <p className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.18em] uppercase">
+                        How to pay
+                      </p>
+                      {hasPaymentDetails(outcome.deposit.payment) ? (
+                        <div className="mt-2 flex flex-col gap-3 text-sm leading-relaxed wrap-anywhere">
+                          {outcome.deposit.payment.methods.map((method) => {
+                            const { label, lines } =
+                              formatPaymentMethod(method);
+                            return (
+                              <div key={method.type}>
+                                <p className="font-medium">{label}</p>
+                                {lines.map((line, index) => (
+                                  <p
+                                    key={index}
+                                    className="text-muted-foreground"
+                                  >
+                                    {line}
+                                  </p>
+                                ))}
+                              </div>
+                            );
+                          })}
+                          {outcome.deposit.payment.instructions?.trim() && (
+                            <p className="whitespace-pre-line">
+                              {outcome.deposit.payment.instructions}
+                            </p>
+                          )}
+                          <p className="text-muted-foreground">
+                            Use{" "}
+                            <strong className="text-foreground font-mono font-medium">
+                              {outcome.deposit.invoiceNumber}
+                            </strong>{" "}
+                            as the payment reference.
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-muted-foreground mt-2 text-sm">
+                          {ownerName} will send payment details shortly.
+                        </p>
+                      )}
+                    </div>
+
+                    {outcome.deposit.emailedTo && (
+                      <div className="border-border flex items-start gap-2 border-t px-4 py-3 text-sm">
+                        <Mail
+                          className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0"
+                          aria-hidden="true"
+                        />
+                        <p className="text-muted-foreground wrap-anywhere">
+                          A PDF copy of this invoice is on its way to{" "}
+                          <span className="text-foreground font-medium">
+                            {outcome.deposit.emailedTo}
+                          </span>
+                          .
+                        </p>
+                      </div>
+                    )}
+                  </div>
 
                   {paymentClaimed ? (
-                    <p className="text-muted-foreground text-sm">
-                      Thanks — this is recorded on the invoice. {ownerName}
-                      will confirm once the payment arrives.
-                    </p>
+                    <div className="flex items-start gap-2 text-sm">
+                      <CheckCircle2
+                        className="mt-0.5 h-4 w-4 shrink-0"
+                        style={{ color: brand }}
+                        aria-hidden="true"
+                      />
+                      <p className="text-muted-foreground">
+                        Thanks, your payment is recorded on the invoice.{" "}
+                        {ownerName} will confirm once it arrives.
+                      </p>
+                    </div>
                   ) : (
                     <div className="flex flex-col gap-2">
+                      <label
+                        htmlFor="payment-reference"
+                        className="text-sm font-medium"
+                      >
+                        Payment reference
+                      </label>
                       <input
+                        id="payment-reference"
                         type="text"
                         value={paymentNote}
                         onChange={(event) => setPaymentNote(event.target.value)}
-                        maxLength={1000}
-                        placeholder="Reference or note (optional)"
+                        maxLength={200}
+                        required
+                        placeholder="e.g. transaction ID or UTR number"
                         className="border-border bg-background focus-visible:border-ring focus-visible:ring-ring/20 w-full rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
                       />
                       <button
                         type="button"
                         onClick={claimPayment}
-                        disabled={isPending}
-                        className="border-border hover:bg-muted inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60"
+                        disabled={isPending || paymentNote.trim().length < 3}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{ backgroundColor: brand }}
                       >
                         {isPending && (
                           <Loader2 className="h-4 w-4 animate-spin" />
                         )}
-                        I&rsquo;ve sent payment
+                        I&rsquo;ve made the payment
                       </button>
                       <p className="text-muted-foreground text-xs">
-                        This just lets {ownerName} know to look out for it. They
-                        confirm once it arrives.
+                        Only tap this after paying. {ownerName} checks the
+                        reference against their account before confirming.
                       </p>
                     </div>
                   )}

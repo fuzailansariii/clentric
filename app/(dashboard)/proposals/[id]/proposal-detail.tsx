@@ -213,6 +213,16 @@ export function ProposalDetailView({
                       </dd>
                     </div>
                   )}
+                  {proposal.deliveryDays ? (
+                    <div className="text-muted-foreground mt-2 flex justify-between text-[13px]">
+                      <dt>Delivery</dt>
+                      <dd>
+                        {proposal.deliveryDays}{" "}
+                        {proposal.deliveryDays === 1 ? "day" : "days"} after
+                        work starts
+                      </dd>
+                    </div>
+                  ) : null}
                 </dl>
               </div>
             </article>

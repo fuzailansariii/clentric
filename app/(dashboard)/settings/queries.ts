@@ -89,8 +89,7 @@ export async function getBusinessSettings() {
         businessName: users.businessName,
         businessEmail: users.businessEmail,
         website: users.website,
-        taxId: users.taxId,
-        address: users.address,
+        country: users.country,
       })
       .from(users)
       .where(and(eq(users.id, user.id), isNull(users.deletedAt)))

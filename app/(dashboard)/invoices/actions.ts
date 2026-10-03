@@ -19,6 +19,7 @@ import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { clients } from "@/src/db/schema/clients";
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { projects } from "@/src/db/schema/projects";
+import { proposals } from "@/src/db/schema/proposals";
 import { getDisplayStatus } from "@/lib/get-invoice-display-status";
 import { issuerSnapshotSql } from "@/lib/issuer-snapshot";
 import { emailInvoice } from "@/lib/email/document-emails";
@@ -615,7 +616,44 @@ export async function markInvoicePaidAction(
       );
     }
 
+    // A paid deposit starts the project it was raised for: In progress, and
+    // the proposal's delivery time counts from today.
+    const started = await db
+      .update(projects)
+      .set({
+        status: "in_progress",
+        deadline: sql`coalesce(${projects.deadline}, current_date + (
+          select p.delivery_days from proposals p
+          where p.id = "projects"."proposal_id"
+        ))`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(projects.userId, user.id),
+          eq(projects.status, "not_started"),
+          isNull(projects.deletedAt),
+          inArray(
+            projects.proposalId,
+            db
+              .select({ id: proposals.id })
+              .from(proposals)
+              .where(
+                and(
+                  eq(proposals.userId, user.id),
+                  eq(proposals.depositInvoiceId, updated.id),
+                ),
+              ),
+          ),
+        ),
+      )
+      .returning({ id: projects.id });
+
     revalidateInvoicePaths(updated.id, updated.clientId);
+    for (const project of started) {
+      revalidatePath("/projects");
+      revalidatePath(`/projects/${project.id}`);
+    }
     logActivity({
       userId: user.id,
       action: "invoice.paid",

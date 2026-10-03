@@ -79,8 +79,7 @@ export async function updateBusinessAction(
         businessName: blankToNull(parsed.data.businessName),
         businessEmail: blankToNull(parsed.data.businessEmail),
         website: blankToNull(parsed.data.website),
-        taxId: blankToNull(parsed.data.taxId),
-        address: blankToNull(parsed.data.address),
+        country: blankToNull(parsed.data.country),
         updatedAt: new Date(),
       })
       .where(and(eq(users.id, user.id), isNull(users.deletedAt)))

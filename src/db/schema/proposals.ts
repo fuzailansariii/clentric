@@ -1,4 +1,5 @@
 import {
+  integer,
   decimal,
   index,
   pgEnum,
@@ -76,6 +77,11 @@ export const proposals = pgTable(
     depositPercent: decimal("deposit_percent", { precision: 5, scale: 2 })
       .notNull()
       .default("0"),
+    /**
+     * Days of work after the project starts (accepted, or deposit paid);
+     * becomes the project's deadline. Null when not given.
+     */
+    deliveryDays: integer("delivery_days"),
     // set null rather than cascade: deleting the deposit invoice must never
     // take the accepted proposal with it.
     depositInvoiceId: uuid("deposit_invoice_id").references(() => invoices.id, {

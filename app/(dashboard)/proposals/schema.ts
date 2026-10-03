@@ -75,6 +75,13 @@ export const proposalObjectSchema = z.object({
     .min(0, "Deposit cannot be negative")
     .max(100, "Deposit cannot exceed 100%")
     .default(0),
+  /** Days of work once the project starts; 0 (or empty) means not given. */
+  deliveryDays: z.coerce
+    .number()
+    .int("Use whole days")
+    .min(0, "Delivery time cannot be negative")
+    .max(365, "Delivery time cannot be more than a year")
+    .default(0),
   /**
    * How long the public link stays openable, in days. 0 means no expiry.
    * Stored as an absolute expiresAt, but the window is what the user chose,

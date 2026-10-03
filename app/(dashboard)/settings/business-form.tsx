@@ -1,9 +1,10 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { Field } from "@/components/ui/input";
+import { CountryCombobox } from "@/components/ui/country-combobox";
 import { AvatarInitials } from "@/components/ui/avatar-initials";
 import { SaveBar } from "@/components/settings/save-bar";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
@@ -25,14 +26,7 @@ export function BusinessForm({ business }: { business: BusinessSettings }) {
       businessName: business.businessName ?? "",
       businessEmail: business.businessEmail ?? "",
       website: business.website ?? "",
-      taxId: business.taxId ?? "",
-      // Addresses used to be typed over several lines; the field is one
-      // line now, so older ones are joined with commas.
-      address: (business.address ?? "")
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .join(", "),
+      country: business.country ?? "",
     },
   });
 
@@ -101,12 +95,6 @@ export function BusinessForm({ business }: { business: BusinessSettings }) {
               error={errors.businessEmail?.message}
             />
             <Field
-              {...register("taxId")}
-              label="Tax ID / VAT number"
-              placeholder="e.g. GB123456789"
-              error={errors.taxId?.message}
-            />
-            <Field
               {...register("website")}
               label="Website (optional)"
               placeholder="chenstudio.dev"
@@ -114,14 +102,22 @@ export function BusinessForm({ business }: { business: BusinessSettings }) {
               autoComplete="url"
               error={errors.website?.message}
             />
-            <div className="@[560px]:col-span-2">
-              <Field
-                {...register("address")}
-                label="Address"
-                placeholder="e.g. 12 High St, London, EC1A 1BB, UK"
-                autoComplete="street-address"
-                error={errors.address?.message}
+            <div>
+              <Controller
+                control={control}
+                name="country"
+                render={({ field }) => (
+                  <CountryCombobox
+                    value={field.value || undefined}
+                    onChange={field.onChange}
+                  />
+                )}
               />
+              {errors.country && (
+                <p className="text-destructive text-sm">
+                  {errors.country.message}
+                </p>
+              )}
             </div>
           </div>
         </div>

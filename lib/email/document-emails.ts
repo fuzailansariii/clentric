@@ -13,7 +13,7 @@ import {
   resolveIssuer,
   type IssuerDetails,
 } from "@/lib/issuer-snapshot";
-import { getInvoiceForPdf } from "@/app/(dashboard)/invoices/queries";
+import { getInvoicePdfDataForOwner } from "@/app/(dashboard)/invoices/queries";
 import { renderInvoicePdf } from "@/app/(dashboard)/invoices/render-invoice-pdf";
 import { emailConfig } from "./config";
 import { finishEmailSend, reserveEmailSend } from "./quota";
@@ -57,14 +57,15 @@ async function deliver(
 
 /**
  * Emails an invoice (or a reminder about it) to its client, with the PDF
- * attached. The caller has already checked ownership and status.
+ * attached. `userId` is the owner, taken from the session or the database;
+ * the caller has already checked status.
  */
 export async function emailInvoice(input: {
   userId: string;
   invoiceId: string;
   kind: "invoice" | "reminder";
 }): Promise<"sent" | "skipped"> {
-  const data = await getInvoiceForPdf(input.invoiceId);
+  const data = await getInvoicePdfDataForOwner(input.invoiceId, input.userId);
   if (!data) throw new AppError("NOT_FOUND", "Invoice not found");
 
   const { invoice, profile } = data;

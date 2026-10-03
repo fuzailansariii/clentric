@@ -64,6 +64,8 @@ export const users = pgTable(
     phone: text("phone"),
     taxId: text("tax_id"),
     address: text("address"),
+    /** ISO 3166 alpha-2, e.g. "IN". Printed on invoices and proposals. */
+    country: text("country"),
 
     /**
      * Invoice & proposal defaults. New invoices and proposals start from

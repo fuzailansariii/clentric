@@ -15,6 +15,7 @@ import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { formatIssuer } from "@/lib/format-issuer";
 import { formatProfession } from "@/lib/professions";
 import { formatWebsite } from "@/lib/format-website";
+import { countryName } from "@/lib/countries";
 import {
   PAYMENT_METHOD_LABELS,
   type PaymentMethodDetails,
@@ -305,22 +306,19 @@ export function ModernInvoicePdfDocument({
     Math.floor((renderedAt - new Date(invoice.dueDate).getTime()) / DAY_MS),
   );
 
+  // Profession is already in the header; no address or tax ID.
   const fromLines = [
-    profile.address?.split(/\r?\n/).join(", "),
-    [
-      profile.email,
-      profile.website ? formatWebsite(profile.website) : null,
-      // Non-breaking space keeps "Tax ID" on one line.
-      profile.taxId ? `Tax ID ${profile.taxId}` : null,
-    ]
+    profile.businessName?.trim() ? profile.name : null,
+    [profile.email, profile.website ? formatWebsite(profile.website) : null]
       .filter(Boolean)
       .join(" · "),
+    countryName(profile.country),
   ].filter((line): line is string => Boolean(line?.trim()));
 
   const billName = invoice.clientCompany?.trim() || invoice.clientName;
   const billLines = [
     billName !== invoice.clientName ? `Attn: ${invoice.clientName}` : null,
-    invoice.clientCountry,
+    countryName(invoice.clientCountry),
     invoice.clientEmail,
   ].filter((line): line is string => Boolean(line));
 

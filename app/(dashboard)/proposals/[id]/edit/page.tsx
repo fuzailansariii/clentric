@@ -74,6 +74,7 @@ export default async function EditProposalPage({
     content: proposal.content ?? "",
     taxRate: Number(proposal.taxRate),
     depositPercent: Number(proposal.depositPercent),
+    deliveryDays: proposal.deliveryDays ?? 0,
     expiresInDays,
     milestones:
       grouped.length > 0
