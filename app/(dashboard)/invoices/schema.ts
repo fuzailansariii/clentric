@@ -53,7 +53,8 @@ export const updateInvoiceSchema = invoiceObjectSchema.extend({
   invoiceId: invoiceIdSchema,
 });
 
-const revertibleStatuses = ["draft", "sent"] as const;
+// Only paid -> sent; a sent invoice never goes back to draft.
+const revertibleStatuses = ["sent"] as const;
 
 export const updateInvoiceStatusSchema = z.object({
   invoiceId: invoiceIdSchema,

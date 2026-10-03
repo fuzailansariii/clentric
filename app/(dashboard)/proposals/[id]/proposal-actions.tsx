@@ -9,6 +9,7 @@ import {
   Copy,
   CopyPlus,
   FolderKanban,
+  Mail,
   PencilIcon,
   Send,
   Trash2Icon,
@@ -17,10 +18,20 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { CustomButton } from "@/components/ui/custom-button";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
+import { useWithinWindow } from "@/hooks/use-within-window";
+import { EMAIL_LIMITS } from "@/lib/email/quota-rules";
+import type { EmailStatus } from "@/lib/email/quota";
+import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   createProjectFromProposalAction,
   deleteProposalAction,
   duplicateProposalAction,
+  emailProposalAction,
   revokeProposalAction,
   sendProposalAction,
 } from "../actions";
@@ -31,6 +42,9 @@ type ProposalActionsProps = {
   token: string;
   status: ProposalStatus;
   project: { id: string; title: string } | null;
+  clientHasEmail: boolean;
+  /** Null unless the proposal is out with the client. */
+  emailStatus: EmailStatus | null;
 };
 
 /** Where the client opens the proposal, relative to whatever host is serving. */
@@ -43,6 +57,8 @@ export function ProposalActions({
   token,
   status,
   project,
+  clientHasEmail,
+  emailStatus,
 }: ProposalActionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -54,16 +70,52 @@ export function ProposalActions({
   // A draft has a token but the public page refuses to serve it, so offering
   // the link before sending would hand out a URL that reports itself gone.
   const linkIsLive = !canSend && status !== "revoked" && status !== "expired";
+  // True until the daily limit lifts; re-enables the button without a refresh.
+  const emailBlocked = useWithinWindow(emailStatus?.blocked?.until ?? null, 0);
+  const emailReason = !clientHasEmail
+    ? "Add an email address to this client first"
+    : emailBlocked && emailStatus?.blocked
+      ? emailStatus.blocked.reason
+      : null;
 
   const onSend = () => {
     startTransition(async () => {
       await runActionWithToast(sendProposalAction({ proposalId }), {
         loading: "Sending proposal...",
-        success: "Proposal sent - the link is live",
+        success: ({ emailError }) =>
+          emailError
+            ? "Proposal sent - the link is live"
+            : "Proposal emailed to your client",
+        onSuccess: ({ emailError }) => {
+          warnNotEmailed(emailError, "proposal");
+          router.refresh();
+        },
+      });
+    });
+  };
+
+  const onEmailAgain = () => {
+    startTransition(async () => {
+      await runActionWithToast(emailProposalAction({ proposalId }), {
+        loading: "Emailing the link...",
+        success: "Link emailed to your client",
         onSuccess: () => router.refresh(),
       });
     });
   };
+
+  const emailAgainButton = (
+    <CustomButton
+      type="button"
+      variant="secondary"
+      onClick={onEmailAgain}
+      disabled={isPending || Boolean(emailReason)}
+      className="w-full justify-center gap-1.5"
+    >
+      <Mail className="h-4 w-4" />
+      Email link again
+    </CustomButton>
+  );
 
   const onRevoke = async () => {
     await runActionWithToast(revokeProposalAction({ proposalId }), {
@@ -203,6 +255,28 @@ export function ProposalActions({
           <CopyPlus className="h-4 w-4" />
           Duplicate
         </CustomButton>
+
+        {canRevoke && emailStatus && (
+          <div className="flex flex-col gap-1">
+            {emailReason ? (
+              <Tooltip>
+                {/* span: a disabled button fires no pointer events. */}
+                <TooltipTrigger asChild>
+                  <span className="block">{emailAgainButton}</span>
+                </TooltipTrigger>
+                <TooltipContent>{emailReason}</TooltipContent>
+              </Tooltip>
+            ) : (
+              emailAgainButton
+            )}
+            {clientHasEmail && (
+              <p className="text-muted-foreground text-center text-xs">
+                {emailStatus.remaining} of {EMAIL_LIMITS.perDocumentPerDay}{" "}
+                emails left today
+              </p>
+            )}
+          </div>
+        )}
 
         {canRevoke && (
           <CustomButton

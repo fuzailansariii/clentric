@@ -13,6 +13,7 @@ import {
   updateInvoiceAction,
 } from "./actions";
 import type { ActionResult } from "@/lib/action-result";
+import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import type { ReturnTo } from "@/lib/return-to";
 import { useRouter } from "next/navigation";
@@ -306,24 +307,35 @@ export default function InvoiceBuilder({
     setFormError("");
 
     const createAndSend = async (): Promise<
-      ActionResult<{ invoiceId: string; sent: boolean }>
+      ActionResult<{
+        invoiceId: string;
+        sent: boolean;
+        emailError: string | null;
+      }>
     > => {
       const created = await createInvoiceAction(data);
       if (!created.success) return created;
       const sent = await sendInvoiceAction(created.data.invoiceId);
       return {
         success: true,
-        data: { invoiceId: created.data.invoiceId, sent: sent.success },
+        data: {
+          invoiceId: created.data.invoiceId,
+          sent: sent.success,
+          emailError: sent.success ? sent.data.emailError : null,
+        },
       };
     };
 
     await runActionWithToast(createAndSend(), {
       loading: "Creating and sending invoice...",
-      success: ({ sent }) =>
-        sent
-          ? "Invoice created and sent."
-          : "Invoice saved as a draft, but it couldn't be sent. Try Send again from the invoice.",
-      onSuccess: ({ invoiceId, sent }) => {
+      success: ({ sent, emailError }) =>
+        !sent
+          ? "Invoice saved as a draft, but it couldn't be sent. Try Send again from the invoice."
+          : emailError
+            ? "Invoice created and marked as sent."
+            : "Invoice created and sent to your client.",
+      onSuccess: ({ invoiceId, sent, emailError }) => {
+        warnNotEmailed(emailError, "invoice");
         // A failed send lands on the invoice, where its toast says to retry.
         router.push(sent && returnTo ? returnTo : `/invoices/${invoiceId}`);
         reset();

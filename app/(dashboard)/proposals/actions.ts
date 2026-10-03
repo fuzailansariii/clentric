@@ -16,6 +16,7 @@ import { proposals } from "@/src/db/schema/proposals";
 import { invoices } from "@/src/db/schema/invoices";
 import { createProjectFromProposal } from "@/lib/create-project-from-proposal";
 import { logActivity } from "@/lib/activity";
+import { emailProposal } from "@/lib/email/document-emails";
 import {
   issuerSnapshotSql,
   liveIssuer,
@@ -443,7 +444,7 @@ export async function createProposalAction(
  */
 export async function sendProposalAction(
   input: unknown,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ emailError: string | null }>> {
   try {
     const parsed = sendProposalSchema.safeParse(input);
     if (!parsed.success) {
@@ -480,20 +481,60 @@ export async function sendProposalAction(
       };
     }
 
-    // TODO(resend): email the client their /p/[token] link. Until Resend is
-    // installed, sending only opens the link — the freelancer shares it
-    // with "Copy client link".
-
     revalidateProposalPaths(row.id, row.clientId);
     logActivity({
       userId: user.id,
       action: "proposal.sent",
       entityId: row.id,
     });
-    return { success: true };
+
+    // The link is live either way; a failed email only means the freelancer
+    // shares it with "Copy client link".
+    let emailError: string | null = null;
+    try {
+      await emailProposal({ userId: user.id, proposalId: row.id });
+    } catch (error) {
+      logError("sendProposalAction.email", error);
+      emailError =
+        error instanceof AppError
+          ? error.message
+          : "The email couldn't be sent just now.";
+    }
+
+    return { success: true, data: { emailError } };
   } catch (error) {
     logError("sendProposalAction", error);
     return { success: false, error: "Could not send proposal. Try again." };
+  }
+}
+
+/** Emails the link of a proposal that is already out, within the daily limits. */
+export async function emailProposalAction(
+  input: unknown,
+): Promise<ActionResult> {
+  try {
+    const parsed = sendProposalSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const user = await requireUser();
+    await emailProposal({
+      userId: user.id,
+      proposalId: parsed.data.proposalId,
+    });
+
+    revalidatePath(`/proposals/${parsed.data.proposalId}`);
+    return { success: true };
+  } catch (error) {
+    logError("emailProposalAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof AppError
+          ? error.message
+          : "Could not email the proposal. Try again.",
+    };
   }
 }
 

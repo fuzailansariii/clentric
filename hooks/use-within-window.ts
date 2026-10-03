@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 
 /**
  * True while `since` is within `windowMs` of now. Re-checks against the
- * clock once a second so a disabled button (e.g. "Undo send") flips off on
+ * clock once a second so a disabled button (e.g. an email limit) flips off on
  * its own once the window closes, without needing a page refresh — the
  * interval stops itself once that happens.
  *

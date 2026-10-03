@@ -24,8 +24,8 @@
  *      proposal_milestones -> milestones -> invoices (clear
  *      proposals.deposit_invoice_id first) -> proposals -> projects ->
  *      clients -> user_payment_methods, invoice_counters, notifications,
- *      activity_logs, client_portal_tokens, subscriptions, team_members ->
- *      users. Re-check deletion_requested_at in the DELETE's own WHERE so a
+ *      activity_logs, email_sends, client_portal_tokens, subscriptions,
+ *      team_members -> users. Re-check deletion_requested_at in the DELETE's own WHERE so a
  *      restore that lands mid-run wins.
  *   3. Delete the auth user with the Supabase service role
  *      (auth.admin.deleteUser). The service-role key must only ever be read

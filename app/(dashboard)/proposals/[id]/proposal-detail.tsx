@@ -13,11 +13,14 @@ import { cn } from "@/lib/utils";
 import { proposalStatusConfig } from "../proposal-status-config";
 import type { ProposalDetail } from "../queries";
 import { ProposalActions } from "./proposal-actions";
+import type { EmailStatus } from "@/lib/email/quota";
 
 type ProposalDetailViewProps = {
   proposal: ProposalDetail;
   /** The live project created from this proposal, when there is one. */
   project: { id: string; title: string } | null;
+  /** Null unless the proposal is out with the client. */
+  emailStatus: EmailStatus | null;
 };
 
 /** One label/value row in the side panel. */
@@ -33,6 +36,7 @@ function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
 export function ProposalDetailView({
   proposal,
   project,
+  emailStatus,
 }: ProposalDetailViewProps) {
   const config = proposalStatusConfig[proposal.status];
 
@@ -220,6 +224,8 @@ export function ProposalDetailView({
                   token={proposal.token}
                   status={proposal.status}
                   project={project}
+                  clientHasEmail={Boolean(proposal.client.email?.trim())}
+                  emailStatus={emailStatus}
                 />
 
                 <dl className="border-border flex flex-col gap-2.5 border-t pt-4">
