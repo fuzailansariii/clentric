@@ -15,24 +15,13 @@
  * Signing back in within the grace period shows the restore screen, where
  * the user can clear the column or sign out again.
  *
- * TODO(purge job) — not built yet. A scheduled, server-side-only job:
- *   1. Select users where deletion_requested_at < now() - interval
- *      '<ACCOUNT_DELETION_GRACE_DAYS> days'.
- *   2. For each, in one transaction, hard-delete their rows in dependency
- *      order (children before parents, since clients/invoices use
- *      ON DELETE RESTRICT): invoice_items -> proposal_items ->
- *      proposal_milestones -> milestones -> invoices (clear
- *      proposals.deposit_invoice_id first) -> proposals -> projects ->
- *      clients -> user_payment_methods, invoice_counters, notifications,
- *      activity_logs, client_portal_tokens, subscriptions, team_members ->
- *      users. Re-check deletion_requested_at in the DELETE's own WHERE so a
- *      restore that lands mid-run wins.
- *   3. Delete the auth user with the Supabase service role
- *      (auth.admin.deleteUser). The service-role key must only ever be read
- *      on the server (never NEXT_PUBLIC_*), and the job must not be callable
- *      from the browser — a cron route checking a secret header, or a
- *      Supabase scheduled function.
- *   4. Log counts, never row contents.
+ * The purge runs in the database: public.purge_deleted_accounts(), scheduled
+ * daily by pg_cron (supabase/migrations/0016_purge_deleted_accounts.sql).
+ * Once the grace period has passed it locks and re-checks each account (a
+ * restore that lands mid-run wins), deletes its rows in dependency order,
+ * then deletes the auth user, which cascades to everything else. It is not
+ * callable through the Supabase API and needs no service-role key in the
+ * app. Its default grace interval must match ACCOUNT_DELETION_GRACE_DAYS.
  */
 
 export const ACCOUNT_DELETION_GRACE_DAYS = 30;

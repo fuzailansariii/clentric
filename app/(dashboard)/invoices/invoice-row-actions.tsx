@@ -7,16 +7,13 @@ import {
   markInvoicePaidAction,
   sendInvoiceAction,
   sendReminderAction,
-  updateInvoiceStatusAction,
 } from "./actions";
 import type { ActionResult } from "@/lib/action-result";
 import type { InvoiceListItem } from "./queries";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
-import { isReminderOnCooldown } from "@/lib/is-reminder-on-cooldown";
-import { useWithinWindow } from "@/hooks/use-within-window";
 import { useUndoableAction } from "@/hooks/use-undoable-action";
-import { UNDO_SEND_WINDOW_MS } from "@/lib/is-within-undo-send-window";
+import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
 import { REMINDER_SEND_DELAY_MS } from "@/lib/reminder-send-delay";
 import { useRouter } from "next/navigation";
 import { InvoiceActionsDropdown } from "./invoice-actions-dropdown";
@@ -46,8 +43,6 @@ export function InvoiceRowActions({
   const isOutstanding =
     invoice.status === "sent" || invoice.status === "overdue";
   const isPaid = invoice.status === "paid";
-  const reminderOnCooldown = isReminderOnCooldown(invoice.lastReminderSentAt);
-  const canUndoSend = useWithinWindow(invoice.sentAt, UNDO_SEND_WINDOW_MS);
 
   const run = (
     action: () => Promise<ActionResult>,
@@ -88,9 +83,18 @@ export function InvoiceRowActions({
                 aria-label="Send invoice"
                 disabled={isPending}
                 onClick={() =>
-                  run(() => sendInvoiceAction(invoice.id), {
-                    loading: "Sending invoice...",
-                    success: "Invoice sent.",
+                  startTransition(async () => {
+                    await runActionWithToast(sendInvoiceAction(invoice.id), {
+                      loading: "Sending invoice...",
+                      success: ({ emailError }) =>
+                        emailError
+                          ? "Invoice marked as sent."
+                          : "Invoice sent to your client.",
+                      onSuccess: ({ emailError }) => {
+                        warnNotEmailed(emailError, "invoice");
+                        router.refresh();
+                      },
+                    });
                   })
                 }
               >
@@ -108,18 +112,16 @@ export function InvoiceRowActions({
                 variant="ghost"
                 size="sm"
                 aria-label="Send reminder"
-                disabled={isPending || reminderOnCooldown || isReminderQueued}
+                disabled={isPending || isReminderQueued}
                 onClick={sendReminder}
               >
                 <BellIcon className="h-3.5 w-3.5" />
               </CustomButton>
             </TooltipTrigger>
             <TooltipContent>
-              {reminderOnCooldown
-                ? "Reminder already sent today"
-                : isReminderQueued
-                  ? "Reminder queued — click the toast to undo"
-                  : "Send reminder"}
+              {isReminderQueued
+                ? "Reminder queued — click the toast to undo"
+                : "Send reminder"}
             </TooltipContent>
           </Tooltip>
         )}
@@ -128,21 +130,7 @@ export function InvoiceRowActions({
           invoiceId={invoice.id}
           isPaid={isPaid}
           isOutstanding={isOutstanding}
-          canUndoSend={canUndoSend}
           isPending={isPending}
-          onUndoSend={() =>
-            run(
-              () =>
-                updateInvoiceStatusAction({
-                  invoiceId: invoice.id,
-                  status: "draft",
-                }),
-              {
-                loading: "Reverting to draft...",
-                success: "Invoice moved back to draft.",
-              },
-            )
-          }
           onMarkPaid={() =>
             run(() => markInvoicePaidAction(invoice.id), {
               loading: "Marking as paid...",

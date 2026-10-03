@@ -36,6 +36,7 @@ export async function deleteTestData(userId: string) {
       await tx`delete from proposals where user_id = ${userId}`;
       await tx`delete from clients where user_id = ${userId}`;
       await tx`delete from activity_logs where user_id = ${userId}`;
+      await tx`delete from email_sends where user_id = ${userId}`;
       await tx`delete from invoice_counters where user_id = ${userId}`;
     });
   } finally {

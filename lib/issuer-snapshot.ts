@@ -39,6 +39,8 @@ const identityShape = {
   phone: z.string().nullable(),
   taxId: z.string().nullable(),
   address: z.string().nullable(),
+  // Missing from snapshots taken before the field existed.
+  country: z.string().nullable().default(null),
 };
 
 const paymentMethodSnapshotSchema = z.object({
@@ -86,6 +88,7 @@ export const issuerUserColumns = {
   phone: true,
   taxId: true,
   address: true,
+  country: true,
   // "Other payment instructions"
   paymentDetails: true,
 } as const;
@@ -131,6 +134,7 @@ export function issuerSnapshotSql(userId: string): SQL<IssuerSnapshot> {
       'phone', u.phone,
       'taxId', u.tax_id,
       'address', u.address,
+      'country', u.country,
       'payment', jsonb_build_object(
         'instructions', u.payment_details,
         'methods', coalesce((
@@ -183,6 +187,7 @@ export function resolveIssuer(
     phone: data.phone,
     taxId: data.taxId,
     address: data.address,
+    country: data.country,
   };
 }
 
@@ -235,5 +240,6 @@ export function liveIssuer(
     phone: user.phone,
     taxId: user.taxId,
     address: user.address,
+    country: user.country,
   } satisfies IssuerDetails;
 }

@@ -35,11 +35,12 @@ import {
   hasPaymentDetails,
   type PaymentDetails,
 } from "@/lib/payment-methods";
-import { isReminderOnCooldown } from "@/lib/is-reminder-on-cooldown";
 import { useWithinWindow } from "@/hooks/use-within-window";
 import { useUndoableAction } from "@/hooks/use-undoable-action";
-import { UNDO_SEND_WINDOW_MS } from "@/lib/is-within-undo-send-window";
 import { REMINDER_SEND_DELAY_MS } from "@/lib/reminder-send-delay";
+import { EMAIL_LIMITS } from "@/lib/email/quota-rules";
+import type { EmailStatus } from "@/lib/email/quota";
+import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
 import { cn } from "@/lib/utils";
 import PageHeader from "@/components/dashboard/page-header";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
@@ -77,6 +78,7 @@ type InvoiceDetailProps = {
   };
   client: ClientRow | null;
   project: ProjectListItem | null;
+  emailStatus: EmailStatus;
 };
 
 // ─── Design primitives ─────────────────────────────────────────────────────
@@ -193,6 +195,7 @@ export function InvoiceDetail({
   invoice,
   client,
   project,
+  emailStatus,
 }: InvoiceDetailProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -211,8 +214,9 @@ export function InvoiceDetail({
   const isPaid = displayStatus === "paid";
   const isOutstanding = isSent || isOverdue;
 
-  const reminderOnCooldown = isReminderOnCooldown(invoice.lastReminderSentAt);
-  const canUndoSend = useWithinWindow(invoice.sentAt, UNDO_SEND_WINDOW_MS);
+  // True until the limit lifts; re-enables the button without a refresh.
+  const emailBlocked = useWithinWindow(emailStatus.blocked?.until ?? null, 0);
+  const hasClientEmail = Boolean(client?.email?.trim());
   const dueLabel = getInvoiceDueLabel({
     status: displayStatus,
     daysUntilDue: invoice.daysUntilDue,
@@ -262,11 +266,13 @@ export function InvoiceDetail({
   const clientCompany =
     client?.company && client.company !== client.name ? client.company : null;
 
-  const reminderReason = reminderOnCooldown
-    ? "Reminder already sent today"
-    : isReminderQueued
-      ? "Reminder queued — click the toast to undo"
-      : null;
+  const reminderReason = !hasClientEmail
+    ? "Add an email address to this client first"
+    : emailBlocked && emailStatus.blocked
+      ? emailStatus.blocked.reason
+      : isReminderQueued
+        ? "Reminder queued — click the toast to undo"
+        : null;
 
   const reminderButton = (
     <button
@@ -276,29 +282,6 @@ export function InvoiceDetail({
       onClick={sendReminder}
     >
       <BellIcon className="size-3.5" /> Send reminder
-    </button>
-  );
-
-  const undoSendButton = (
-    <button
-      type="button"
-      className={actionClass("quiet")}
-      disabled={isPending || !canUndoSend}
-      onClick={() =>
-        run(
-          () =>
-            updateInvoiceStatusAction({
-              invoiceId: invoice.id,
-              status: "draft",
-            }),
-          {
-            loading: "Reverting to draft...",
-            success: "Invoice moved back to draft.",
-          },
-        )
-      }
-    >
-      <Undo2Icon className="size-3.5" /> Revert to draft
     </button>
   );
 
@@ -709,6 +692,25 @@ export function InvoiceDetail({
             </RailCard>
 
             <RailCard title="Quick actions">
+              {/* The client tapped "I've made the payment": check the
+                  reference against your account, then mark it paid. */}
+              {isOutstanding && invoice.paymentClaimedAt && (
+                <div className="bg-ledger-50 text-ledger-700 dark:bg-ledger-500/15 dark:text-ledger-500 mb-3 rounded-md px-3.5 py-3 text-[13px] leading-[1.5]">
+                  <p className="font-medium">Client says they&rsquo;ve paid</p>
+                  {invoice.paymentClaimedNote && (
+                    <p className="mt-1 wrap-anywhere">
+                      Reference:{" "}
+                      <span className="font-mono font-medium">
+                        {invoice.paymentClaimedNote}
+                      </span>
+                    </p>
+                  )}
+                  <p className="mt-1 opacity-80" suppressHydrationWarning>
+                    {formatDate(invoice.paymentClaimedAt)} · check your account,
+                    then mark it as paid.
+                  </p>
+                </div>
+              )}
               <div className="grid gap-2">
                 {/* Primary — the one step that moves this invoice forward */}
                 {isDraft && (
@@ -717,9 +719,21 @@ export function InvoiceDetail({
                     className={actionClass("primary")}
                     disabled={isPending}
                     onClick={() =>
-                      run(() => sendInvoiceAction(invoice.id), {
-                        loading: "Sending invoice...",
-                        success: "Invoice sent.",
+                      startTransition(async () => {
+                        await runActionWithToast(
+                          sendInvoiceAction(invoice.id),
+                          {
+                            loading: "Sending invoice...",
+                            success: ({ emailError }) =>
+                              emailError
+                                ? "Invoice marked as sent."
+                                : "Invoice sent to your client.",
+                            onSuccess: ({ emailError }) => {
+                              warnNotEmailed(emailError, "invoice");
+                              router.refresh();
+                            },
+                          },
+                        );
                       })
                     }
                   >
@@ -764,6 +778,12 @@ export function InvoiceDetail({
                   ) : (
                     reminderButton
                   ))}
+                {isOutstanding && hasClientEmail && (
+                  <p className="text-muted-foreground -mt-0.5 text-center text-xs">
+                    {emailStatus.remaining} of {EMAIL_LIMITS.perDocumentPerDay}{" "}
+                    emails left today
+                  </p>
+                )}
 
                 <a
                   href={`/api/invoices/${invoice.id}/pdf`}
@@ -782,19 +802,6 @@ export function InvoiceDetail({
                     <PencilIcon className="size-3.5" /> Edit invoice
                   </Link>
                 )}
-                {isSent &&
-                  (canUndoSend ? (
-                    undoSendButton
-                  ) : (
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="block">{undoSendButton}</span>
-                      </TooltipTrigger>
-                      <TooltipContent>
-                        The 5-minute undo window has passed
-                      </TooltipContent>
-                    </Tooltip>
-                  ))}
                 {isPaid && (
                   <button
                     type="button"

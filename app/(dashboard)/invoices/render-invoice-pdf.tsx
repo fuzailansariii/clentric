@@ -1,5 +1,6 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { InvoicePdfDocument } from "./invoice-pdf-document";
+import { ModernInvoicePdfDocument } from "./invoice-pdf-modern";
 import type { InvoicePdfData } from "./queries";
 
 /**
@@ -14,6 +15,14 @@ export async function renderInvoicePdf(
   showBranding: boolean,
 ): Promise<Buffer> {
   return renderToBuffer(
-    <InvoicePdfDocument data={data} showBranding={showBranding} />,
+    data.template === "modern" ? (
+      <ModernInvoicePdfDocument
+        data={data}
+        showBranding={showBranding}
+        renderedAt={Date.now()}
+      />
+    ) : (
+      <InvoicePdfDocument data={data} showBranding={showBranding} />
+    ),
   );
 }

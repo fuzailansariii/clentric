@@ -27,6 +27,7 @@ import {
   type IssuerDetails,
 } from "@/lib/issuer-snapshot";
 import type { PaymentDetails } from "@/lib/payment-methods";
+import type { InvoiceTemplate } from "@/lib/invoice-templates";
 
 export type InvoiceListItem = {
   id: string;
@@ -285,23 +286,44 @@ export type InvoicePdfData = {
   }[];
   /** The "From" block: this invoice's snapshot once sent, live otherwise. */
   profile: IssuerDetails;
+  /** The layout the freelancer picked in settings. */
+  template: InvoiceTemplate;
 };
 
+/** The signed-in user's invoice, ready for the PDF. */
 export async function getInvoiceForPdf(
   invoiceId: string,
 ): Promise<InvoicePdfData | null> {
   try {
+    const user = await requireUser();
+    return await getInvoicePdfDataForOwner(invoiceId, user.id);
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getInvoiceForPdf", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load invoice.");
+  }
+}
+
+/**
+ * The same data for a known owner, for server work with no signed-in user
+ * (emailing a deposit invoice when a client accepts). The owner id must come
+ * from the server, never from the request.
+ */
+export async function getInvoicePdfDataForOwner(
+  invoiceId: string,
+  ownerId: string,
+): Promise<InvoicePdfData | null> {
+  try {
     const parsed = invoiceIdSchema.safeParse(invoiceId);
     if (!parsed.success) return null;
-
-    const user = await requireUser();
 
     // Everything the PDF needs in a single round trip. The line items used to
     // be fetched in a second, sequential await after this lookup resolved.
     const row = await db.query.invoices.findFirst({
       where: and(
         eq(invoices.id, parsed.data),
-        eq(invoices.userId, user.id),
+        eq(invoices.userId, ownerId),
         isNull(invoices.deletedAt),
       ),
       columns: {
@@ -342,7 +364,7 @@ export async function getInvoiceForPdf(
           orderBy: [asc(invoiceItems.sortOrder), asc(invoiceItems.id)],
         },
         user: {
-          columns: issuerUserColumns,
+          columns: { ...issuerUserColumns, invoiceTemplate: true },
           with: { paymentMethods: visiblePaymentMethods },
         },
       },
@@ -378,10 +400,11 @@ export async function getInvoiceForPdf(
       },
       items: lineItems,
       profile: resolveIssuer(issuerSnapshot, liveIssuer(owner)),
+      template: owner.invoiceTemplate,
     };
   } catch (error) {
     unstable_rethrow(error);
-    logError("getInvoiceForPdf", error);
+    logError("getInvoicePdfDataForOwner", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load invoice.");
   }

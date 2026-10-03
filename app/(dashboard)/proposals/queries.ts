@@ -228,7 +228,9 @@ export async function getProposalById(proposalId: string) {
         isNull(proposals.deletedAt),
       ),
       with: {
-        client: { columns: { id: true, name: true, company: true } },
+        client: {
+          columns: { id: true, name: true, company: true, email: true },
+        },
         items: {
           columns: {
             id: true,

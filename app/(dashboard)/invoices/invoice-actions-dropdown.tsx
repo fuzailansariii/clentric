@@ -4,7 +4,6 @@ import {
   MoreVerticalIcon,
   PencilIcon,
   Trash2Icon,
-  Undo2Icon,
 } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
 import {
@@ -24,9 +23,7 @@ type InvoiceActionsDropdownProps = {
   invoiceId: string;
   isPaid: boolean;
   isOutstanding: boolean;
-  canUndoSend: boolean;
   isPending: boolean;
-  onUndoSend: () => void;
   onMarkPaid: () => void;
   onDeleteClick: () => void;
   align?: "start" | "end";
@@ -36,9 +33,7 @@ export function InvoiceActionsDropdown({
   invoiceId,
   isPaid,
   isOutstanding,
-  canUndoSend,
   isPending,
-  onUndoSend,
   onMarkPaid,
   onDeleteClick,
   align = "end",
@@ -81,16 +76,6 @@ export function InvoiceActionsDropdown({
         {isOutstanding && (
           <>
             <DropdownMenuSeparator />
-
-            <MenuRow
-              icon={Undo2Icon}
-              label="Undo send"
-              reason={
-                canUndoSend ? undefined : "The 5-minute undo window has passed"
-              }
-              disabled={isPending || !canUndoSend}
-              onClick={onUndoSend}
-            />
 
             <DropdownMenuItem
               disabled={isPending}

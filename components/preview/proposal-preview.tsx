@@ -21,6 +21,8 @@ type ProposalPreviewProps = {
   expiresInDays: number;
   /** 0 means no deposit is asked for. */
   depositPercent: number;
+  /** 0 when not given. */
+  deliveryDays: number;
   depositAmount: number;
   currency: string;
 };
@@ -45,6 +47,7 @@ export default function ProposalPreview({
   total,
   expiresInDays,
   depositPercent,
+  deliveryDays,
   depositAmount,
   currency,
 }: ProposalPreviewProps) {
@@ -184,6 +187,12 @@ export default function ProposalPreview({
         {/* The window, not a date. Sending re-bases expiry off the send
             time, so an absolute date shown while drafting would be wrong for
             any proposal not sent the same day. */}
+        {deliveryDays > 0 && (
+          <p className="text-muted-foreground text-[13px]">
+            Delivery: {deliveryDays} {deliveryDays === 1 ? "day" : "days"} after
+            work starts
+          </p>
+        )}
         {depositPercent > 0 && (
           <div className="border-border bg-muted/40 rounded-lg border px-3 py-2.5">
             <p className="flex items-baseline justify-between gap-3 text-[13px]">

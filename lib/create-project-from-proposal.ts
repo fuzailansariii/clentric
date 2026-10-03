@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 
 import type { Transaction } from "@/src/db";
 import { invoices } from "@/src/db/schema/invoices";
@@ -17,7 +17,13 @@ export type ProposalForProject = {
   total: string;
   currency: string;
   depositInvoiceId: string | null;
+  deliveryDays: number | null;
 };
+
+/** today + N days, as a SQL date; null when no delivery time was given. */
+export function deadlineFromToday(deliveryDays: number | null) {
+  return deliveryDays ? sql`current_date + ${deliveryDays}::int` : null;
+}
 
 /**
  * Turns an accepted proposal into a project, inside the caller's transaction.
@@ -37,6 +43,23 @@ export async function createProjectFromProposal(
   tx: Transaction,
   proposal: ProposalForProject,
 ): Promise<string> {
+  // Work starts now unless a deposit is still unpaid; then marking that
+  // invoice paid starts it (markInvoicePaidAction).
+  let started = !proposal.depositInvoiceId;
+  if (proposal.depositInvoiceId) {
+    const [deposit] = await tx
+      .select({ status: invoices.status })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.id, proposal.depositInvoiceId),
+          eq(invoices.userId, proposal.userId),
+        ),
+      )
+      .limit(1);
+    started = deposit?.status === "paid";
+  }
+
   const [project] = await tx
     .insert(projects)
     .values({
@@ -47,8 +70,8 @@ export async function createProjectFromProposal(
       // budget is NOT NULL on this table; a proposal always carries a total.
       budget: proposal.total,
       currency: proposal.currency,
-      status: "not_started",
-      deadline: null,
+      status: started ? "in_progress" : "not_started",
+      deadline: started ? deadlineFromToday(proposal.deliveryDays) : null,
       proposalId: proposal.id,
     })
     .returning({ id: projects.id });

@@ -17,18 +17,12 @@ import { revalidatePath } from "next/cache";
 import { logActivity, removeActivity } from "@/lib/activity";
 import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { clients } from "@/src/db/schema/clients";
-import { and, eq, gt, inArray, isNull, lt, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { projects } from "@/src/db/schema/projects";
+import { proposals } from "@/src/db/schema/proposals";
 import { getDisplayStatus } from "@/lib/get-invoice-display-status";
 import { issuerSnapshotSql } from "@/lib/issuer-snapshot";
-import {
-  isReminderOnCooldown,
-  REMINDER_COOLDOWN_MS,
-} from "@/lib/is-reminder-on-cooldown";
-import {
-  isWithinUndoSendWindow,
-  UNDO_SEND_WINDOW_MS,
-} from "@/lib/is-within-undo-send-window";
+import { emailInvoice } from "@/lib/email/document-emails";
 
 // Every page that renders an invoice: the list, its detail page, and its
 // client's page.
@@ -37,10 +31,6 @@ function revalidateInvoicePaths(invoiceId: string, clientId: string) {
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/dashboard");
-}
-
-function msAgo(ms: number) {
-  return sql`now() - make_interval(secs => ${ms / 1000})`;
 }
 
 export async function createInvoiceAction(
@@ -348,11 +338,7 @@ export async function updateInvoiceStatusAction(
     const user = await requireUser();
 
     const [existingInvoice] = await db
-      .select({
-        id: invoices.id,
-        status: invoices.status,
-        sentAt: invoices.sentAt,
-      })
+      .select({ status: invoices.status })
       .from(invoices)
       .where(
         and(
@@ -367,55 +353,24 @@ export async function updateInvoiceStatusAction(
       throw new AppError("NOT_FOUND", "Invoice not found");
     }
 
-    const { status: currentStatus } = existingInvoice;
-    const targetStatus = parsed.data.status;
-
-    const isValidRevert =
-      (currentStatus === "sent" && targetStatus === "draft") ||
-      (currentStatus === "paid" && targetStatus === "sent");
-
-    if (!isValidRevert) {
+    // The only revert left is paid -> sent. Sent invoices can't go back to
+    // draft: the client may already have the email.
+    if (existingInvoice.status !== "paid") {
       throw new AppError(
         "BAD_REQUEST",
-        `Cannot change status from ${currentStatus} to ${targetStatus}`,
+        `Cannot change status from ${existingInvoice.status} to ${parsed.data.status}`,
       );
     }
-
-    // "Undo send" (sent -> draft) only within the 5-minute grace window —
-    // past that the client may already have seen it, so silently reverting
-    // the status would misrepresent what actually happened.
-    const isUndoSend = currentStatus === "sent" && targetStatus === "draft";
-
-    if (isUndoSend && !isWithinUndoSendWindow(existingInvoice.sentAt)) {
-      throw new AppError(
-        "BAD_REQUEST",
-        "The 5-minute undo window for this invoice has passed.",
-      );
-    }
-
-    // Undo-send makes it a draft again, and drafts read the sender's details
-    // live — so the snapshot goes too, and is retaken on the next send.
-    const clearedTimestamp =
-      currentStatus === "sent"
-        ? { sentAt: null, issuerSnapshot: null }
-        : { paidAt: null };
 
     const [updated] = await db
       .update(invoices)
-      .set({
-        status: targetStatus,
-        updatedAt: new Date(),
-        ...clearedTimestamp,
-      })
+      .set({ status: "sent", paidAt: null, updatedAt: new Date() })
       .where(
         and(
           eq(invoices.id, parsed.data.invoiceId),
           eq(invoices.userId, user.id),
           isNull(invoices.deletedAt),
-          eq(invoices.status, currentStatus),
-          isUndoSend
-            ? gt(invoices.sentAt, msAgo(UNDO_SEND_WINDOW_MS))
-            : undefined,
+          eq(invoices.status, "paid"),
         ),
       )
       .returning({ id: invoices.id, clientId: invoices.clientId });
@@ -423,16 +378,14 @@ export async function updateInvoiceStatusAction(
     if (!updated) {
       throw new AppError(
         "CONFLICT",
-        isUndoSend
-          ? "The 5-minute undo window for this invoice has passed."
-          : "This invoice changed in the meantime. Refresh and try again.",
+        "This invoice changed in the meantime. Refresh and try again.",
       );
     }
 
     revalidateInvoicePaths(updated.id, updated.clientId);
     await removeActivity({
       userId: user.id,
-      action: isUndoSend ? "invoice.sent" : "invoice.paid",
+      action: "invoice.paid",
       entityId: updated.id,
     });
     return { success: true };
@@ -448,9 +401,14 @@ export async function updateInvoiceStatusAction(
   }
 }
 
+/**
+ * Marks the invoice sent and, the first time, emails it to the client. The
+ * email can fail (no client email, daily limit, Resend down) without undoing
+ * the send: `emailError` says why, so the freelancer can deliver it by hand.
+ */
 export async function sendInvoiceAction(
   invoiceId: string,
-): Promise<ActionResult> {
+): Promise<ActionResult<{ emailError: string | null }>> {
   try {
     const parsedId = invoiceIdSchema.safeParse(invoiceId);
     if (!parsedId.success) {
@@ -505,20 +463,31 @@ export async function sendInvoiceAction(
       throw new AppError("BAD_REQUEST", "Invoice is already paid");
     }
 
-    // TODO(resend): email the invoice (with its PDF from renderInvoicePdf)
-    // to the client. Until Resend is installed, "sending" only marks the
-    // invoice as sent — the freelancer delivers it themselves.
-
     revalidateInvoicePaths(updated.id, updated.clientId);
-    if (!invoice.sentAt) {
-      logActivity({
+    if (invoice.sentAt) return { success: true, data: { emailError: null } };
+
+    logActivity({
+      userId: user.id,
+      action: "invoice.sent",
+      entityId: updated.id,
+    });
+
+    let emailError: string | null = null;
+    try {
+      await emailInvoice({
         userId: user.id,
-        action: "invoice.sent",
-        entityId: updated.id,
+        invoiceId: updated.id,
+        kind: "invoice",
       });
+    } catch (error) {
+      logError("sendInvoiceAction.email", error);
+      emailError =
+        error instanceof AppError
+          ? error.message
+          : "The email couldn't be sent just now.";
     }
 
-    return { success: true };
+    return { success: true, data: { emailError } };
   } catch (error) {
     logError("sendInvoiceAction", error);
     return {
@@ -547,7 +516,6 @@ export async function sendReminderAction(
         id: invoices.id,
         status: invoices.status,
         dueDate: invoices.dueDate,
-        lastReminderSentAt: invoices.lastReminderSentAt,
       })
       .from(invoices)
       .where(
@@ -572,38 +540,28 @@ export async function sendReminderAction(
       );
     }
 
-    const cooldownMessage =
-      "A reminder was already sent for this invoice in the last 24 hours.";
-
-    if (isReminderOnCooldown(invoice.lastReminderSentAt)) {
-      throw new AppError("BAD_REQUEST", cooldownMessage);
-    }
+    // Limits (3 per invoice a day, 10 minutes apart) are enforced inside.
+    await emailInvoice({
+      userId: user.id,
+      invoiceId: invoice.id,
+      kind: "reminder",
+    });
 
     const [updated] = await db
       .update(invoices)
       .set({ lastReminderSentAt: new Date(), updatedAt: new Date() })
       .where(
         and(
-          eq(invoices.id, parsedId.data),
+          eq(invoices.id, invoice.id),
           eq(invoices.userId, user.id),
           isNull(invoices.deletedAt),
-          inArray(invoices.status, ["sent", "overdue"]),
-          or(
-            isNull(invoices.lastReminderSentAt),
-            lt(invoices.lastReminderSentAt, msAgo(REMINDER_COOLDOWN_MS)),
-          ),
         ),
       )
       .returning({ id: invoices.id, clientId: invoices.clientId });
 
     if (!updated) {
-      throw new AppError("BAD_REQUEST", cooldownMessage);
+      throw new AppError("NOT_FOUND", "Invoice not found");
     }
-
-    // TODO(resend): email the reminder to the client. Resend isn't installed
-    // yet, so today this only records lastReminderSentAt (which drives the
-    // 24h cooldown) — nothing reaches the client. Same pending integration as
-    // the contact form (app/contact/actions.ts).
 
     revalidateInvoicePaths(updated.id, updated.clientId);
     logActivity({
@@ -658,7 +616,44 @@ export async function markInvoicePaidAction(
       );
     }
 
+    // A paid deposit starts the project it was raised for: In progress, and
+    // the proposal's delivery time counts from today.
+    const started = await db
+      .update(projects)
+      .set({
+        status: "in_progress",
+        deadline: sql`coalesce(${projects.deadline}, current_date + (
+          select p.delivery_days from proposals p
+          where p.id = "projects"."proposal_id"
+        ))`,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(projects.userId, user.id),
+          eq(projects.status, "not_started"),
+          isNull(projects.deletedAt),
+          inArray(
+            projects.proposalId,
+            db
+              .select({ id: proposals.id })
+              .from(proposals)
+              .where(
+                and(
+                  eq(proposals.userId, user.id),
+                  eq(proposals.depositInvoiceId, updated.id),
+                ),
+              ),
+          ),
+        ),
+      )
+      .returning({ id: projects.id });
+
     revalidateInvoicePaths(updated.id, updated.clientId);
+    for (const project of started) {
+      revalidatePath("/projects");
+      revalidatePath(`/projects/${project.id}`);
+    }
     logActivity({
       userId: user.id,
       action: "invoice.paid",

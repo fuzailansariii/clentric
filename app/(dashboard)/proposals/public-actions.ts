@@ -1,9 +1,11 @@
 "use server";
 
+import { after } from "next/server";
 import { and, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { logActivity } from "@/lib/activity";
+import { emailInvoice } from "@/lib/email/document-emails";
 import { AppError, logError } from "@/lib/errors";
 import { getNextInvoiceNumber } from "@/lib/get-next-invoice-number";
 import { issuerSnapshotSql, resolvePayment } from "@/lib/issuer-snapshot";
@@ -13,6 +15,8 @@ import { db, type Transaction } from "@/src/db";
 import { createProjectFromProposal } from "@/lib/create-project-from-proposal";
 import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { invoices } from "@/src/db/schema/invoices";
+import { clients } from "@/src/db/schema/clients";
+import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { proposals } from "@/src/db/schema/proposals";
 import { users } from "@/src/db/schema/users";
 
@@ -27,7 +31,12 @@ const respondSchema = z.object({
 
 const markPaymentSentSchema = z.object({
   token: tokenSchema,
-  note: z.string().trim().max(1000).optional(),
+  // The reference the freelancer matches against their bank statement.
+  note: z
+    .string()
+    .trim()
+    .min(3, "Enter your payment reference.")
+    .max(200, "Keep the reference under 200 characters."),
 });
 
 /** Statuses a link is still allowed to act on. */
@@ -172,6 +181,12 @@ export type RespondResult = {
     amount: string;
     percent: number;
     payment: PaymentDetails;
+    /** e.g. "INV-001": the reference the client pays against. */
+    invoiceNumber: string;
+    /** yyyy-mm-dd */
+    dueDate: string;
+    /** Where the PDF copy goes; null when the client has no email. */
+    emailedTo: string | null;
   } | null;
 };
 
@@ -237,6 +252,7 @@ export async function respondProposalAction(
           total: proposals.total,
           currency: proposals.currency,
           depositPercent: proposals.depositPercent,
+          deliveryDays: proposals.deliveryDays,
         });
 
       if (!accepted) throw new AppError("GONE", GONE);
@@ -270,13 +286,19 @@ export async function respondProposalAction(
         .select({
           issuerSnapshot: invoices.issuerSnapshot,
           paymentDetails: invoices.paymentDetails,
+          invoiceNumber: invoices.invoiceNumber,
+          numberPrefix: invoices.numberPrefix,
+          dueDate: invoices.dueDate,
+          clientEmail: clients.email,
         })
         .from(invoices)
+        .innerJoin(clients, eq(clients.id, invoices.clientId))
         .where(eq(invoices.id, depositInvoiceId))
         .limit(1);
 
       return {
         proposal: accepted,
+        depositInvoiceId,
         data: {
           response,
           deposit: {
@@ -287,6 +309,11 @@ export async function respondProposalAction(
               deposit?.paymentDetails ?? null,
               { methods: [], instructions: null },
             ),
+            invoiceNumber: deposit
+              ? formatInvoiceNumber(deposit.invoiceNumber, deposit.numberPrefix)
+              : "",
+            dueDate: deposit?.dueDate ?? "",
+            emailedTo: deposit?.clientEmail?.trim() || null,
           },
         } satisfies RespondResult,
       };
@@ -305,6 +332,25 @@ export async function respondProposalAction(
         userId: result.proposal.userId,
         action: "proposal.accepted",
         entityId: result.proposal.id,
+      });
+    }
+
+    // Only a proposal with a deposit raises an invoice; email it to the
+    // client after the response, so accepting never waits on the PDF.
+    const depositInvoiceId =
+      "depositInvoiceId" in result ? result.depositInvoiceId : null;
+    if (depositInvoiceId) {
+      const ownerId = result.proposal.userId;
+      after(async () => {
+        try {
+          await emailInvoice({
+            userId: ownerId,
+            invoiceId: depositInvoiceId,
+            kind: "invoice",
+          });
+        } catch (error) {
+          logError("respondProposalAction.depositEmail", error);
+        }
       });
     }
 
@@ -362,7 +408,7 @@ export async function markPaymentSentAction(
       .update(invoices)
       .set({
         paymentClaimedAt: new Date(),
-        paymentClaimedNote: note || null,
+        paymentClaimedNote: note,
         updatedAt: new Date(),
       })
       .where(
@@ -379,7 +425,7 @@ export async function markPaymentSentAction(
         userId: proposal.userId,
         action: "invoice.payment_claimed",
         entityId: claimed.id,
-        metadata: { note: note || null },
+        metadata: { note },
       });
     }
 

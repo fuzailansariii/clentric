@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getInvoiceById } from "../queries";
 import { getClientById } from "../../clients/queries";
 import { getProjectById } from "../../projects/queries";
+import { getEmailStatus } from "@/lib/email/quota";
 import { InvoiceDetail } from "./invoice-detail";
 
 type InvoicePageProps = {
@@ -19,10 +20,18 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
     notFound();
   }
 
-  const [client, project] = await Promise.all([
+  const [client, project, emailStatus] = await Promise.all([
     getClientById(invoice.clientId),
     invoice.projectId ? getProjectById(invoice.projectId) : null,
+    getEmailStatus(invoice.id, "invoice"),
   ]);
 
-  return <InvoiceDetail invoice={invoice} client={client} project={project} />;
+  return (
+    <InvoiceDetail
+      invoice={invoice}
+      client={client}
+      project={project}
+      emailStatus={emailStatus}
+    />
+  );
 }

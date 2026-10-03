@@ -89,8 +89,7 @@ export async function getBusinessSettings() {
         businessName: users.businessName,
         businessEmail: users.businessEmail,
         website: users.website,
-        taxId: users.taxId,
-        address: users.address,
+        country: users.country,
       })
       .from(users)
       .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
@@ -102,6 +101,26 @@ export async function getBusinessSettings() {
     logError("getBusinessSettings", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load your business details.");
+  }
+}
+
+/** The invoice PDF layout picked in Settings → Business. */
+export async function getInvoiceTemplateSetting() {
+  try {
+    const user = await requireUser();
+
+    const [row] = await db
+      .select({ template: users.invoiceTemplate })
+      .from(users)
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
+      .limit(1);
+
+    return row?.template ?? null;
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getInvoiceTemplateSetting", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load your invoice template.");
   }
 }
 

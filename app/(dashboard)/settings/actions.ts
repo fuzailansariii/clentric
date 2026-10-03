@@ -15,6 +15,7 @@ import {
 } from "@/lib/payment-methods";
 import {
   businessSchema,
+  invoiceTemplateSchema,
   paymentInstructionsSchema,
   paymentMethodSchema,
   paymentMethodVisibilitySchema,
@@ -78,8 +79,7 @@ export async function updateBusinessAction(
         businessName: blankToNull(parsed.data.businessName),
         businessEmail: blankToNull(parsed.data.businessEmail),
         website: blankToNull(parsed.data.website),
-        taxId: blankToNull(parsed.data.taxId),
-        address: blankToNull(parsed.data.address),
+        country: blankToNull(parsed.data.country),
         updatedAt: new Date(),
       })
       .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
@@ -100,6 +100,39 @@ export async function updateBusinessAction(
     return {
       success: false,
       error: "Could not save your business details. Try again.",
+    };
+  }
+}
+
+export async function updateInvoiceTemplateAction(
+  input: unknown,
+): Promise<ActionResult> {
+  try {
+    const parsed = invoiceTemplateSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const user = await requireUser();
+
+    const [row] = await db
+      .update(users)
+      .set({ invoiceTemplate: parsed.data.template, updatedAt: new Date() })
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
+      .returning({ id: users.id });
+
+    if (!row) {
+      return { success: false, error: "Could not find your account." };
+    }
+
+    // PDFs are rendered on request, so only the settings page shows it.
+    revalidatePath("/settings/business");
+    return { success: true };
+  } catch (error) {
+    logError("updateInvoiceTemplateAction", error);
+    return {
+      success: false,
+      error: "Could not save your invoice template. Try again.",
     };
   }
 }

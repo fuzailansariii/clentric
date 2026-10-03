@@ -10,6 +10,7 @@ export * from "./proposal-milestones";
 export * from "./proposal-items";
 export * from "./client-portal-tokens";
 export * from "./activity-logs";
+export * from "./email-sends";
 export * from "./notifications";
 export * from "./subscriptions";
 export * from "./team-members";

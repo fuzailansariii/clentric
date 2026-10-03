@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { normalizeWebsite } from "@/lib/format-website";
 import { PROFESSIONS } from "@/lib/professions";
+import { INVOICE_TEMPLATE_IDS } from "@/lib/invoice-templates";
 import {
   PAYMENT_METHOD_FIELDS,
   PAYMENT_METHOD_TYPES,
@@ -47,8 +48,8 @@ export const businessSchema = z.object({
       (value) => value === "" || z.email().safeParse(value).success,
       "Enter a valid email",
     ),
-  taxId: z.string().trim().max(50, "Tax ID must be 50 characters or fewer"),
-  address: z.string().trim().max(300, "Address is too long"),
+  // ISO alpha-2 from the country picker; "" means not set.
+  country: z.union([z.literal(""), z.string().length(2, "Select a country")]),
 });
 
 export type BusinessFormInput = z.input<typeof businessSchema>;
@@ -138,3 +139,7 @@ export type PaymentInstructionsInput = z.input<
 export type PaymentInstructionsOutput = z.output<
   typeof paymentInstructionsSchema
 >;
+
+export const invoiceTemplateSchema = z.object({
+  template: z.enum(INVOICE_TEMPLATE_IDS, "Choose a template"),
+});

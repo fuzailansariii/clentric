@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getProjectForProposal, getProposalById } from "../queries";
+import { getEmailStatus } from "@/lib/email/quota";
 import { ProposalDetailView } from "./proposal-detail";
 
 type ProposalPageProps = {
@@ -17,10 +18,19 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
     notFound();
   }
 
-  // Only accepted proposals can have a project, so the lookup is skipped
-  // entirely for the rest.
-  const project =
-    proposal.status === "accepted" ? await getProjectForProposal(id) : null;
+  // Only accepted proposals can have a project, and only ones still out
+  // with the client can be emailed, so each lookup runs only when needed.
+  const isOut = proposal.status === "sent" || proposal.status === "viewed";
+  const [project, emailStatus] = await Promise.all([
+    proposal.status === "accepted" ? getProjectForProposal(id) : null,
+    isOut ? getEmailStatus(id, "proposal") : null,
+  ]);
 
-  return <ProposalDetailView proposal={proposal} project={project} />;
+  return (
+    <ProposalDetailView
+      proposal={proposal}
+      project={project}
+      emailStatus={emailStatus}
+    />
+  );
 }

@@ -42,7 +42,7 @@ export function logActivity<A extends ActivityAction>(entry: ActivityEntry<A>) {
   });
 }
 
-/** Takes an event back out when its action is undone (undo send, unpay). */
+/** Takes an event back out when its action is undone (unpay). */
 export async function removeActivity(entry: {
   userId: string;
   action: ActivityAction;

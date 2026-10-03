@@ -3,6 +3,7 @@ import { formatCurrency, formatNumber } from "@/lib/format-currency";
 import { formatDate } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { formatIssuer } from "@/lib/format-issuer";
+import { countryName } from "@/lib/countries";
 import { formatPaymentMethod, hasPaymentDetails } from "@/lib/payment-methods";
 import {
   formatLineItemQuantity,
@@ -328,7 +329,9 @@ export function InvoicePdfDocument({
               <Text style={styles.partyLine}>{invoice.clientEmail}</Text>
             ) : null}
             {invoice.clientCountry ? (
-              <Text style={styles.partyLine}>{invoice.clientCountry}</Text>
+              <Text style={styles.partyLine}>
+                {countryName(invoice.clientCountry)}
+              </Text>
             ) : null}
           </View>
 

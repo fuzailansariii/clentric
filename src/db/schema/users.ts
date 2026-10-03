@@ -7,10 +7,16 @@ import {
   integer,
   decimal,
   check,
+  pgEnum,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { authUsers } from "drizzle-orm/supabase";
 import { subscriptionPlanEnum } from "./enums";
+
+export const invoiceTemplateEnum = pgEnum("invoice_template", [
+  "classic",
+  "modern",
+]);
 
 export const users = pgTable(
   "users",
@@ -58,6 +64,8 @@ export const users = pgTable(
     phone: text("phone"),
     taxId: text("tax_id"),
     address: text("address"),
+    /** ISO 3166 alpha-2, e.g. "IN". Printed on invoices and proposals. */
+    country: text("country"),
 
     /**
      * Invoice & proposal defaults. New invoices and proposals start from
@@ -65,6 +73,10 @@ export const users = pgTable(
      * invoice_counters, which owns numbering.
      */
     invoicePrefix: text("invoice_prefix").notNull().default("INV-"),
+    /** Layout of every invoice PDF, old ones included. */
+    invoiceTemplate: invoiceTemplateEnum("invoice_template")
+      .notNull()
+      .default("classic"),
     /** Days from issue to due date: 0 (on receipt), 7, 14 or 30. */
     paymentTermsDays: integer("payment_terms_days").notNull().default(14),
     defaultTaxRate: decimal("default_tax_rate", { precision: 5, scale: 2 })

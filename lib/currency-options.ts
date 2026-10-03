@@ -1,11 +1,10 @@
 /**
  * The currencies this product will bill in.
  *
- * NOT rendered anywhere today - everything is created as USD on purpose, and
- * the pickers were removed. Kept because proposals, invoices and projects all
- * carry a currency column already, so switching this on later is a UI change
- * rather than a migration. CURRENCY_CODES still guards the Zod schemas so a
- * hand-crafted request cannot store something arbitrary.
+ * USD only for now: the pickers were removed and the schemas reject any
+ * other code, even from a hand-crafted request. Proposals, invoices and
+ * projects already carry a currency column, so adding currencies later means
+ * adding them here plus the pickers, not a migration.
  *
  * Shared by the proposal and invoice builders so the two can never offer
  * different lists. The symbol is part of the label string rather than a
@@ -15,11 +14,6 @@
  */
 export const CURRENCY_OPTIONS = [
   { value: "USD", label: "$  USD - US Dollar" },
-  { value: "EUR", label: "€  EUR - Euro" },
-  { value: "GBP", label: "£  GBP - British Pound" },
-  { value: "CAD", label: "C$  CAD - Canadian Dollar" },
-  { value: "AUD", label: "A$  AUD - Australian Dollar" },
-  { value: "INR", label: "₹  INR - Indian Rupee" },
 ] as const;
 
 /** Widened to string[] so `.includes()` accepts arbitrary user input. */
