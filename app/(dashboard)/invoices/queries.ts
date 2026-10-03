@@ -27,6 +27,7 @@ import {
   type IssuerDetails,
 } from "@/lib/issuer-snapshot";
 import type { PaymentDetails } from "@/lib/payment-methods";
+import type { InvoiceTemplate } from "@/lib/invoice-templates";
 
 export type InvoiceListItem = {
   id: string;
@@ -285,6 +286,8 @@ export type InvoicePdfData = {
   }[];
   /** The "From" block: this invoice's snapshot once sent, live otherwise. */
   profile: IssuerDetails;
+  /** The layout the freelancer picked in settings. */
+  template: InvoiceTemplate;
 };
 
 export async function getInvoiceForPdf(
@@ -342,7 +345,7 @@ export async function getInvoiceForPdf(
           orderBy: [asc(invoiceItems.sortOrder), asc(invoiceItems.id)],
         },
         user: {
-          columns: issuerUserColumns,
+          columns: { ...issuerUserColumns, invoiceTemplate: true },
           with: { paymentMethods: visiblePaymentMethods },
         },
       },
@@ -378,6 +381,7 @@ export async function getInvoiceForPdf(
       },
       items: lineItems,
       profile: resolveIssuer(issuerSnapshot, liveIssuer(owner)),
+      template: owner.invoiceTemplate,
     };
   } catch (error) {
     unstable_rethrow(error);

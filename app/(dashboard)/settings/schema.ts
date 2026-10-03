@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { normalizeWebsite } from "@/lib/format-website";
 import { PROFESSIONS } from "@/lib/professions";
+import { INVOICE_TEMPLATE_IDS } from "@/lib/invoice-templates";
 import {
   PAYMENT_METHOD_FIELDS,
   PAYMENT_METHOD_TYPES,
@@ -138,3 +139,7 @@ export type PaymentInstructionsInput = z.input<
 export type PaymentInstructionsOutput = z.output<
   typeof paymentInstructionsSchema
 >;
+
+export const invoiceTemplateSchema = z.object({
+  template: z.enum(INVOICE_TEMPLATE_IDS, "Choose a template"),
+});

@@ -1,12 +1,17 @@
 import type { NextConfig } from "next";
 
+const pdfAssets = ["./assets/fonts/**/*", "./app/apple-icon.png"];
+
 const nextConfig: NextConfig = {
-  // The invoice PDF reads its TTF fonts from disk at render time
-  // (app/(dashboard)/invoices/invoice-pdf-fonts.ts). Nothing imports those
-  // files, so the build's file tracing can't discover them — ship them with
-  // the PDF route explicitly. Brackets are escaped: keys are glob patterns.
+  // Invoice PDFs read their TTF fonts and the Clentric icon from disk at
+  // render time. Nothing imports those files, so file tracing can't find
+  // them: ship them with the PDF route and with every page whose server
+  // actions email a PDF (send invoice, send reminder). Keys are globs, so
+  // brackets are escaped.
   outputFileTracingIncludes: {
-    "/api/invoices/\\[id\\]/pdf": ["./assets/fonts/**/*"],
+    "/api/invoices/\\[id\\]/pdf": pdfAssets,
+    "/invoices{,/**}": pdfAssets,
+    "/clients/**": pdfAssets,
   },
 };
 

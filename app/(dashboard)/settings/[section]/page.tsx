@@ -10,6 +10,7 @@ import { ProfileSection } from "../profile-section";
 import { AccountSection } from "../account-section";
 import { BusinessSection } from "../business-section";
 import { PaymentsSection } from "../payments-section";
+import { InvoiceTemplateSection } from "../invoice-template-section";
 import { PlanSection } from "../plan-section";
 import { BillingSection } from "../billing-section";
 
@@ -45,6 +46,12 @@ const TAB_CONTENT: Record<SettingsSlug, () => ReactNode> = {
         description="Switched-on methods are printed on your new invoices."
       >
         <PaymentsSection />
+      </SettingsGroup>
+      <SettingsGroup
+        title="Invoice template"
+        description="How your invoice PDFs look, downloaded or emailed."
+      >
+        <InvoiceTemplateSection />
       </SettingsGroup>
     </>
   ),

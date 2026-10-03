@@ -105,6 +105,26 @@ export async function getBusinessSettings() {
   }
 }
 
+/** The invoice PDF layout picked in Settings → Business. */
+export async function getInvoiceTemplateSetting() {
+  try {
+    const user = await requireUser();
+
+    const [row] = await db
+      .select({ template: users.invoiceTemplate })
+      .from(users)
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
+      .limit(1);
+
+    return row?.template ?? null;
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getInvoiceTemplateSetting", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load your invoice template.");
+  }
+}
+
 export type BusinessSettings = NonNullable<
   Awaited<ReturnType<typeof getBusinessSettings>>
 >;
