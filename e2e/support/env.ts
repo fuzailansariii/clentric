@@ -39,7 +39,29 @@ export async function deleteTestData(userId: string) {
       await tx`delete from email_sends where user_id = ${userId}`;
       await tx`delete from invoice_counters where user_id = ${userId}`;
     });
+    await resetBranding(sql, userId);
   } finally {
     await sql.end();
   }
+}
+
+/** Clears the test account's branding and deletes its logo from ImageKit. */
+async function resetBranding(sql: ReturnType<typeof testDb>, userId: string) {
+  const [row] = await sql<{ logo_file_id: string | null }[]>`
+    select logo_file_id from users where id = ${userId}
+  `;
+  await sql`
+    update users set brand_color = null, testimonial_quote = null,
+      testimonial_author = null, logo_url = null, logo_file_id = null,
+      logo_updated_at = null
+    where id = ${userId}
+  `;
+  const key = process.env.IMAGEKIT_PRIVATE_KEY;
+  if (!row?.logo_file_id || !key) return;
+  await fetch(`https://api.imagekit.io/v1/files/${row.logo_file_id}`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Basic ${Buffer.from(`${key}:`).toString("base64")}`,
+    },
+  });
 }
