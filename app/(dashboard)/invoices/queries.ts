@@ -28,20 +28,19 @@ import {
 } from "@/lib/issuer-snapshot";
 import type { PaymentDetails } from "@/lib/payment-methods";
 import type { InvoiceTemplate } from "@/lib/invoice-templates";
+import { logoSrc } from "@/lib/logo-url";
 
 export type InvoiceListItem = {
   id: string;
   invoiceNumber: number;
   numberPrefix: string;
   clientName: string | null;
-  projectTitle: string | null; // from the linked project, for the description line
-  total: string; // decimal(12,2) comes back as string from drizzle
+  projectTitle: string | null;
+  total: string;
   currency: string;
   status: InvoiceDisplayStatus;
-  issueDate: string; // drizzle `date` returns "yyyy-mm-dd" string
+  issueDate: string;
   dueDate: string;
-  /** Whole days until the due date, negative once it's passed. Computed in
-   * SQL so rendering doesn't read the clock. */
   daysUntilDue: number;
   createdAt: string | Date;
   sentAt: Date | null;
@@ -217,7 +216,7 @@ export async function getInvoiceById(invoiceId: string) {
       with: {
         lineItems: { orderBy: [asc(invoiceItems.sortOrder)] },
         user: {
-          columns: issuerUserColumns,
+          columns: { ...issuerUserColumns, logoUrl: true },
           with: { paymentMethods: visiblePaymentMethods },
         },
       },
@@ -229,6 +228,7 @@ export async function getInvoiceById(invoiceId: string) {
 
     return {
       ...invoice,
+      logoSrc: owner?.logoUrl ? logoSrc(owner.logoUrl) : null,
       // Sent invoices print the details they went out with; drafts (and
       // invoices sent before snapshots existed) print the live ones.
       issuer: owner
@@ -253,26 +253,21 @@ export type InvoicePdfData = {
     id: string;
     invoiceNumber: number;
     numberPrefix: string;
-    /** Printed at the bottom; null when there are none. */
     notes: string | null;
     status: InvoiceDisplayStatus;
     issueDate: string;
     dueDate: string;
-    /** For the "Paid" stamp's date line. */
     paidAt: Date | null;
     subTotal: string;
     taxRate: string;
     taxAmount: string;
     total: string;
     currency: string;
-    /** How to pay: the snapshot's methods once sent, live ones on a draft
-     * (see resolvePayment). Informational only — no payment link. */
     payment: PaymentDetails;
     clientName: string;
     clientEmail: string | null;
     clientCompany: string | null;
     clientCountry: string | null;
-    /** Linked project's title; null when unlinked or the project was deleted. */
     projectTitle: string | null;
   };
   items: {
@@ -281,13 +276,11 @@ export type InvoicePdfData = {
     quantity: string;
     rate: string;
     amount: string;
-    /** What quantity counts — shown as "12.5 hrs × $85.00/hr". */
     unit: InvoiceItemUnit;
   }[];
-  /** The "From" block: this invoice's snapshot once sent, live otherwise. */
   profile: IssuerDetails;
-  /** The layout the freelancer picked in settings. */
   template: InvoiceTemplate;
+  logoUrl: string | null;
 };
 
 /** The signed-in user's invoice, ready for the PDF. */
@@ -305,11 +298,6 @@ export async function getInvoiceForPdf(
   }
 }
 
-/**
- * The same data for a known owner, for server work with no signed-in user
- * (emailing a deposit invoice when a client accepts). The owner id must come
- * from the server, never from the request.
- */
 export async function getInvoicePdfDataForOwner(
   invoiceId: string,
   ownerId: string,
@@ -347,8 +335,6 @@ export async function getInvoicePdfDataForOwner(
         client: {
           columns: { name: true, email: true, company: true, country: true },
         },
-        // `where` is only supported on many() relations, so the soft-delete
-        // check happens below — a deleted project reads as no project.
         project: {
           columns: { title: true, deletedAt: true },
         },
@@ -364,7 +350,11 @@ export async function getInvoicePdfDataForOwner(
           orderBy: [asc(invoiceItems.sortOrder), asc(invoiceItems.id)],
         },
         user: {
-          columns: { ...issuerUserColumns, invoiceTemplate: true },
+          columns: {
+            ...issuerUserColumns,
+            invoiceTemplate: true,
+            logoUrl: true,
+          },
           with: { paymentMethods: visiblePaymentMethods },
         },
       },
@@ -401,6 +391,7 @@ export async function getInvoicePdfDataForOwner(
       items: lineItems,
       profile: resolveIssuer(issuerSnapshot, liveIssuer(owner)),
       template: owner.invoiceTemplate,
+      logoUrl: owner.logoUrl,
     };
   } catch (error) {
     unstable_rethrow(error);

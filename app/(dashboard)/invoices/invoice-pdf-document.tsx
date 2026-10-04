@@ -1,4 +1,12 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import {
+  Document,
+  Image,
+  Page,
+  StyleSheet,
+  Text,
+  View,
+} from "@react-pdf/renderer";
+import type { PdfLogo } from "@/lib/logo-for-pdf";
 import { formatCurrency, formatNumber } from "@/lib/format-currency";
 import { formatDate } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
@@ -76,6 +84,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: colors.rule,
   },
+  logo: { height: 30, maxWidth: 140, objectFit: "contain", marginBottom: 14 },
   eyebrow: {
     fontFamily: pdfFonts.display,
     fontWeight: 700,
@@ -255,9 +264,11 @@ function stampDetail(invoice: InvoicePdfData["invoice"]): string | null {
 
 export function InvoicePdfDocument({
   data,
+  logo = null,
   showBranding = true,
 }: {
   data: InvoicePdfData;
+  logo?: PdfLogo | null;
   showBranding?: boolean;
 }) {
   const { invoice, items, profile } = data;
@@ -288,6 +299,10 @@ export function InvoicePdfDocument({
         {/* Header */}
         <View style={styles.header}>
           <View>
+            {logo ? (
+              // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt
+              <Image src={logo} style={styles.logo} />
+            ) : null}
             <Text style={styles.eyebrow}>Invoice</Text>
             <Text style={styles.number}>{invoiceNumber}</Text>
           </View>

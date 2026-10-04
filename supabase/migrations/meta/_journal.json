@@ -134,6 +134,13 @@
       "when": 1791048140432,
       "tag": "0018_proposal_delivery_days",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1791133348466,
+      "tag": "0019_user_branding",
+      "breakpoints": true
     }
   ]
 }

@@ -1,28 +1,26 @@
 import { renderToBuffer } from "@react-pdf/renderer";
+import { fetchLogoForPdf } from "@/lib/logo-for-pdf";
 import { InvoicePdfDocument } from "./invoice-pdf-document";
 import { ModernInvoicePdfDocument } from "./invoice-pdf-modern";
 import type { InvoicePdfData } from "./queries";
 
-/**
- * The one place that actually calls @react-pdf/renderer's renderToBuffer.
- * Used by the download route (`app/api/invoices/[id]/pdf/route.ts`) today,
- * and meant to be imported by the future Resend email-attachment
- * integration too — same render function for both, so the downloaded file
- * and the emailed one can never quietly drift apart into two different PDFs.
- */
+
 export async function renderInvoicePdf(
   data: InvoicePdfData,
   showBranding: boolean,
 ): Promise<Buffer> {
+  const logo = await fetchLogoForPdf(data.logoUrl);
+
   return renderToBuffer(
     data.template === "modern" ? (
       <ModernInvoicePdfDocument
         data={data}
+        logo={logo}
         showBranding={showBranding}
         renderedAt={Date.now()}
       />
     ) : (
-      <InvoicePdfDocument data={data} showBranding={showBranding} />
+      <InvoicePdfDocument data={data} logo={logo} showBranding={showBranding} />
     ),
   );
 }

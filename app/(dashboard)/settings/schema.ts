@@ -2,6 +2,7 @@ import { z } from "zod";
 import { normalizeWebsite } from "@/lib/format-website";
 import { PROFESSIONS } from "@/lib/professions";
 import { INVOICE_TEMPLATE_IDS } from "@/lib/invoice-templates";
+import { BRAND_COLOR_PATTERN } from "@/lib/brand-color";
 import {
   PAYMENT_METHOD_FIELDS,
   PAYMENT_METHOD_TYPES,
@@ -139,6 +140,33 @@ export type PaymentInstructionsInput = z.input<
 export type PaymentInstructionsOutput = z.output<
   typeof paymentInstructionsSchema
 >;
+
+export const brandingFormSchema = z.object({
+  brandColor: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .refine(
+      (value) => value === "" || BRAND_COLOR_PATTERN.test(value),
+      "Enter a colour like #3454d1",
+    ),
+  testimonialQuote: z
+    .string()
+    .trim()
+    .max(300, "Keep the quote to 300 characters or fewer"),
+  testimonialAuthor: z
+    .string()
+    .trim()
+    .max(80, "Keep the name to 80 characters or fewer"),
+});
+
+export const brandingSchema = brandingFormSchema.refine(
+  (value) => !value.testimonialAuthor || value.testimonialQuote,
+  { path: ["testimonialQuote"], message: "Add the quote too, or clear the name" },
+);
+
+export type BrandingFormInput = z.input<typeof brandingFormSchema>;
+export type BrandingFormOutput = z.output<typeof brandingFormSchema>;
 
 export const invoiceTemplateSchema = z.object({
   template: z.enum(INVOICE_TEMPLATE_IDS, "Choose a template"),

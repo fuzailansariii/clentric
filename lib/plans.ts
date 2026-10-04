@@ -105,7 +105,7 @@ const pro = {
     // Not built yet: flip to true once each works.
     {
       text: "Your logo and colours on proposals and invoices",
-      availableAtLaunch: false,
+      availableAtLaunch: true,
     },
     {
       text: "Email notifications and payment reminders",

@@ -2,10 +2,9 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { useRouter } from "next/navigation";
 import { Field } from "@/components/ui/input";
 import { CountryCombobox } from "@/components/ui/country-combobox";
-import { AvatarInitials } from "@/components/ui/avatar-initials";
+import { BrandLogo } from "@/components/brand-logo";
 import { SaveBar } from "@/components/settings/save-bar";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { updateBusinessAction } from "./actions";
@@ -17,8 +16,6 @@ import {
 import type { BusinessSettings } from "./queries";
 
 export function BusinessForm({ business }: { business: BusinessSettings }) {
-  const router = useRouter();
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<BusinessFormInput, any, BusinessFormOutput>({
     resolver: zodResolver(businessSchema),
@@ -49,7 +46,6 @@ export function BusinessForm({ business }: { business: BusinessSettings }) {
         // The normalized website becomes the new baseline, so the field
         // shows what was actually saved and the SaveBar clears.
         reset(data);
-        router.refresh();
       },
     });
   });
@@ -59,13 +55,9 @@ export function BusinessForm({ business }: { business: BusinessSettings }) {
       <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
         <div className="divide-border @container divide-y">
           <div className="flex min-w-0 items-center gap-3 px-5 py-4 sm:px-6">
-            {/* TODO(logo-upload): replace with the uploaded business logo,
-                keeping these initials as the fallback when there's none. */}
-            <AvatarInitials
+            <BrandLogo
+              src={business.logoSrc}
               name={businessName || "Business"}
-              size="lg"
-              shape="square"
-              variant="accent"
             />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">

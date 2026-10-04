@@ -16,6 +16,7 @@ import { proposals } from "@/src/db/schema/proposals";
 import { invoices } from "@/src/db/schema/invoices";
 import { emailSends } from "@/src/db/schema/email-sends";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
+import { logoSrc } from "@/lib/logo-url";
 import { createProjectFromProposal } from "@/lib/create-project-from-proposal";
 import { logActivity } from "@/lib/activity";
 import { emailProposal } from "@/lib/email/document-emails";
@@ -69,6 +70,7 @@ export type PublicProposal = {
    */
   owner: IssuerDetails & {
     avatar: string | null;
+    logoSrc: string | null;
     brandColor: string | null;
     testimonialQuote: string | null;
     testimonialAuthor: string | null;
@@ -152,6 +154,7 @@ export async function getProposalByToken(
             address: true,
             country: true,
             avatar: true,
+            logoUrl: true,
             brandColor: true,
             // No payment details here: the page only shows how to pay
             // after acceptance, from the deposit invoice itself.
@@ -277,6 +280,7 @@ export async function getProposalByToken(
         owner: {
           ...resolveIssuer(issuerSnapshot, liveIssuer(user)),
           avatar: user.avatar,
+          logoSrc: user.logoUrl ? logoSrc(user.logoUrl) : null,
           brandColor: user.brandColor,
           testimonialQuote: user.testimonialQuote,
           testimonialAuthor: user.testimonialAuthor,

@@ -45,6 +45,23 @@ describe("email templates", () => {
     expect(email.text).not.toContain("Valid until");
   });
 
+  it("shows an https logo with an escaped alt and skips anything else", () => {
+    const withLogo = invoiceEmail({
+      ...base,
+      logo: { src: "https://ik.imagekit.io/x/logo.png?tr=f-png", alt: 'A"B' },
+    });
+    expect(withLogo.html).toContain(
+      'src="https://ik.imagekit.io/x/logo.png?tr=f-png" alt="A&quot;B"',
+    );
+
+    const unsafe = invoiceEmail({
+      ...base,
+      logo: { src: "javascript:alert(1)", alt: "x" },
+    });
+    expect(unsafe.html).not.toContain("<img");
+    expect(invoiceEmail(base).html).not.toContain("<img");
+  });
+
   it("escapes quotes for attributes", () => {
     expect(escapeHtml(`"'<>&`)).toBe("&quot;&#39;&lt;&gt;&amp;");
   });

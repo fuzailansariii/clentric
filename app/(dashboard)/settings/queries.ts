@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { unstable_rethrow } from "next/navigation";
 import { and, asc, count, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { requireUser } from "@/lib/current-user";
@@ -10,25 +11,42 @@ import { clients } from "@/src/db/schema/clients";
 import { proposals } from "@/src/db/schema/proposals";
 import { projects } from "@/src/db/schema/projects";
 import { invoices } from "@/src/db/schema/invoices";
+import { logoSrc } from "@/lib/logo-url";
+
+// Every settings section reads the user row through this: one query per request.
+const getSettingsRow = cache(async (userId: string) => {
+  const [row] = await db
+    .select({
+      name: users.name,
+      email: users.email,
+      profession: users.profession,
+      businessName: users.businessName,
+      businessEmail: users.businessEmail,
+      website: users.website,
+      country: users.country,
+      logoUrl: users.logoUrl,
+      brandColor: users.brandColor,
+      testimonialQuote: users.testimonialQuote,
+      testimonialAuthor: users.testimonialAuthor,
+      paymentDetails: users.paymentDetails,
+      invoiceTemplate: users.invoiceTemplate,
+    })
+    .from(users)
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
+    .limit(1);
+  return row ?? null;
+});
 
 export async function getProfileSettings() {
   try {
     const user = await requireUser();
-
-    const [row] = await db
-      .select({
-        name: users.name,
-        email: users.email,
-        profession: users.profession,
-      })
-      .from(users)
-      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
-      .limit(1);
-
+    const row = await getSettingsRow(user.id);
     if (!row) return null;
 
     return {
-      ...row,
+      name: row.name,
+      email: row.email,
+      profession: row.profession,
       // Verification lives on the auth user, not in the users table.
       emailVerified: Boolean(user.email_confirmed_at),
     };
@@ -83,19 +101,16 @@ export async function getIssuerTitle(): Promise<string> {
 export async function getBusinessSettings() {
   try {
     const user = await requireUser();
+    const row = await getSettingsRow(user.id);
+    if (!row) return null;
 
-    const [row] = await db
-      .select({
-        businessName: users.businessName,
-        businessEmail: users.businessEmail,
-        website: users.website,
-        country: users.country,
-      })
-      .from(users)
-      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
-      .limit(1);
-
-    return row ?? null;
+    return {
+      businessName: row.businessName,
+      businessEmail: row.businessEmail,
+      website: row.website,
+      country: row.country,
+      logoSrc: row.logoUrl ? logoSrc(row.logoUrl) : null,
+    };
   } catch (error) {
     unstable_rethrow(error);
     logError("getBusinessSettings", error);
@@ -104,18 +119,37 @@ export async function getBusinessSettings() {
   }
 }
 
+export async function getBrandingSettings() {
+  try {
+    const user = await requireUser();
+    const row = await getSettingsRow(user.id);
+    if (!row) return null;
+
+    return {
+      brandColor: row.brandColor,
+      testimonialQuote: row.testimonialQuote,
+      testimonialAuthor: row.testimonialAuthor,
+      displayName: row.businessName?.trim() || row.name?.trim() || row.email,
+      logoSrc: row.logoUrl ? logoSrc(row.logoUrl) : null,
+    };
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getBrandingSettings", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load your branding.");
+  }
+}
+
+export type BrandingSettings = NonNullable<
+  Awaited<ReturnType<typeof getBrandingSettings>>
+>;
+
 /** The invoice PDF layout picked in Settings → Business. */
 export async function getInvoiceTemplateSetting() {
   try {
     const user = await requireUser();
-
-    const [row] = await db
-      .select({ template: users.invoiceTemplate })
-      .from(users)
-      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
-      .limit(1);
-
-    return row?.template ?? null;
+    const row = await getSettingsRow(user.id);
+    return row?.invoiceTemplate ?? null;
   } catch (error) {
     unstable_rethrow(error);
     logError("getInvoiceTemplateSetting", error);
@@ -132,7 +166,7 @@ export async function getPaymentSettings() {
   try {
     const user = await requireUser();
 
-    const [methods, [owner]] = await Promise.all([
+    const [methods, owner] = await Promise.all([
       db
         .select({
           type: userPaymentMethods.type,
@@ -153,17 +187,13 @@ export async function getPaymentSettings() {
           ),
         )
         .orderBy(asc(userPaymentMethods.type)),
-      db
-        // "Other payment instructions" live on the old free-text column.
-        .select({ instructions: users.paymentDetails })
-        .from(users)
-        .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
-        .limit(1),
+      getSettingsRow(user.id),
     ]);
 
     if (!owner) return null;
 
-    return { methods, instructions: owner.instructions };
+    // "Other payment instructions" live on the old free-text column.
+    return { methods, instructions: owner.paymentDetails };
   } catch (error) {
     unstable_rethrow(error);
     logError("getPaymentSettings", error);

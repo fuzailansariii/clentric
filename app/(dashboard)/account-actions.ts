@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
+import { deleteImageKitFile } from "@/lib/imagekit";
 import { and, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
@@ -36,9 +38,21 @@ export async function requestAccountDeletionAction(
       };
     }
 
+    const [current] = await db
+      .select({ logoFileId: users.logoFileId })
+      .from(users)
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
+      .limit(1);
+
+    // The purge runs in the database and can't reach ImageKit, so the logo goes now.
     const [row] = await db
       .update(users)
-      .set({ deletionRequestedAt: new Date(), updatedAt: new Date() })
+      .set({
+        deletionRequestedAt: new Date(),
+        logoUrl: null,
+        logoFileId: null,
+        updatedAt: new Date(),
+      })
       .where(
         and(
           eq(users.id, user.id),
@@ -51,6 +65,9 @@ export async function requestAccountDeletionAction(
     if (!row) {
       return { success: false, error: "Could not find your account." };
     }
+
+    const logoFileId = current?.logoFileId;
+    if (logoFileId) after(() => deleteImageKitFile(logoFileId));
 
     const supabase = await createClient();
     await supabase.auth.signOut({ scope: "global" });

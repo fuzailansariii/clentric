@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/format-currency";
 import { formatDate } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { formatIssuer } from "@/lib/format-issuer";
+import { logoSrc } from "@/lib/logo-url";
 import {
   issuerUserColumns,
   liveIssuer,
@@ -26,9 +27,13 @@ const SEND_FAILED =
 
 const DAY_MS = 86_400_000;
 
-function sender(issuer: IssuerDetails) {
+function sender(issuer: IssuerDetails, logoUrl: string | null) {
   const { title } = formatIssuer(issuer);
-  return { name: title, fromName: `${title} via Clentric` };
+  return {
+    name: title,
+    fromName: `${title} via Clentric`,
+    logo: logoUrl ? { src: logoSrc(logoUrl, "document"), alt: title } : null,
+  };
 }
 
 /** Claims a slot, sends, and records the outcome. Throws AppError on failure. */
@@ -72,12 +77,13 @@ export async function emailInvoice(input: {
   const to = invoice.clientEmail?.trim();
   if (!to) throw new AppError("NO_CLIENT_EMAIL", NO_CLIENT_EMAIL);
 
-  const from = sender(profile);
+  const from = sender(profile, data.logoUrl);
   const invoiceNumber = formatInvoiceNumber(
     invoice.invoiceNumber,
     invoice.numberPrefix,
   );
   const details = {
+    logo: from.logo,
     senderName: from.name,
     clientName: invoice.clientName,
     invoiceNumber,
@@ -139,7 +145,7 @@ export async function emailProposal(input: {
     },
     with: {
       client: { columns: { name: true, email: true } },
-      user: { columns: issuerUserColumns },
+      user: { columns: { ...issuerUserColumns, logoUrl: true } },
     },
   });
 
@@ -155,8 +161,9 @@ export async function emailProposal(input: {
   if (!to) throw new AppError("NO_CLIENT_EMAIL", NO_CLIENT_EMAIL);
 
   const profile = resolveIssuer(row.issuerSnapshot, liveIssuer(row.user));
-  const from = sender(profile);
+  const from = sender(profile, row.user.logoUrl);
   const email = proposalEmail({
+    logo: from.logo,
     senderName: from.name,
     clientName: row.client.name,
     title: row.title,
