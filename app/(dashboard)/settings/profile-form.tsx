@@ -2,7 +2,6 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch } from "react-hook-form";
-import { useRouter } from "next/navigation";
 import { Field } from "@/components/ui/input";
 import { FieldSelect } from "@/components/ui/field-select";
 import { AvatarInitials } from "@/components/ui/avatar-initials";
@@ -28,8 +27,6 @@ const PROFESSION_OPTIONS = PROFESSIONS.map((value) => ({
 }));
 
 export function ProfileForm({ profile }: { profile: ProfileSettings }) {
-  const router = useRouter();
-
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<ProfileFormInput, any, ProfileFormOutput>({
     resolver: zodResolver(profileSchema),
@@ -58,7 +55,6 @@ export function ProfileForm({ profile }: { profile: ProfileSettings }) {
       onSuccess: () => {
         // New baseline so the SaveBar stops reporting unsaved changes.
         reset(data);
-        router.refresh();
       },
     });
   });

@@ -11,14 +11,19 @@ import { createClient } from "./supabase/server";
  * screen and its two actions. Everything else uses requireUser().
  */
 export async function requireSignedInUser() {
+  const user = await getAuthUser();
+  if (!user) throw new AppError("UNAUTHENTICATED", "You must logged in.");
+  return user;
+}
+
+// One Supabase Auth call per request, however many layouts and queries ask.
+export const getAuthUser = cache(async () => {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  if (!user) throw new AppError("UNAUTHENTICATED", "You must logged in.");
   return user;
-}
+});
 
 // Deduped per request: requireUser() runs once per query, and a page makes
 // several.
