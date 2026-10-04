@@ -133,7 +133,8 @@ export const LEGAL = {
 
   /** Third parties that process data on Clentric’s behalf. */
   processors: [
-    { name: "Supabase", purpose: "Database, authentication and file storage" },
+    { name: "Supabase", purpose: "Database and authentication" },
+    { name: "ImageKit", purpose: "Storing and serving business logos" },
     { name: "Vercel", purpose: "Hosting" },
     {
       name: "Payment provider",

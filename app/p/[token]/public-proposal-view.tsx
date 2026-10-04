@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { CheckCircle2, Loader2, Mail } from "lucide-react";
 
-import { AvatarInitials } from "@/components/ui/avatar-initials";
+import { BrandLogo } from "@/components/brand-logo";
+import { resolveBrandColor, textOnBrandColor } from "@/lib/brand-color";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   formatCurrency,
@@ -20,8 +21,6 @@ import {
   type RespondResult,
 } from "@/app/(dashboard)/proposals/public-actions";
 import type { PublicProposal } from "@/app/(dashboard)/proposals/actions";
-
-const DEFAULT_BRAND = "#3454d1";
 
 type Props = {
   proposal: PublicProposal;
@@ -56,9 +55,8 @@ export function PublicProposalView({ proposal, token }: Props) {
     void viewProposalAction(token);
   }, [token]);
 
-  const brand = /^#[0-9a-fA-F]{6}$/.test(proposal.owner.brandColor ?? "")
-    ? (proposal.owner.brandColor as string)
-    : DEFAULT_BRAND;
+  const brand = resolveBrandColor(proposal.owner.brandColor);
+  const onBrand = textOnBrandColor(brand);
 
   const currency = proposal.currency;
   const depositPercent = Number(proposal.depositPercent);
@@ -130,10 +128,11 @@ export function PublicProposalView({ proposal, token }: Props) {
 
         <header className="border-border flex items-start justify-between gap-4 border-b px-5 py-5 sm:px-8 sm:py-6">
           <div className="flex min-w-0 items-center gap-3">
-            {/* AvatarInitials renders initials only, so the uploaded avatar
-                is not used here. Worth revisiting if profile photos should
-                appear on client-facing pages. */}
-            <AvatarInitials name={ownerName} shape="circle" />
+            <BrandLogo
+              src={proposal.owner.logoSrc}
+              name={ownerName}
+              fallbackShape="circle"
+            />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{ownerName}</p>
               {proposal.viewedAt && (
@@ -287,8 +286,8 @@ export function PublicProposalView({ proposal, token }: Props) {
                   type="button"
                   onClick={() => respond("accepted")}
                   disabled={isPending}
-                  style={{ backgroundColor: brand }}
-                  className="focus-visible:ring-ring inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60 sm:flex-1"
+                  style={{ backgroundColor: brand, color: onBrand }}
+                  className="focus-visible:ring-ring inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60 sm:flex-1"
                 >
                   {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                   {depositPercent > 0
@@ -490,8 +489,8 @@ export function PublicProposalView({ proposal, token }: Props) {
                         type="button"
                         onClick={claimPayment}
                         disabled={isPending || paymentNote.trim().length < 3}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                        style={{ backgroundColor: brand }}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                        style={{ backgroundColor: brand, color: onBrand }}
                       >
                         {isPending && (
                           <Loader2 className="h-4 w-4 animate-spin" />

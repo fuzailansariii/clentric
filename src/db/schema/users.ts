@@ -33,51 +33,24 @@ export const users = pgTable(
       .notNull()
       .default(false),
     timezone: text("timezone").default("UTC"),
-    /** Hex colour used for the branding strip on public proposal pages. */
     brandColor: text("brand_color"),
-    /**
-     * "Other payment instructions": free text printed under the payment
-     * methods (user_payment_methods) on invoices. Never card data, and never
-     * sent to a payment provider — clients pay the freelancer directly,
-     * outside the app. Kept under its original column name so existing
-     * details carried over without a data migration.
-     */
+    logoUrl: text("logo_url"),
+    logoFileId: text("logo_file_id"),
+    logoUpdatedAt: timestamp("logo_updated_at", { withTimezone: true }),
     paymentDetails: text("payment_details"),
-    /** Optional quote shown on public proposal pages. */
     testimonialQuote: text("testimonial_quote"),
     testimonialAuthor: text("testimonial_author"),
-    /**
-     * Business details printed on invoices and proposals. Documents read
-     * these live while they are drafts; sending copies them into the
-     * document's issuer_snapshot so later edits never change what a client
-     * received.
-     */
     businessName: text("business_name"),
-    /**
-     * Where clients should write to about invoices and proposals. Printed in
-     * place of the sign-in email when set; null falls back to `email`.
-     */
     businessEmail: text("business_email"),
-    /** Normalized to a full https:// URL on save. */
     website: text("website"),
-    /** Dial code then number, e.g. "+44 2071234567" — same as clients.phone. */
     phone: text("phone"),
     taxId: text("tax_id"),
     address: text("address"),
-    /** ISO 3166 alpha-2, e.g. "IN". Printed on invoices and proposals. */
     country: text("country"),
-
-    /**
-     * Invoice & proposal defaults. New invoices and proposals start from
-     * these; existing ones never change. The next invoice *number* lives in
-     * invoice_counters, which owns numbering.
-     */
     invoicePrefix: text("invoice_prefix").notNull().default("INV-"),
-    /** Layout of every invoice PDF, old ones included. */
     invoiceTemplate: invoiceTemplateEnum("invoice_template")
       .notNull()
       .default("classic"),
-    /** Days from issue to due date: 0 (on receipt), 7, 14 or 30. */
     paymentTermsDays: integer("payment_terms_days").notNull().default(14),
     defaultTaxRate: decimal("default_tax_rate", { precision: 5, scale: 2 })
       .notNull()
@@ -100,12 +73,6 @@ export const users = pgTable(
       .notNull()
       .defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
-    /**
-     * Set when the user asks to delete their account. For the next 30 days
-     * the account is locked (requireUser refuses it, public links close)
-     * but restorable by signing in; after that it is purged. See
-     * ACCOUNT_DELETION_GRACE_DAYS in lib/account-deletion.ts.
-     */
     deletionRequestedAt: timestamp("deletion_requested_at", {
       withTimezone: true,
     }),
@@ -130,6 +97,19 @@ export const users = pgTable(
     check(
       "users_default_deposit_percent_range",
       sql`${table.defaultDepositPercent} between 0 and 100`,
+    ),
+    check(
+      "users_brand_color_format",
+      sql`${table.brandColor} is null or ${table.brandColor} ~ '^#[0-9a-f]{6}$'`,
+    ),
+    check(
+      "users_testimonial_length",
+      sql`char_length(${table.testimonialQuote}) <= 300 and char_length(${table.testimonialAuthor}) <= 80`,
+    ),
+    // Both set or both empty: a URL without its id could never be deleted.
+    check(
+      "users_logo_pair",
+      sql`(${table.logoUrl} is null) = (${table.logoFileId} is null)`,
     ),
   ],
 );

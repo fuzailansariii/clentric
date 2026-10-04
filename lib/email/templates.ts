@@ -19,7 +19,11 @@ export function escapeHtml(value: string): string {
 
 type Row = { label: string; value: string };
 
+/** A PNG display URL (logoSrc(url, "document")) and whose logo it is. */
+export type EmailLogo = { src: string; alt: string };
+
 function layout(input: {
+  logo?: EmailLogo | null;
   preheader: string;
   heading: string;
   paragraphs: string[];
@@ -43,6 +47,9 @@ function layout(input: {
   const button = input.button
     ? `<p style="margin:24px 0"><a href="${e(input.button.url)}" style="display:inline-block;background:#18181b;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:12px 22px;border-radius:6px">${e(input.button.label)}</a></p><p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#71717a">Or open this link: <a href="${e(input.button.url)}" style="color:#3f3f46;word-break:break-all">${e(input.button.url)}</a></p>`
     : "";
+  const logo = input.logo?.src.startsWith("https://")
+    ? `<img src="${e(input.logo.src)}" alt="${e(input.logo.alt)}" height="40" style="display:block;height:40px;width:auto;max-width:200px;margin:0 0 24px;border:0">`
+    : "";
 
   return `<!doctype html>
 <html lang="en">
@@ -53,6 +60,7 @@ function layout(input: {
 <tr><td align="center">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e4e4e7;border-radius:8px">
 <tr><td style="padding:32px">
+${logo}
 <h1 style="margin:0 0 20px;font-size:20px;line-height:1.3;color:#18181b">${e(input.heading)}</h1>
 ${paragraphs}
 ${rows ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e4e4e7;border-bottom:1px solid #e4e4e7;margin:8px 0 16px">${rows}</table>` : ""}
@@ -91,6 +99,7 @@ function greeting(clientName: string) {
 }
 
 export function invoiceEmail(input: {
+  logo?: EmailLogo | null;
   senderName: string;
   clientName: string;
   invoiceNumber: string;
@@ -111,6 +120,7 @@ export function invoiceEmail(input: {
   return {
     subject: `Invoice ${input.invoiceNumber} from ${input.senderName}`,
     html: layout({
+      logo: input.logo,
       preheader: `${input.amount} due ${input.dueDate}`,
       heading: `Invoice ${input.invoiceNumber}`,
       paragraphs,
@@ -122,6 +132,7 @@ export function invoiceEmail(input: {
 }
 
 export function reminderEmail(input: {
+  logo?: EmailLogo | null;
   senderName: string;
   clientName: string;
   invoiceNumber: string;
@@ -149,6 +160,7 @@ export function reminderEmail(input: {
   return {
     subject: `${overdue ? "Overdue" : "Reminder"}: invoice ${input.invoiceNumber} from ${input.senderName}`,
     html: layout({
+      logo: input.logo,
       preheader: `${input.amount} ${status}`,
       heading: overdue
         ? `Invoice ${input.invoiceNumber} is overdue`
@@ -162,6 +174,7 @@ export function reminderEmail(input: {
 }
 
 export function proposalEmail(input: {
+  logo?: EmailLogo | null;
   senderName: string;
   clientName: string;
   title: string;
@@ -186,6 +199,7 @@ export function proposalEmail(input: {
   return {
     subject: `${input.senderName} sent you a proposal: ${input.title}`,
     html: layout({
+      logo: input.logo,
       preheader: `${input.title}: ${input.amount}`,
       heading: input.title,
       paragraphs,

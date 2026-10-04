@@ -27,6 +27,7 @@ import {
 import { invoiceStatusConfig } from "./invoice-status-config";
 import { pdfFonts } from "./invoice-pdf-fonts";
 import type { InvoicePdfData } from "./queries";
+import type { PdfLogo } from "@/lib/logo-for-pdf";
 
 /**
  * The "Modern" invoice template, ported from the Claude Design mockup
@@ -90,6 +91,7 @@ const s = StyleSheet.create({
     marginRight: 9,
   },
   monogramText: { ...display, color: "#ffffff", fontSize: 14, lineHeight: 1 },
+  logo: { height: 31.5, maxWidth: 120, objectFit: "contain", marginRight: 9 },
   brandName: { ...strong, fontSize: 13, lineHeight: 1.25 },
   brandSub: { color: c.muted, fontSize: 9.5 },
   title: {
@@ -280,10 +282,12 @@ function paymentRows(method: PaymentMethodDetails): [string, string][] {
 
 export function ModernInvoicePdfDocument({
   data,
+  logo = null,
   showBranding = true,
   renderedAt,
 }: {
   data: InvoicePdfData;
+  logo?: PdfLogo | null;
   showBranding?: boolean;
   /** When the PDF is made, for "N days past due". */
   renderedAt: number;
@@ -372,9 +376,14 @@ export function ModernInvoicePdfDocument({
       <Page size="A4" style={s.page}>
         <View style={s.header}>
           <View style={s.brand}>
-            <View style={s.monogram}>
-              <Text style={s.monogramText}>{monogram(issuer.title)}</Text>
-            </View>
+            {logo ? (
+              // eslint-disable-next-line jsx-a11y/alt-text -- react-pdf Image has no alt
+              <Image src={logo} style={s.logo} />
+            ) : (
+              <View style={s.monogram}>
+                <Text style={s.monogramText}>{monogram(issuer.title)}</Text>
+              </View>
+            )}
             <View>
               <Text style={s.brandName}>{issuer.title}</Text>
               {profession ? <Text style={s.brandSub}>{profession}</Text> : null}

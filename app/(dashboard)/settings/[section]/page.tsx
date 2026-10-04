@@ -9,6 +9,7 @@ import {
 import { ProfileSection } from "../profile-section";
 import { AccountSection } from "../account-section";
 import { BusinessSection } from "../business-section";
+import { BrandingSection } from "../branding-section";
 import { PaymentsSection } from "../payments-section";
 import { InvoiceTemplateSection } from "../invoice-template-section";
 import { PlanSection } from "../plan-section";
@@ -40,6 +41,12 @@ const TAB_CONTENT: Record<SettingsSlug, () => ReactNode> = {
         description="Who your invoices and proposals come from."
       >
         <BusinessSection />
+      </SettingsGroup>
+      <SettingsGroup
+        title="Branding"
+        description="Your logo, colour and a client quote on what clients see."
+      >
+        <BrandingSection />
       </SettingsGroup>
       <SettingsGroup
         title="Payment methods"

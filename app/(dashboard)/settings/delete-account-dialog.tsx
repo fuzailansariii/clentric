@@ -75,6 +75,10 @@ export function DeleteAccountDialog({
                     Proposal links you’ve sent stop working for your clients.
                   </li>
                   <li>
+                    Your logo is removed right away and isn’t brought back if
+                    you restore your account.
+                  </li>
+                  <li>
                     After {ACCOUNT_DELETION_GRACE_DAYS} days everything is
                     deleted for good. Sign back in before then to restore it.
                   </li>

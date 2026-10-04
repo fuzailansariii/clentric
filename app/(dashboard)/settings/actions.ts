@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq, isNotNull, isNull } from "drizzle-orm";
+import { after } from "next/server";
+import { and, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import type { ActionResult } from "@/lib/action-result";
 import { requireUser } from "@/lib/current-user";
 import { logError } from "@/lib/errors";
@@ -14,6 +15,18 @@ import {
   type PaymentFieldName,
 } from "@/lib/payment-methods";
 import {
+  deleteImageKitFile,
+  isImageKitConfigured,
+  uploadLogo,
+} from "@/lib/imagekit";
+import {
+  LOGO_UPLOAD_COOLDOWN_SECONDS,
+  detectLogoType,
+  logoDimensionsError,
+  logoSizeError,
+} from "@/lib/logo-file";
+import {
+  brandingSchema,
   businessSchema,
   invoiceTemplateSchema,
   paymentInstructionsSchema,
@@ -101,6 +114,180 @@ export async function updateBusinessAction(
       success: false,
       error: "Could not save your business details. Try again.",
     };
+  }
+}
+
+export async function updateBrandingAction(
+  input: unknown,
+): Promise<ActionResult> {
+  try {
+    const parsed = brandingSchema.safeParse(input);
+    if (!parsed.success) {
+      return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const user = await requireUser();
+    // TODO(billing): brand colour is Pro once paid plans exist, like the logo.
+    const { brandColor, testimonialQuote, testimonialAuthor } = parsed.data;
+
+    const [row] = await db
+      .update(users)
+      .set({
+        brandColor: brandColor || null,
+        testimonialQuote: testimonialQuote || null,
+        testimonialAuthor: testimonialAuthor || null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
+      .returning({ id: users.id });
+
+    if (!row) {
+      return { success: false, error: "Could not find your account." };
+    }
+
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (error) {
+    logError("updateBrandingAction", error);
+    return { success: false, error: "Could not save your branding. Try again." };
+  }
+}
+
+const LOGO_UNAVAILABLE =
+  "Couldn't upload your logo right now. Try again in a minute.";
+
+export async function uploadLogoAction(
+  formData: FormData,
+): Promise<ActionResult> {
+  try {
+    const file = formData.get("logo");
+    if (!(file instanceof File)) {
+      return { success: false, error: "Choose an image to upload." };
+    }
+    const sizeError = logoSizeError(file.size);
+    if (sizeError) return { success: false, error: sizeError };
+
+    const user = await requireUser();
+    // TODO(billing): Pro only once paid plans exist; free for everyone in the beta.
+
+    if (!isImageKitConfigured()) {
+      logError("uploadLogoAction", "IMAGEKIT_* env vars are not set.");
+      return { success: false, error: LOGO_UNAVAILABLE };
+    }
+
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const type = detectLogoType(bytes);
+    if (!type) {
+      return { success: false, error: "Upload a PNG, JPG or WebP image." };
+    }
+
+    // Claims the cooldown before uploading, so double clicks and other tabs can't both pass.
+    const [claim] = await db
+      .update(users)
+      .set({ logoUpdatedAt: sql`now()` })
+      .where(
+        and(
+          eq(users.id, user.id),
+          isNull(users.deletedAt),
+          or(
+            isNull(users.logoUpdatedAt),
+            lt(
+              users.logoUpdatedAt,
+              sql`now() - make_interval(secs => ${LOGO_UPLOAD_COOLDOWN_SECONDS})`,
+            ),
+          ),
+        ),
+      )
+      .returning({ previousFileId: users.logoFileId });
+
+    if (!claim) {
+      return {
+        success: false,
+        error: "You just changed your logo. Wait a few seconds and try again.",
+      };
+    }
+
+    const uploaded = await uploadLogo(bytes, type).catch((error: unknown) => {
+      logError("uploadLogoAction", error);
+      return null;
+    });
+    if (!uploaded) return { success: false, error: LOGO_UNAVAILABLE };
+
+    const dimensionsError = logoDimensionsError(uploaded.width, uploaded.height);
+    if (dimensionsError) {
+      after(() => deleteImageKitFile(uploaded.fileId));
+      return { success: false, error: dimensionsError };
+    }
+
+    const [row] = await db
+      .update(users)
+      .set({
+        logoUrl: uploaded.url,
+        logoFileId: uploaded.fileId,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
+      .returning({ id: users.id });
+
+    if (!row) {
+      after(() => deleteImageKitFile(uploaded.fileId));
+      return { success: false, error: "Could not find your account." };
+    }
+
+    const { previousFileId } = claim;
+    if (previousFileId && previousFileId !== uploaded.fileId) {
+      after(() => deleteImageKitFile(previousFileId));
+    }
+
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (error) {
+    logError("uploadLogoAction", error);
+    return { success: false, error: "Could not save your logo. Try again." };
+  }
+}
+
+export async function removeLogoAction(): Promise<ActionResult> {
+  try {
+    const user = await requireUser();
+
+    const [current] = await db
+      .select({ fileId: users.logoFileId })
+      .from(users)
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
+      .limit(1);
+
+    if (!current) {
+      return { success: false, error: "Could not find your account." };
+    }
+    if (!current.fileId) return { success: true };
+
+    const fileId = current.fileId;
+    const [row] = await db
+      .update(users)
+      .set({ logoUrl: null, logoFileId: null, updatedAt: new Date() })
+      .where(
+        and(
+          eq(users.id, user.id),
+          isNull(users.deletedAt),
+          eq(users.logoFileId, fileId),
+        ),
+      )
+      .returning({ id: users.id });
+
+    if (!row) {
+      return {
+        success: false,
+        error: "Your logo just changed. Refresh and try again.",
+      };
+    }
+
+    after(() => deleteImageKitFile(fileId));
+    revalidatePath("/", "layout");
+    return { success: true };
+  } catch (error) {
+    logError("removeLogoAction", error);
+    return { success: false, error: "Could not remove your logo. Try again." };
   }
 }
 

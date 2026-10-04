@@ -13,6 +13,10 @@ const nextConfig: NextConfig = {
     "/invoices{,/**}": pdfAssets,
     "/clients/**": pdfAssets,
   },
+  experimental: {
+    // Logo uploads are capped at 1 MB; this leaves room for the form encoding.
+    serverActions: { bodySizeLimit: "2mb" },
+  },
 };
 
 export default nextConfig;

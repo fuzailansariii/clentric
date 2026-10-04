@@ -13,6 +13,7 @@ import {
   Undo2Icon,
 } from "lucide-react";
 import { AvatarInitials } from "@/components/ui/avatar-initials";
+import { BrandLogo } from "@/components/brand-logo";
 import { DeleteDialog } from "@/components/delete-dialog";
 import {
   Tooltip,
@@ -75,6 +76,7 @@ type InvoiceDetailProps = {
     issuer: IssuerDetails | null;
     /** How to pay — resolved the same way as the issuer. */
     payment: PaymentDetails;
+    logoSrc: string | null;
   };
   client: ClientRow | null;
   project: ProjectListItem | null;
@@ -317,6 +319,13 @@ export function InvoiceDetail({
               )}
             >
               <div>
+                {invoice.logoSrc && (
+                  <BrandLogo
+                    src={invoice.logoSrc}
+                    name={issuer.title}
+                    className="mb-4 h-10"
+                  />
+                )}
                 <p className="font-space text-muted-foreground text-[11px] font-bold tracking-[0.22em] uppercase">
                   Invoice
                 </p>
@@ -695,7 +704,7 @@ export function InvoiceDetail({
               {/* The client tapped "I've made the payment": check the
                   reference against your account, then mark it paid. */}
               {isOutstanding && invoice.paymentClaimedAt && (
-                <div className="bg-ledger-50 text-ledger-700 dark:bg-ledger-500/15 dark:text-ledger-500 mb-3 rounded-md px-3.5 py-3 text-[13px] leading-[1.5]">
+                <div className="bg-ledger-50 text-ledger-700 dark:bg-ledger-500/15 dark:text-ledger-500 mb-3 rounded-md px-3.5 py-3 text-[13px] leading-normal">
                   <p className="font-medium">Client says they&rsquo;ve paid</p>
                   {invoice.paymentClaimedNote && (
                     <p className="mt-1 wrap-anywhere">

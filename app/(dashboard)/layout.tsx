@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { ReactNode } from "react";
 import Sidebar from "@/components/sidebar/sidebar";
 import { MobileTopBar } from "@/components/sidebar/mobile-topbar";
-import { createClient } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/current-user";
 import { redirect } from "next/navigation";
 import SidebarFooter from "@/components/sidebar/sidebar-footer";
 import { logoutAction } from "../(auth)/action";
@@ -25,11 +25,7 @@ export default async function DashboardLayout({
   const collapsed =
     sidebarCookie === undefined ? true : sidebarCookie === "true";
 
-  const supabase = await createClient();
-  const {
-    data: { user: authUser },
-  } = await supabase.auth.getUser();
-
+  const authUser = await getAuthUser();
   if (!authUser) redirect("/login");
 
   const [{ profile, subscription }, sidebarCounts] = await Promise.all([
