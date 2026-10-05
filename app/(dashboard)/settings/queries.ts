@@ -12,6 +12,7 @@ import { proposals } from "@/src/db/schema/proposals";
 import { projects } from "@/src/db/schema/projects";
 import { invoices } from "@/src/db/schema/invoices";
 import { logoSrc } from "@/lib/logo-url";
+import { getEffectivePlan } from "@/lib/billing";
 
 // Every settings section reads the user row through this: one query per request.
 const getSettingsRow = cache(async (userId: string) => {
@@ -262,7 +263,7 @@ export async function getPlanUsage() {
 
     const monthStartUtc = sql`date_trunc('month', now(), 'UTC')`;
 
-    const [clientRows, proposalRows, projectRows, invoiceRows, [owner]] =
+    const [clientRows, proposalRows, projectRows, invoiceRows, billingState] =
       await Promise.all([
         db
           .select({ count: count() })
@@ -292,19 +293,11 @@ export async function getPlanUsage() {
               ),
             ),
           ),
-        // Read now so this section can become the real billing view later;
-        // the beta copy is shown whatever it says.
-        db
-          .select({ plan: users.plan })
-          .from(users)
-          .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
-          .limit(1),
+        getEffectivePlan(user.id),
       ]);
 
-    if (!owner) return null;
-
     return {
-      plan: owner.plan,
+      billing: billingState,
       // Drizzle returns an array even for COUNT(*): unwrap the one row.
       clients: clientRows[0]?.count ?? 0,
       proposals: proposalRows[0]?.count ?? 0,

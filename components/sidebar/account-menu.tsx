@@ -28,12 +28,14 @@ import {
 
 export type AccountMenuUser = { name: string; email: string };
 
-export type Plan = "free" | "pro" | "agency";
+/** What the account menu shows; "beta" while paid plans aren't switched on. */
+export type Plan = "free" | "pro" | "agency" | "beta";
 
 export const PLAN_LABELS: Record<Plan, string> = {
   free: "Free plan",
   pro: "Pro plan",
   agency: "Agency plan",
+  beta: "Beta",
 };
 
 type AccountMenuContentProps = {

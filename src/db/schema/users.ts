@@ -28,6 +28,7 @@ export const users = pgTable(
     name: text("name"),
     avatar: text("avatar"),
     profession: text("profession"),
+    /** @deprecated Never read it: the plan comes from getEffectivePlan() in lib/billing. */
     plan: subscriptionPlanEnum("plan").notNull().default("free"),
     onboardingCompleted: boolean("onboarding_completed")
       .notNull()

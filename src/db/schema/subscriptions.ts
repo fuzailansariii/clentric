@@ -1,37 +1,37 @@
 import {
-  pgEnum,
+  boolean,
+  check,
   pgTable,
   text,
   timestamp,
   uuid,
-  index,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { users } from "./users";
-// Shared with `users.plan` — declared once so drizzle-kit sees a single type.
-import { subscriptionPlanEnum } from "./enums";
 
-export const subscriptionStatusEnum = pgEnum("subscription_status", [
-  "active",
-  "trialing",
-  "past_due",
-  "canceled",
-  "incomplete",
-]);
-
+/**
+ * One billing row per user, provider-neutral. Created when checkout starts
+ * (customer id, cooldown); everything else is written only by the webhook.
+ */
 export const subscriptions = pgTable(
   "subscriptions",
   {
     id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
+      .unique()
       .references(() => users.id, { onDelete: "cascade" }),
-    stripeCustomerId: text("stripe_customer_id").notNull(),
-    stripeSubscriptionId: text("stripe_subscription_id").notNull().unique(),
-    plan: subscriptionPlanEnum("plan").notNull().default("free"),
-    status: subscriptionStatusEnum("status").notNull().default("active"),
-    currentPeriodEnd: timestamp("current_period_end", {
-      withTimezone: true,
-    }).notNull(),
+    provider: text("provider").notNull().default("dodo"),
+    customerId: text("customer_id").unique(),
+    subscriptionId: text("subscription_id").unique(),
+    productId: text("product_id"),
+    interval: text("interval"),
+    status: text("status"),
+    cancelAtPeriodEnd: boolean("cancel_at_period_end").notNull().default(false),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    // Newest provider event applied; older events arriving late are ignored.
+    lastEventAt: timestamp("last_event_at", { withTimezone: true }),
+    checkoutStartedAt: timestamp("checkout_started_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -40,7 +40,13 @@ export const subscriptions = pgTable(
       .defaultNow(),
   },
   (table) => [
-    index("idx_subscriptions_user_id").on(table.userId),
-    index("idx_subscriptions_stripe_customer_id").on(table.stripeCustomerId),
+    check(
+      "subscriptions_interval_allowed",
+      sql`${table.interval} is null or ${table.interval} in ('monthly', 'yearly')`,
+    ),
+    check(
+      "subscriptions_status_allowed",
+      sql`${table.status} is null or ${table.status} in ('pending', 'active', 'past_due', 'on_hold', 'paused', 'cancelled', 'expired', 'failed')`,
+    ),
   ],
 );

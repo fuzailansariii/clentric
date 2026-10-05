@@ -14,6 +14,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { formatDate } from "@/lib/format-date";
 import { scheduledDeletionDate } from "@/lib/account-deletion";
 import { RestoreAccountScreen } from "./restore-account-screen";
+import { getEffectivePlan } from "@/lib/billing";
+import { logError } from "@/lib/errors";
+import type { Plan } from "@/components/sidebar/account-menu";
 
 export default async function DashboardLayout({
   children,
@@ -28,10 +31,17 @@ export default async function DashboardLayout({
   const authUser = await getAuthUser();
   if (!authUser) redirect("/login");
 
-  const [{ profile, subscription }, sidebarCounts] = await Promise.all([
+  const [{ profile }, sidebarCounts, billingState] = await Promise.all([
     getDashboardData(authUser.id),
     getSidebarCounts(authUser.id),
+    // A billing hiccup shows Free in the menu rather than breaking every page.
+    getEffectivePlan(authUser.id).catch((error) => {
+      logError("DashboardLayout.plan", error);
+      return null;
+    }),
   ]);
+  const plan: Plan =
+    billingState?.source === "beta" ? "beta" : (billingState?.plan ?? "free");
 
   // Pending deletion: no app, only the choice to restore or leave. The
   // pages below would be refused anyway (requireUser locks the account).
@@ -61,7 +71,7 @@ export default async function DashboardLayout({
                   email: authUser.email ?? "",
                   avatarUrl: profile?.avatar ?? undefined,
                 }}
-                plan={subscription?.plan ?? "free"}
+                plan={plan}
                 onLogoutClick={logoutAction}
               />
             }
@@ -74,7 +84,7 @@ export default async function DashboardLayout({
                 name: profile?.name ?? authUser.email ?? "Account",
                 email: authUser.email ?? "",
               }}
-              plan={subscription?.plan ?? "free"}
+              plan={plan}
               onLogoutClick={logoutAction}
             />
             <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">

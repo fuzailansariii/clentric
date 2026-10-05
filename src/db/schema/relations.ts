@@ -41,9 +41,12 @@ export const usersRelations = relations(users, ({ one, many }) => ({
   proposals: many(proposals),
   notifications: many(notifications),
   activityLogs: many(activityLog),
-  subscriptions: many(subscriptions),
   teamMembers: many(teamMembers),
   paymentMethods: many(userPaymentMethods),
+  subscription: one(subscriptions, {
+    fields: [users.id],
+    references: [subscriptions.userId],
+  }),
   invoiceCounter: one(invoiceCounters, {
     fields: [users.id],
     references: [invoiceCounters.userId],
@@ -169,7 +172,7 @@ export const activityLogRelations = relations(activityLog, ({ one }) => ({
   user: one(users, { fields: [activityLog.userId], references: [users.id] }),
 }));
 
-// Billing record for the account; the plan enum is shared with `users.plan`.
+// One billing row per user (`subscriptions.user_id` is unique).
 export const subscriptionsRelations = relations(subscriptions, ({ one }) => ({
   user: one(users, { fields: [subscriptions.userId], references: [users.id] }),
 }));

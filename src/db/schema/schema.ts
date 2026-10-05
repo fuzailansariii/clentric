@@ -13,6 +13,7 @@ export * from "./activity-logs";
 export * from "./email-sends";
 export * from "./notifications";
 export * from "./subscriptions";
+export * from "./plan-grants";
 export * from "./team-members";
 export * from "./webhook-events";
 export * from "./invoice-counters";

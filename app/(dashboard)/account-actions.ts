@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { deleteImageKitFile } from "@/lib/imagekit";
+import { billing, getEffectivePlan } from "@/lib/billing";
 import { and, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
@@ -38,11 +39,22 @@ export async function requestAccountDeletionAction(
       };
     }
 
-    const [current] = await db
-      .select({ logoFileId: users.logoFileId })
-      .from(users)
-      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
-      .limit(1);
+    const [[current], billingState] = await Promise.all([
+      db
+        .select({ logoFileId: users.logoFileId })
+        .from(users)
+        .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
+        .limit(1),
+      getEffectivePlan(user.id),
+    ]);
+
+    // Stop future charges first: after the purge nothing could reach the provider.
+    // A payment whose webhook hasn't landed yet is caught by the webhook itself.
+    const sub = billingState.row;
+    const ended = sub?.status === "cancelled" || sub?.status === "expired" || sub?.status === "failed";
+    if (sub?.subscriptionId && !sub.cancelAtPeriodEnd && !ended) {
+      await billing.cancelAtPeriodEnd(sub.subscriptionId);
+    }
 
     // The purge runs in the database and can't reach ImageKit, so the logo goes now.
     const [row] = await db
