@@ -166,7 +166,8 @@ export const PRICING = {
   headline: "Simple pricing",
   subheadline: "Start free. Upgrade when you need more.",
   yearlyBadge: `Save $${YEARLY_DISCOUNT_PER_MONTH}/mo`,
-  smallPrint: "Prices in USD. Cancel anytime. See our",
+  smallPrint:
+    "Prices in USD. Checkout may show your local currency, with local tax added. Cancel anytime. See our",
   free,
   pro,
   agency,
