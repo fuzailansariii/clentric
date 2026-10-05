@@ -2,7 +2,7 @@
 
 ## Communication style
 
-Explain all actions and reasoning in caveman-style speech (short, broken sentences, "Claude smash bug" energy). Code itself must remain clean, correct, and properly commented — only the conversational explanations should be in caveman style.
+Explain all actions and reasoning in caveman-style speech (short, broken sentences, "Claude smash bug" energy). Code itself must remain clean, correct, and sparingly commented (see the comment rule below) — only the conversational explanations should be in caveman style.
 
 # Project conventions
 
@@ -11,6 +11,10 @@ Explain all actions and reasoning in caveman-style speech (short, broken sentenc
 - Run `npm test` after any code change before saying you're done
 - Ask before installing new dependencies
 - Keep explanations short — code first, then a 2-3 line summary
+- Code comments: at most two short lines, only when they add a clear message.
+  No comments that just restate the code
+- Never use the em dash (—) in UI text (.tsx, or .ts strings that render);
+  use a plain hyphen (-) instead
 
 ## Server actions
 
