@@ -13,7 +13,7 @@ type UndoableActionMessages = {
 };
 
 /**
- * Runs `action` after a short grace window instead of immediately — the
+ * Runs `action` after a short grace window instead of immediately - the
  * "Gmail undo send" pattern. A toast with an Undo button appears right
  * away; the action only actually fires once that window elapses unvisited.
  * Use this for anything that's one-way once it fires (e.g. an email), where
@@ -24,7 +24,7 @@ export function useUndoableAction(
   messages: UndoableActionMessages,
   delayMs: number,
   options: {
-    /** Runs after the action succeeds — typically router.refresh(), so the
+    /** Runs after the action succeeds - typically router.refresh(), so the
      * page picks up what the action changed (e.g. a reminder cooldown). */
     onSuccess?: () => void;
   } = {},
@@ -54,7 +54,7 @@ export function useUndoableAction(
           clearTimeout(timeoutRef.current);
           timeoutRef.current = null;
           setIsQueued(false);
-          toast.success("Cancelled — nothing was sent.");
+          toast.success("Cancelled - nothing was sent.");
         },
       },
     });

@@ -56,7 +56,7 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
       <DashboardContainer>
         <div className="flex flex-col gap-4">
           {/* No summary strip here on purpose: every figure a project list
-              could show — total, in progress, completed, on hold — is already
+              could show - total, in progress, completed, on hold - is already
               in the status filter chips directly below, and projects carry no
               money column to add anything the chips cannot. */}
           <ProjectTable

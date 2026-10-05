@@ -90,7 +90,7 @@ export default function LineItems({
               )}
             />
 
-            {/* Quantity — labelled by unit ("Hours", "Days") */}
+            {/* Quantity - labelled by unit ("Hours", "Days") */}
             <Field
               {...register(`lineItems.${index}.quantity`)}
               label={unitCopy.quantityLabel}

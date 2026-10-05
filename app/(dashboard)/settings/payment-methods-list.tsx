@@ -99,7 +99,7 @@ export function PaymentMethodsList({ methods }: { methods: Method[] }) {
   };
 
   // UPI is no longer offered, but an account that already set it up keeps
-  // its row — otherwise a UPI switched on for invoices couldn't be turned off.
+  // its row - otherwise a UPI switched on for invoices couldn't be turned off.
   const types: PaymentMethodType[] = isSetUp("upi")
     ? [...OFFERED_TYPES, "upi"]
     : [...OFFERED_TYPES];

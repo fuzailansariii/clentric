@@ -8,7 +8,7 @@ import { DEFAULT_SETTINGS_TAB, SETTINGS_TABS } from "./sections";
 
 /**
  * The settings tab bar. Each tab is a real route, so the open tab survives a
- * refresh and can be linked to — which is why these are links in a <nav>
+ * refresh and can be linked to - which is why these are links in a <nav>
  * with aria-current rather than an ARIA tablist.
  *
  * On a phone the three tabs split the width evenly; from a 480px container

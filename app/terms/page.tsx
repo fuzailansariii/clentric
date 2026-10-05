@@ -183,7 +183,7 @@ export default function TermsOfServicePage() {
         <p>
           The Free plan has limits on how many clients, projects, invoices and
           proposals you can create. If you downgrade or cancel, we do not delete
-          work that is over those limits — you keep everything you already made.
+          work that is over those limits - you keep everything you already made.
           The limits only stop you creating new items beyond them until you
           upgrade again.
         </p>
@@ -207,7 +207,7 @@ export default function TermsOfServicePage() {
           the invoices you send. Your clients pay you directly, outside{" "}
           {LEGAL.productName}. An invoice only becomes “Paid” when you mark it
           as paid yourself. If your client clicks the optional “I’ve sent
-          payment” button, that is a notification to you and nothing more — it
+          payment” button, that is a notification to you and nothing more - it
           is not proof that any money was sent or received.
         </p>
         <p>
@@ -246,7 +246,7 @@ export default function TermsOfServicePage() {
           You own the content you put into {LEGAL.productName}: your clients,
           projects, invoices, proposals, notes and files. You give us a limited
           licence to store, copy, display and process that content only so far
-          as we need to in order to run the service for you — for example to
+          as we need to in order to run the service for you - for example to
           show a proposal at the link you shared, or to generate an invoice PDF.
           That licence ends when you delete the content or close your account.
         </p>
@@ -303,7 +303,7 @@ export default function TermsOfServicePage() {
           You can stop using {LEGAL.productName} at any time. Cancelling your
           subscription moves you to the Free plan; asking us to close your
           account removes it. You can export your data for{" "}
-          {LEGAL.dataExportWindow} after closing your account — email us and we
+          {LEGAL.dataExportWindow} after closing your account - email us and we
           will prepare it.
         </p>
         <p>

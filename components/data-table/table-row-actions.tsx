@@ -35,7 +35,7 @@ export type TableRowActionsProps = {
   detailHref: string;
   /** Server action (or wrapper) that performs the delete. Must return `{ success, error? }`. */
   onDelete: () => Promise<ActionResult>;
-  /** Toast + dialog copy — keep these explicit per entity for clear UX. */
+  /** Toast + dialog copy - keep these explicit per entity for clear UX. */
   deleteLoadingMessage?: string;
   deleteSuccessMessage?: string;
   deleteTitle?: string;
@@ -141,7 +141,7 @@ export function TableRowActions({
 
   return (
     <>
-      {/* One kebab trigger instead of a row of icon buttons — same pattern
+      {/* One kebab trigger instead of a row of icon buttons - same pattern
           as the invoices dropdown. Keeps this compact enough for a mobile
           card (three separate CustomButtons crowd the row next to the
           status badge) and gives mobile a single, unmistakable tap target
@@ -213,7 +213,7 @@ export function TableRowActions({
         </DropdownMenu>
 
         {/* Inside the stopPropagation wrapper on purpose: the dialog is
-            portaled, but React still bubbles its clicks up this tree —
+            portaled, but React still bubbles its clicks up this tree -
             outside the wrapper they'd reach the row and open it. */}
         {showDelete && hasOpenedDelete && (
           <DeleteDialog

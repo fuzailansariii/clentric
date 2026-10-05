@@ -165,7 +165,7 @@ async function createDepositInvoice(
 
   await tx.insert(invoiceItems).values({
     invoiceId: invoice.id,
-    description: `Deposit (${percent}%) — ${proposal.title}`,
+    description: `Deposit (${percent}%) - ${proposal.title}`,
     quantity: "1",
     rate: amount.toFixed(2),
     amount: amount.toFixed(2),

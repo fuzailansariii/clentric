@@ -25,7 +25,7 @@ export type OtpInputHandle = {
   focusFirst: () => void;
 };
 
-// The first unfilled box — the furthest the user may move focus to. Outside
+// The first unfilled box - the furthest the user may move focus to. Outside
 // the component so it isn't a changing dependency of emitChange.
 function getFirstEmptyIndex(value: string, length: number) {
   for (let i = 0; i < length; i++) {

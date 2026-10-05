@@ -176,7 +176,7 @@ test.describe.serial("branding", () => {
       .toBeGreaterThan(0);
 
     await expect(client.getByText(quote)).toBeVisible();
-    await expect(client.getByText(`— ${author}`)).toBeVisible();
+    await expect(client.getByText(`- ${author}`)).toBeVisible();
     await expect(
       client.getByRole("button", { name: "Accept proposal" }),
     ).toHaveCSS("background-color", "rgb(15, 118, 110)");

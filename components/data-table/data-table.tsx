@@ -5,7 +5,7 @@ import type { Column, DataTableProps } from "./data-table.types";
 
 // Thresholds are the table's own width, not the viewport's. The sidebar
 // (64px collapsed / 256px expanded) and page padding (80px) come off first,
-// so a 1440px laptop gives the table only ~1080-1280px — viewport-style
+// so a 1440px laptop gives the table only ~1080-1280px - viewport-style
 // 768/1024/1280 steps left the widest tier unreachable on most laptops.
 // These steps are sized to when the extra columns actually fit.
 function getVisibilityClass(hideBelow?: Column<unknown>["hideBelow"]) {
@@ -35,7 +35,7 @@ function getCellValue<T>(row: T, column: Column<T>) {
     const value = row[column.accessorKey];
 
     if (value === null || value === undefined || value === "") {
-      return <span className="text-muted-foreground">—</span>;
+      return <span className="text-muted-foreground">-</span>;
     }
 
     return String(value);
@@ -53,7 +53,7 @@ const revealOnHover =
   "*:transition-opacity *:opacity-0 group-hover/row:*:opacity-100 group-focus-within/row:*:opacity-100 has-[[data-state=open]]:*:opacity-100 [@media(hover:none)]:*:opacity-100";
 
 // One card holds toolbar, rows and pagination. With mobile cards the frame
-// only starts at 640px — below that those three stack as separate pieces.
+// only starts at 640px - below that those three stack as separate pieces.
 // overflow-clip (not hidden) rounds the corners without becoming a scroll
 // container, so the sticky header still pins to the dashboard's <main>.
 const frame = "overflow-clip rounded-xl border border-border bg-card";
@@ -78,7 +78,7 @@ export function DataTable<T>({
   const handleRowKeyDown = (row: T) => (event: KeyboardEvent<HTMLElement>) => {
     if (event.key !== "Enter" && event.key !== " ") return;
     // Enter on a control inside the row (e.g. the actions menu) belongs to
-    // that control — it shouldn't also open the row.
+    // that control - it shouldn't also open the row.
     if (
       (event.target as HTMLElement).closest(
         "button, a, input, [role='menuitem']",

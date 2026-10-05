@@ -102,7 +102,7 @@ export function ContactForm() {
           className="text-muted-foreground min-h-5 text-sm"
         >
           {sent && !error
-            ? "Thanks — your message is on its way. We reply " +
+            ? "Thanks - your message is on its way. We reply " +
               LEGAL.responseTime +
               "."
             : ""}

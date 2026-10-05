@@ -7,7 +7,7 @@ type PublicProposalPageProps = {
   params: Promise<{ token: string }>;
 };
 
-// A proposal link is private by construction — anyone holding it can read
+// A proposal link is private by construction - anyone holding it can read
 // someone's pricing. It must never end up in a search index.
 export const metadata: Metadata = {
   title: "Proposal",

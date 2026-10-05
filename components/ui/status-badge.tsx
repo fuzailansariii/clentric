@@ -26,7 +26,7 @@ export function StatusBadge({
   /** "pill": rounded-rectangle badge (detail pages). "soft": fully rounded
    * with a leading dot (list rows). */
   variant?: "pill" | "soft";
-  /** Only affects "soft" — "sm" for dense mobile rows. */
+  /** Only affects "soft" - "sm" for dense mobile rows. */
   size?: "sm" | "md";
 }) {
   if (variant === "soft") {

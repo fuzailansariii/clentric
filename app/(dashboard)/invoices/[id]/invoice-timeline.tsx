@@ -32,7 +32,7 @@ export function InvoiceTimeline({
   lastReminderSentAt: Date | null;
   paidAt: Date | null;
   displayStatus: InvoiceDisplayStatus;
-  /** e.g. "20 days late" — only used when displayStatus is "overdue". */
+  /** e.g. "20 days late" - only used when displayStatus is "overdue". */
   overdueDetail: string;
 }) {
   const dated = (
@@ -92,7 +92,7 @@ export function InvoiceTimeline({
                 <p className="text-[13.5px] leading-[1.3] font-medium">
                   {event.label}
                 </p>
-                {/* Formatted in the runtime's timezone — server and browser
+                {/* Formatted in the runtime's timezone - server and browser
                     can land on different calendar days near midnight. */}
                 <p
                   className="text-muted-foreground mt-0.5 font-mono text-xs"
@@ -108,7 +108,7 @@ export function InvoiceTimeline({
 
       {displayStatus === "draft" && (
         <p className="text-muted-foreground mt-1.5 text-[12.5px] leading-[1.55]">
-          Nothing else has happened yet — send the invoice to start the trail.
+          Nothing else has happened yet - send the invoice to start the trail.
         </p>
       )}
     </div>

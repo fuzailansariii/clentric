@@ -98,7 +98,7 @@ function ProjectRow({ project }: { project: ActiveProject }) {
             />
           </span>
           <span className="text-muted-foreground w-7 text-xs tabular-nums">
-            {total === 0 ? "—" : `${done}/${total}`}
+            {total === 0 ? "-" : `${done}/${total}`}
           </span>
         </div>
 

@@ -4,7 +4,7 @@ import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 import { CustomButton } from "@/components/ui/custom-button";
 
-// Rendered when getProposalById() returns null — the proposal doesn't exist,
+// Rendered when getProposalById() returns null - the proposal doesn't exist,
 // was deleted, or belongs to someone else. Same shell as the real page so a
 // dead link doesn't look like it left the app.
 export default function ProposalNotFound() {

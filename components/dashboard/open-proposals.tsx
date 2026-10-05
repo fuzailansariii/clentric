@@ -114,7 +114,7 @@ function ProposalRow({ proposal }: { proposal: OpenProposal }) {
         </StatusBadge>
 
         <span className="text-muted-foreground hidden text-right text-xs tabular-nums @lg:block">
-          {proposal.expiresAt ? formatShortDate(proposal.expiresAt) : "—"}
+          {proposal.expiresAt ? formatShortDate(proposal.expiresAt) : "-"}
         </span>
       </Link>
     </li>

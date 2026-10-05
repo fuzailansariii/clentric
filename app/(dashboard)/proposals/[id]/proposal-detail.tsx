@@ -91,7 +91,7 @@ export function ProposalDetailView({
       />
 
       <DashboardContainer>
-        {/* Container queries rather than viewport ones — the sidebar takes
+        {/* Container queries rather than viewport ones - the sidebar takes
             real width, so the viewport is not what decides whether two
             columns fit here. */}
         <div className="@container pb-12">

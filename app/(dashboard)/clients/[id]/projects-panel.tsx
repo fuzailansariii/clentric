@@ -15,17 +15,9 @@ import {
 import ProjectTable from "../../projects/projects-table";
 import type { ProjectListResult } from "../../projects/queries";
 
-// The table sits inside the tab card: no frame of its own from 640px up
-// (just a top rule under the stats), and a little padding on mobile where
-// toolbar, list and pagination stack.
 export const PANEL_TABLE_CLASS =
   "p-3 @[640px]:rounded-none @[640px]:border-0 @[640px]:border-t @[640px]:p-0";
 
-/**
- * A client's projects, paged, searched and filtered on the server — the page
- * fetches only what this tab shows, so a client with hundreds of projects
- * doesn't ship them all to the browser.
- */
 export function ProjectsPanel({
   clientId,
   result,

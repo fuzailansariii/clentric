@@ -105,7 +105,7 @@ export function ProjectDetail({
   const handleCancelClick = () => {
     reset(toProjectFormDefaults(project));
     setIsEditing(false);
-    // Cancel doesn't change any data, so there's nothing to refetch — just
+    // Cancel doesn't change any data, so there's nothing to refetch - just
     // tidy the `?edit=true` out of the address bar. Using router.replace()
     // here would ask Next.js to re-run this (dynamic) Server Component and
     // re-query the DB on every single Cancel click for no reason. Writing
@@ -114,7 +114,7 @@ export function ProjectDetail({
     window.history.replaceState(null, "", `/projects/${project.id}`);
   };
 
-  // Arriving with ?edit=true switches into edit mode — adjusted during render
+  // Arriving with ?edit=true switches into edit mode - adjusted during render
   // rather than in an effect, so the read-only view never flashes first.
   const [prevInitialEdit, setPrevInitialEdit] = useState(initialEdit);
   if (initialEdit !== prevInitialEdit) {
@@ -352,7 +352,7 @@ export function ProjectDetail({
                             "text-muted-foreground",
                         )}
                       >
-                        {project.deadline ? formatDate(project.deadline) : "—"}
+                        {project.deadline ? formatDate(project.deadline) : "-"}
                       </span>
                     ),
                     // "Due in 9 days", "3 days late", "Delivered", "No deadline".
@@ -376,7 +376,7 @@ export function ProjectDetail({
                           className="shrink-0"
                         />
                         <span className="truncate text-sm font-medium">
-                          {project.clientName ?? "—"}
+                          {project.clientName ?? "-"}
                         </span>
                       </div>
                     ),

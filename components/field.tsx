@@ -54,7 +54,7 @@ export function DataField({
         title={!isLongText && value ? value : undefined}
       >
         {!value ? (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         ) : href ? (
           <a href={href} className="text-primary hover:underline">
             {value}

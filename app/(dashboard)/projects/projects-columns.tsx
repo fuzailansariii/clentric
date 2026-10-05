@@ -12,7 +12,7 @@ import { ProjectRowActions } from "./project-row-actions";
 import { projectStatusConfig } from "./project-status-config";
 import type { ProjectListItem } from "./queries";
 
-// Visibility by table width — always: Project (with client underneath),
+// Visibility by table width - always: Project (with client underneath),
 // Status, Budget · 860px+: Progress · 1000px+: Deadline. Budget is never
 // hidden: it's the figure people look for first.
 export const projectColumns: Column<ProjectListItem>[] = [
@@ -74,7 +74,7 @@ export const projectColumns: Column<ProjectListItem>[] = [
     className: "whitespace-nowrap",
     cell: (row) => {
       if (!row.deadline) {
-        return <span className="text-muted-foreground">—</span>;
+        return <span className="text-muted-foreground">-</span>;
       }
 
       const deadline = getProjectDeadlineLabel(row);

@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { statusToneStyles, type StatusTone } from "./status-badge";
 
 /**
- * Square tinted mark that leads a list row — a folder for projects, a
+ * Square tinted mark that leads a list row - a folder for projects, a
  * document for invoices. Its tone follows the row's status so the mark and
  * the status pill read as one signal.
  */

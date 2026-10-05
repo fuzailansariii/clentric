@@ -70,7 +70,7 @@ export default function InvoicePreview({
           />
           <PreviewRow label="Client" value={clientName ?? "Select a client"} />
           <PreviewRow label="Project" value={projectName ?? "No project"} />
-          <PreviewRow label="Due Date" value={dueDate ?? "—"} />
+          <PreviewRow label="Due Date" value={dueDate ?? "-"} />
           <PreviewRow
             label="Subtotal"
             value={formatCurrency(String(subTotal))}

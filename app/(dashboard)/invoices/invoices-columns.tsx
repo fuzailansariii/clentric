@@ -15,7 +15,7 @@ import {
 } from "./invoice-status-config";
 import type { InvoiceListItem } from "./queries";
 
-// Visibility by table width — always: Invoice (with client underneath),
+// Visibility by table width - always: Invoice (with client underneath),
 // Status, Amount · 720px+: Due · 860px+: Issued · 1000px+: Project. Amount
 // is never hidden: this is billing software, it's the figure people scan for.
 export const invoiceColumns: Column<InvoiceListItem>[] = [
@@ -97,7 +97,7 @@ export const invoiceColumns: Column<InvoiceListItem>[] = [
     hideBelow: "xl",
     className: "max-w-[12rem] text-muted-foreground",
     cell: (row) => (
-      <span className="block truncate">{row.projectTitle ?? "—"}</span>
+      <span className="block truncate">{row.projectTitle ?? "-"}</span>
     ),
   },
   {

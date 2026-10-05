@@ -57,7 +57,7 @@ export type NewInvoiceDefaults = {
   paymentTermsDays: number;
   taxRate: number;
   notes: string;
-  /** e.g. "INV-015" — what the next invoice will most likely be numbered. */
+  /** e.g. "INV-015" - what the next invoice will most likely be numbered. */
   nextNumberLabel: string;
 };
 
@@ -167,7 +167,7 @@ export default function InvoiceBuilder({
 
   function collapseToSingleLineItem() {
     const firstItem = watchedLineItems[0];
-    // Quick mode bills one flat amount — a leftover "hour" unit would print
+    // Quick mode bills one flat amount - a leftover "hour" unit would print
     // "1 hr" on the invoice.
     replace([{ ...firstItem, quantity: 1, unit: "item" }]);
   }
@@ -301,7 +301,7 @@ export default function InvoiceBuilder({
   });
 
   // Create & Send: create the invoice, then send it. A failed send leaves a
-  // saved draft, so it still counts as success — the toast says it wasn't
+  // saved draft, so it still counts as success - the toast says it wasn't
   // sent, and the invoice page (where it lands) has its own Send button.
   const onSubmitAndSend = handleSubmit(async (data: InvoiceFormOutput) => {
     setFormError("");

@@ -319,7 +319,7 @@ export function ProposalActions({
         title="Delete Proposal"
         description={
           status === "accepted"
-            ? "This proposal was accepted. Deleting it removes your record of what was agreed — any project created from it is kept, but will no longer link back here. This can't be undone."
+            ? "This proposal was accepted. Deleting it removes your record of what was agreed - any project created from it is kept, but will no longer link back here. This can't be undone."
             : "Are you sure you want to delete this proposal? Its link will stop working. This can't be undone."
         }
       />

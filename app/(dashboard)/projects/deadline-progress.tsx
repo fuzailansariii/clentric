@@ -14,7 +14,7 @@ export function DeadlineProgress({
   const late = daysUntilDeadline < 0;
   const elapsedDays = deadlineSpanDays - daysUntilDeadline;
 
-  // A deadline set for the creation day itself has no span to fill — treat
+  // A deadline set for the creation day itself has no span to fill - treat
   // it as fully used.
   const percent =
     deadlineSpanDays <= 0

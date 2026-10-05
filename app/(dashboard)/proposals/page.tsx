@@ -62,7 +62,7 @@ export default async function ProposalsPage({
       <DashboardContainer>
         <div className="flex flex-col gap-4">
           {/* Totals come from the database across every matching proposal
-              (search applied, status tab not) — not just the current page.
+              (search applied, status tab not) - not just the current page.
               Per-status counts are left to the filter chips below. */}
           <StatsSummary
             items={[

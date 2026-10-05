@@ -64,7 +64,7 @@ export default function UnsubscribeForm({
               Leave the waitlist
             </h1>
             <p className="text-muted-foreground mt-2 text-sm">
-              Enter the email you signed up with — we&rsquo;ll take it off
+              Enter the email you signed up with - we&rsquo;ll take it off
               the list.
             </p>
             <form onSubmit={onSubmit} noValidate className="mt-5 flex flex-col gap-3">

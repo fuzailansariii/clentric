@@ -28,7 +28,7 @@ export function InvoiceRowActions({
   compact = false,
 }: {
   invoice: InvoiceListItem;
-  /** Only the ⋮ menu — for mobile rows, where amount and status already fill
+  /** Only the ⋮ menu - for mobile rows, where amount and status already fill
    * the trailing space. Send and remind stay on the detail page. */
   compact?: boolean;
 }) {
@@ -120,7 +120,7 @@ export function InvoiceRowActions({
             </TooltipTrigger>
             <TooltipContent>
               {isReminderQueued
-                ? "Reminder queued — click the toast to undo"
+                ? "Reminder queued - click the toast to undo"
                 : "Send reminder"}
             </TooltipContent>
           </Tooltip>

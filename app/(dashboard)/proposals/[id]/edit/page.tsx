@@ -30,7 +30,7 @@ export default async function EditProposalPage({
   }
 
   // Stages back into the shape the form uses. Items carry their milestone id,
-  // so they are grouped here rather than in a second query — and anything
+  // so they are grouped here rather than in a second query - and anything
   // without a stage becomes one unnamed group so nothing is silently dropped.
   const grouped = proposal.milestones.map((milestone) => ({
     name: milestone.name,

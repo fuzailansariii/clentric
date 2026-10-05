@@ -384,7 +384,7 @@ export function ClientDetail({
             )}
 
             <div className="border-border border-t" />
-            {/* Billing default — prefills hour lines on this client's invoices */}
+            {/* Billing default - prefills hour lines on this client's invoices */}
             <div className="px-6 py-5 sm:max-w-xs">
               <DataField
                 label="Default hourly rate"
@@ -400,7 +400,7 @@ export function ClientDetail({
             </div>
 
             {/* Always shown, so notes can be added while editing; empty
-                reads as "—". */}
+                reads as "-". */}
             <div className="border-border border-t" />
             <div className="px-6 py-5">
               <DataField

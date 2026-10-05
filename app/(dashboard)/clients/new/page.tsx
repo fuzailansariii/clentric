@@ -69,7 +69,7 @@ export default function NewClientPage({
     <>
       <PageHeader
         title="Add a new client"
-        subtitle="This becomes a permanent record — client, projects and invoices all roll up to it."
+        subtitle="This becomes a permanent record - client, projects and invoices all roll up to it."
         backHref={backHref}
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
