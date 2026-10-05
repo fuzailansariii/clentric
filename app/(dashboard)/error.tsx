@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import DashboardContainer from "@/components/dashboard/container";
 import { ErrorState } from "@/components/error-state";
 
-// Catches failures in any dashboard page without its own error boundary —
+// Catches failures in any dashboard page without its own error boundary -
 // e.g. a database outage on an invoice page shows this instead of a 404.
 export default function DashboardError({
   error,

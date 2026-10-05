@@ -191,25 +191,25 @@ export const PRICING = {
     },
     {
       label: "Roles and permissions",
-      pro: { value: "—" },
+      pro: { value: "-" },
       agency: { value: "Owner, Admin, Member" },
     },
     {
       label: "Approval before sending",
-      pro: { value: "—" },
+      pro: { value: "-" },
       agency: { value: "Yes" },
     },
     {
       label: "Assign clients to teammates",
-      pro: { value: "—" },
+      pro: { value: "-" },
       agency: { value: "Yes" },
     },
     {
       label: "Shared templates",
-      pro: { value: "—" },
+      pro: { value: "-" },
       agency: { value: "Yes" },
     },
-    { label: "Activity log", pro: { value: "—" }, agency: { value: "Yes" } },
+    { label: "Activity log", pro: { value: "-" }, agency: { value: "Yes" } },
     {
       // Reports aren't built yet on either plan.
       label: "Reports",

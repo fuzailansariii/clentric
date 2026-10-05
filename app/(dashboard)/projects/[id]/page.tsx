@@ -19,7 +19,7 @@ export default async function ProjectPage({
   const { id } = await params;
   const query = await searchParams;
 
-  // Independent reads — both check ownership themselves.
+  // Independent reads - both check ownership themselves.
   const [project, milestones, invoices] = await Promise.all([
     getProjectById(id),
     getMilestonesByProjectId(id),

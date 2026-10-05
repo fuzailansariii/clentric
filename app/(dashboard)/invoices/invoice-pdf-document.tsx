@@ -25,8 +25,8 @@ const colors = {
   ink: "#111111",
   muted: "#6b6b6b",
   faint: "#9ca3af", // --color-ink-400
-  rule: "#d9d8d3", // ~ foreground at 12% on white — structural rules
-  hairline: "#ecebe7", // ~ --border — row separators
+  rule: "#d9d8d3", // ~ foreground at 12% on white - structural rules
+  hairline: "#ecebe7", // ~ --border - row separators
   paper: "#f6f5f1", // --color-paper-50
   ledger: "#3454d1", // --color-ledger-600 / --primary
 };
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   colQty: { width: 60, textAlign: "right" },
   colRate: { width: 82, textAlign: "right" },
   colAmount: { width: 92, textAlign: "right" },
-  // Roboto Mono runs wider than Inter — a half-point smaller keeps
+  // Roboto Mono runs wider than Inter - a half-point smaller keeps
   // six-figure amounts inside their columns.
   cellNumber: { ...mono, fontSize: 9 },
   cellMuted: { color: colors.muted },
@@ -383,7 +383,7 @@ export function InvoicePdfDocument({
           </View>
         ))}
 
-        {/* Stamp + totals — kept together on one page. */}
+        {/* Stamp + totals - kept together on one page. */}
         <View style={styles.summary} wrap={false}>
           <View style={styles.stampSlot}>
             <View
@@ -436,7 +436,7 @@ export function InvoicePdfDocument({
           </View>
         </View>
 
-        {/* Payment details — informational only. Clentric never handles
+        {/* Payment details - informational only. Clentric never handles
             money between freelancer and client, so no payment button/link
             belongs here, only whatever instructions the freelancer typed
             in on this invoice. */}

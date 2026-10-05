@@ -27,7 +27,7 @@ export default async function ClientPage({
   const { id } = await params;
   const query = await searchParams;
 
-  // A malformed id can't be a client — 404 rather than a validation error.
+  // A malformed id can't be a client - 404 rather than a validation error.
   if (!clientIdSchema.safeParse(id).success) {
     notFound();
   }
@@ -41,7 +41,7 @@ export default async function ClientPage({
   const isSearching =
     typeof query.search === "string" && query.search.trim() !== "";
 
-  // Only the open tab's list is fetched — paged, searched and filtered in
+  // Only the open tab's list is fetched - paged, searched and filtered in
   // the database. The other tab only needs its badge count. The open tab's
   // badge reuses its list's unfiltered count, unless a search narrowed it.
   const [

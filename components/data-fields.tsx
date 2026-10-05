@@ -29,7 +29,7 @@ export function DataStat({
             className="border-input bg-background w-full rounded-md border px-2 py-1 text-sm"
           />
         ) : !value ? (
-          <span className="text-muted-foreground">—</span>
+          <span className="text-muted-foreground">-</span>
         ) : href ? (
           <a href={href} className="text-primary hover:underline">
             {value}

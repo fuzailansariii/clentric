@@ -174,3 +174,10 @@
     @apply font-sans;
   }
 }
+
+/* Theme switch: ThemeToggle animates a circle reveal instead of the default fade. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}

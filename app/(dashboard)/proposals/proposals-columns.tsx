@@ -14,12 +14,12 @@ import type { ProposalListItem } from "./queries";
 
 /**
  * Only rendered once a deposit has actually been asked for. "Paid" reflects
- * the freelancer's own Mark as paid click — a client pressing "I've sent
+ * the freelancer's own Mark as paid click - a client pressing "I've sent
  * payment" never moves it.
  */
 export function DepositBadge({ row }: { row: ProposalListItem }) {
   if (Number(row.depositPercent) <= 0) {
-    return <span className="text-muted-foreground">—</span>;
+    return <span className="text-muted-foreground">-</span>;
   }
 
   if (row.depositPaid === null) {
@@ -40,7 +40,7 @@ export function DepositBadge({ row }: { row: ProposalListItem }) {
   );
 }
 
-// Visibility by table width — always: Proposal (client underneath), Status,
+// Visibility by table width - always: Proposal (client underneath), Status,
 // Amount · 768px+: Created · 1024px+: Expires. Amount never hides: it is the
 // figure people scan a proposal list for.
 export const proposalColumns: Column<ProposalListItem>[] = [
@@ -98,7 +98,7 @@ export const proposalColumns: Column<ProposalListItem>[] = [
     className: "text-muted-foreground w-[1%] whitespace-nowrap",
     cell: (row) =>
       row.milestoneCount === 0
-        ? "—"
+        ? "-"
         : `${row.milestoneCount} ${row.milestoneCount === 1 ? "stage" : "stages"}`,
   },
   {

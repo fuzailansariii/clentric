@@ -91,7 +91,7 @@ export default function PrivacyPolicyPage() {
         <p>
           If you are a client who received a proposal or portal link and you
           want your details changed or removed, please contact the freelancer
-          who sent it — they control that record. If you cannot reach them,
+          who sent it - they control that record. If you cannot reach them,
           email{" "}
           <a href={mailtoHref("Client data request")}>{LEGAL.supportEmail}</a>{" "}
           and we will help where we can.
@@ -109,8 +109,8 @@ export default function PrivacyPolicyPage() {
           </li>
           <li>
             <strong>Business profile data:</strong> your business name, and any
-            payment details you choose to add — such as bank, PayPal or Wise
-            details — so they can be shown on your invoices.
+            payment details you choose to add - such as bank, PayPal or Wise
+            details - so they can be shown on your invoices.
           </li>
           <li>
             <strong>Content you create:</strong> clients, projects, milestones,
@@ -160,28 +160,28 @@ export default function PrivacyPolicyPage() {
       <LegalSection id="how-we-use-data" title="5. How we use data, and why">
         <ul>
           <li>
-            <strong>To provide the service</strong> — creating your account,
+            <strong>To provide the service</strong> - creating your account,
             storing your work, generating invoices and proposals, and sending
             the links you ask us to send. We need this to perform our contract
             with you.
           </li>
           <li>
-            <strong>To handle billing</strong> — starting, renewing and
+            <strong>To handle billing</strong> - starting, renewing and
             cancelling subscriptions through our payment provider, and keeping
             the records we are required to keep. This is both contractual and a
             legal obligation.
           </li>
           <li>
-            <strong>To send service email</strong> — invoice and proposal
+            <strong>To send service email</strong> - invoice and proposal
             notifications, a welcome email, and messages about your account.
           </li>
           <li>
-            <strong>To keep the service safe and working</strong> — security,
+            <strong>To keep the service safe and working</strong> - security,
             rate limiting, fraud prevention, debugging and error logs. These are
             our legitimate interests in running a reliable service.
           </li>
           <li>
-            <strong>To answer you</strong> — when you email support, we use your
+            <strong>To answer you</strong> - when you email support, we use your
             message and account details to reply.
           </li>
         </ul>
@@ -200,7 +200,7 @@ export default function PrivacyPolicyPage() {
         <ul>
           {processors.map((processor) => (
             <li key={processor.name}>
-              <strong>{processor.name}</strong> — {processor.purpose}.
+              <strong>{processor.name}</strong> - {processor.purpose}.
             </li>
           ))}
         </ul>
@@ -279,7 +279,7 @@ export default function PrivacyPolicyPage() {
         </p>
         <p>
           If your request concerns data a freelancer entered about you, please
-          contact that freelancer first — they decide what is held about you.
+          contact that freelancer first - they decide what is held about you.
         </p>
       </LegalSection>
 

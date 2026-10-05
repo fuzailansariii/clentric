@@ -5,7 +5,7 @@
  * All four pages read from here so the plan names, prices, refund window and
  * support details cannot drift apart between pages.
  *
- * Values still wrapped in [SQUARE BRACKETS] are unfilled — they render
+ * Values still wrapped in [SQUARE BRACKETS] are unfilled - they render
  * literally on the live pages so a missing value is impossible to miss.
  *
  * NOTE FOR MAINTAINERS (never shown to visitors): these pages are a
@@ -69,7 +69,7 @@ export const LEGAL = {
   governingLaw:
     "the laws of India, and the courts of India have jurisdiction over any dispute",
 
-  /** Refund and cancellation rules. These numbers are fixed — every page
+  /** Refund and cancellation rules. These numbers are fixed - every page
    * that mentions them reads them from here. */
   refund: {
     windowHours: 48,
@@ -118,7 +118,7 @@ export const LEGAL = {
       // Disappears on its own once PRICING.agency.status is "live".
       note:
         PRICING.agency.status === "coming_soon"
-          ? `Coming soon — launching ${PRICING.agency.launchDateLabel}`
+          ? `Coming soon - launching ${PRICING.agency.launchDateLabel}`
           : "",
       summary: "For small teams.",
       includes: [

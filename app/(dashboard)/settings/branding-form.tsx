@@ -223,7 +223,7 @@ function BrandingPreview({
             <p className="text-sm italic">&ldquo;{quote}&rdquo;</p>
             {author && (
               <footer className="text-muted-foreground mt-1 text-xs">
-                — {author}
+                - {author}
               </footer>
             )}
           </blockquote>

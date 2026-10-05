@@ -29,7 +29,7 @@ type ProposalMilestoneCardProps = {
  * One collapsible milestone: its name and the line items quoted under it.
  *
  * Each card owns its own useFieldArray for `milestones.N.items`, which is why
- * this is a component rather than a loop in the builder — hooks cannot run
+ * this is a component rather than a loop in the builder - hooks cannot run
  * inside a map.
  */
 export default function ProposalMilestoneCard({
@@ -99,7 +99,7 @@ export default function ProposalMilestoneCard({
           <Field
             {...register(`milestones.${index}.name`)}
             label="Milestone name (optional)"
-            placeholder="e.g. Discovery — leave blank for a single list"
+            placeholder="e.g. Discovery - leave blank for a single list"
             error={milestoneErrors?.name?.message}
           />
 

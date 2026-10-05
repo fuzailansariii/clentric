@@ -29,8 +29,8 @@ type FieldSelectProps = {
 /**
  * A Select that looks like a Field.
  *
- * shadcn's SelectTrigger ships its own look — sharper corners, transparent
- * background, lighter text and a wider focus ring — which sits visibly apart
+ * shadcn's SelectTrigger ships its own look - sharper corners, transparent
+ * background, lighter text and a wider focus ring - which sits visibly apart
  * from this project's Field inputs. Putting a dropdown next to a text input
  * made that obvious. Rather than patching the classes at each call site, the
  * Field styling lives here once, alongside the same label and error markup.
@@ -73,7 +73,7 @@ export function FieldSelect({
             className,
           )}
         >
-          {/* No children here on purpose — Radix replaces them with the
+          {/* No children here on purpose - Radix replaces them with the
               selected item's text, so anything richer is discarded. */}
           <SelectValue placeholder={placeholder} />
         </SelectTrigger>

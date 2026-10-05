@@ -8,7 +8,7 @@ import { StatusBadge } from "../ui/status-badge";
 import { MobileListRow } from "./row-parts";
 
 // Mobile shows: name, company (email when there's no company), status.
-// Phone and date added are left for the detail page — you open a client to
+// Phone and date added are left for the detail page - you open a client to
 // call them, you don't pick one from a list by their number.
 export function renderClientMobileCard(row: ClientRow) {
   const config = clientStatusConfig[row.status];

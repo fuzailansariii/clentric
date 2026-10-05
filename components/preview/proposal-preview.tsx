@@ -32,7 +32,7 @@ type ProposalPreviewProps = {
  *
  * Deliberately not the invoice preview: an invoice is a figure to be paid, so
  * its preview is a compact summary card. A proposal is a document someone
- * reads end to end before deciding, so this shows the whole sheet — title,
+ * reads end to end before deciding, so this shows the whole sheet - title,
  * who it is for, the scope prose and every line.
  */
 export default function ProposalPreview({
@@ -52,7 +52,7 @@ export default function ProposalPreview({
   currency,
 }: ProposalPreviewProps) {
   // A milestone earns a place in the preview once it has a name or a line
-  // worth showing — an untouched empty card should not render as a heading.
+  // worth showing - an untouched empty card should not render as a heading.
   const filledMilestones = milestones
     .map((milestone) => ({
       ...milestone,

@@ -15,7 +15,7 @@ export function AgencyWaitlistForm({
   autoFocus?: boolean;
 }) {
   const [email, setEmail] = useState("");
-  // Honeypot value — real visitors never see the field (see below).
+  // Honeypot value - real visitors never see the field (see below).
   const [website, setWebsite] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -94,7 +94,7 @@ export function AgencyWaitlistForm({
         )}
       </button>
 
-      {/* Honeypot — clipped out of sight and out of the tab order, as in the
+      {/* Honeypot - clipped out of sight and out of the tab order, as in the
           main waitlist form. */}
       <div className="sr-only" aria-hidden="true">
         <label htmlFor={`${inputId}-website`}>Website</label>

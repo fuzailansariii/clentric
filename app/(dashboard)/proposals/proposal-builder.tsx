@@ -66,7 +66,7 @@ type ProposalBuilderProps = {
 
 /**
  * The fixed expiry choices, plus the current value when it isn't one of
- * them — a default of 21 days from Settings still shows as selected.
+ * them - a default of 21 days from Settings still shows as selected.
  */
 function expiryOptionsWith(days: number) {
   return EXPIRY_OPTIONS.some((option) => option.value === String(days))

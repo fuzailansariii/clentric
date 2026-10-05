@@ -21,7 +21,7 @@ function TooltipProvider({
 function Tooltip({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Root>) {
-  // Needs a <TooltipProvider> above it — the dashboard layout provides one.
+  // Needs a <TooltipProvider> above it - the dashboard layout provides one.
   // A single shared provider instead of one per tooltip: list rows render
   // several tooltips each, twice (table + mobile list).
   return <TooltipPrimitive.Root data-slot="tooltip" {...props} />

@@ -8,7 +8,7 @@ import { formatPhone } from "@/lib/format-phone";
 import { clientStatusConfig } from "./client-status-config";
 import { ClientRowActions } from "./client-row-actions";
 
-// Visibility by table width — always: Client (with company underneath),
+// Visibility by table width - always: Client (with company underneath),
 // Status, Email · 860px+: Phone · 1000px+: Added.
 export const clientColumns: Column<ClientRow>[] = [
   {

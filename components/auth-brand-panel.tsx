@@ -90,7 +90,7 @@ export default function AuthBrandPanel({
         ))}
       </div>
 
-      {/* Testimonial — only renders if a real quote is supplied */}
+      {/* Testimonial - only renders if a real quote is supplied */}
       {testimonial && (
         <div className="border-border bg-muted/50 max-w-xs rounded-xl border p-4">
           <p className="text-foreground font-sans text-sm leading-relaxed italic">

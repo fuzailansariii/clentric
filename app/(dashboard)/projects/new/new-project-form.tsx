@@ -151,7 +151,7 @@ export default function NewProjectsForm({
             <FormSection
               title="Where does it stand?"
               step="03 Status"
-              description="Set the current status — you can always update this as work progresses."
+              description="Set the current status - you can always update this as work progresses."
             >
               <Controller
                 control={control}

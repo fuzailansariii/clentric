@@ -4,7 +4,7 @@ import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 import { CustomButton } from "@/components/ui/custom-button";
 
-// Rendered when getInvoiceById() returns null — the invoice doesn't exist,
+// Rendered when getInvoiceById() returns null - the invoice doesn't exist,
 // was deleted, or belongs to someone else. Same shell as the real page
 // (PageHeader + DashboardContainer) so a dead link doesn't look like it left
 // the app.

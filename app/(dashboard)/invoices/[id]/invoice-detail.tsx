@@ -69,12 +69,12 @@ type InvoiceItemRow = typeof invoiceItems.$inferSelect;
 type InvoiceDetailProps = {
   invoice: InvoiceRow & {
     lineItems: InvoiceItemRow[];
-    /** Whole days until dueDate, negative once past — see getInvoiceById(). */
+    /** Whole days until dueDate, negative once past - see getInvoiceById(). */
     daysUntilDue: number;
     /** The freelancer issuing this invoice, for the "From" block: the
      * invoice's snapshot once sent, live details while it's a draft. */
     issuer: IssuerDetails | null;
-    /** How to pay — resolved the same way as the issuer. */
+    /** How to pay - resolved the same way as the issuer. */
     payment: PaymentDetails;
     logoSrc: string | null;
   };
@@ -96,7 +96,7 @@ const labelClass =
 /** A slightly stronger hairline than --border, for structural rules. */
 const ruleClass = "border-foreground/12";
 
-// Ink colour per status tone — the same tones the header's StatusBadge uses,
+// Ink colour per status tone - the same tones the header's StatusBadge uses,
 // so the stamp and the badge always agree.
 const stampInk: Record<StatusTone, string> = {
   neutral: "text-ink-600 dark:text-ink-400",
@@ -108,8 +108,8 @@ const stampInk: Record<StatusTone, string> = {
 
 /**
  * Rubber-stamp status mark on the document itself: double-ruled border,
- * slight tilt, faint ink wash. Decorative only — the status is also in the
- * page header — so it ignores pointer events and exposes one aria-label.
+ * slight tilt, faint ink wash. Decorative only - the status is also in the
+ * page header - so it ignores pointer events and exposes one aria-label.
  */
 function StatusStamp({
   tone,
@@ -148,7 +148,7 @@ function StatusStamp({
 
 type ActionKind = "primary" | "secondary" | "quiet" | "danger";
 
-// One full class set per kind — nothing shared that a kind then overrides, so
+// One full class set per kind - nothing shared that a kind then overrides, so
 // no two utilities ever fight over the same property. `enabled:` keeps hover
 // feedback off disabled buttons.
 const actionClasses: Record<ActionKind, string> = {
@@ -273,7 +273,7 @@ export function InvoiceDetail({
     : emailBlocked && emailStatus.blocked
       ? emailStatus.blocked.reason
       : isReminderQueued
-        ? "Reminder queued — click the toast to undo"
+        ? "Reminder queued - click the toast to undo"
         : null;
 
   const reminderButton = (
@@ -499,7 +499,7 @@ export function InvoiceDetail({
               </div>
             </section>
 
-            {/* Footer — payment details and notes */}
+            {/* Footer - payment details and notes */}
             <section
               className={cn(
                 "mt-8 grid gap-x-10 gap-y-7 border-t pt-6.5 @[560px]:grid-cols-2",
@@ -539,7 +539,7 @@ export function InvoiceDetail({
                       ruleClass,
                     )}
                   >
-                    No payment details on this invoice — your client won&rsquo;t
+                    No payment details on this invoice - your client won&rsquo;t
                     know where to send the money.{" "}
                     {/* Only a draft picks up settings changes; a sent
                         invoice keeps the details it went out with. */}
@@ -721,7 +721,7 @@ export function InvoiceDetail({
                 </div>
               )}
               <div className="grid gap-2">
-                {/* Primary — the one step that moves this invoice forward */}
+                {/* Primary - the one step that moves this invoice forward */}
                 {isDraft && (
                   <button
                     type="button"

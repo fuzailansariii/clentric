@@ -24,7 +24,7 @@ export default async function EditInvoicePage({
     notFound();
   }
 
-  // Paid invoices are a closed record — the detail page shows why Edit is
+  // Paid invoices are a closed record - the detail page shows why Edit is
   // disabled. updateInvoiceAction refuses them too.
   if (invoice.status === "paid") {
     redirect(`/invoices/${invoice.id}`);

@@ -18,7 +18,7 @@ export type StatSummaryItem = {
  * carry this instead and keep the cards for detail pages, where a single
  * record has room for them.
  *
- * Only figures the chips cannot show belong here — money, mostly. Per-status
+ * Only figures the chips cannot show belong here - money, mostly. Per-status
  * counts stay in the chips.
  */
 export function StatsSummary({ items }: { items: StatSummaryItem[] }) {

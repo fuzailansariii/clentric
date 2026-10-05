@@ -9,11 +9,10 @@ import {
   Receipt,
   Settings,
   Users,
-  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSidebar } from "./sidebar-provider";
-import { CustomButton } from "../ui/custom-button";
+import { MobileDrawer } from "../mobile-drawer";
 import { SidebarNavLink, type NavBadge } from "./sidebar-nav-links";
 import { ReactNode } from "react";
 import { DashboardLogoLink } from "./dashboard-logo-link";
@@ -113,69 +112,28 @@ export default function Sidebar({ footer, counts }: SidebarProps) {
       </aside>
 
       {/* ================= Mobile Sidebar ================= */}
-      {/* Kept mounted (not display:none) so the slide and fade can animate;
-          `inert` keeps the closed drawer out of focus and click order. */}
-      <div
-        className={cn(
-          "fixed inset-0 z-50 md:hidden",
-          !isMobileOpen && "pointer-events-none",
-        )}
-        inert={!isMobileOpen}
+      {/* The account menu lives on the topbar avatar instead. */}
+      <MobileDrawer
+        open={isMobileOpen}
+        onClose={closeMobile}
+        header={<DashboardLogoLink variant="brand" onClick={closeMobile} />}
+        footer={EXTRA_ITEMS.map((item) => (
+          <SidebarNavLink key={item.href} item={item} onClick={closeMobile} />
+        ))}
       >
-        <div
-          onClick={closeMobile}
-          className={cn(
-            "absolute inset-0 bg-black/40 backdrop-blur-[1px] transition-opacity duration-300",
-            isMobileOpen ? "opacity-100" : "opacity-0",
-          )}
-        />
-
-        <aside
-          className={cn(
-            "bg-background absolute inset-y-0 left-0 flex w-[min(18.75rem,85vw)] flex-col rounded-r-md border-r shadow-xl transition-transform duration-300 ease-out",
-            isMobileOpen ? "translate-x-0" : "-translate-x-full",
-          )}
-        >
-          <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
-            <DashboardLogoLink variant="brand" onClick={closeMobile} />
-            <CustomButton
-              variant="ghost"
-              size="md"
-              onClick={closeMobile}
-              aria-label="Close menu"
-            >
-              <X className="size-5" />
-            </CustomButton>
-          </div>
-
-          {/* Main links scroll on short screens; Settings stays pinned to the
-              bottom. The account menu lives on the topbar avatar instead. */}
-          <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-5">
-            <SidebarNavLink item={HOME_ITEM} onClick={closeMobile} />
-            <h2 className="text-muted-foreground mt-4 mb-1.5 ml-3 font-sans text-xs font-medium">
-              Workspace
-            </h2>
-            {WORKSPACE_ITEMS.map((item) => (
-              <SidebarNavLink
-                key={item.href}
-                item={item}
-                onClick={closeMobile}
-                badge={badges[item.href]}
-              />
-            ))}
-          </nav>
-
-          <div className="flex shrink-0 flex-col gap-1 px-3 pb-2">
-            {EXTRA_ITEMS.map((item) => (
-              <SidebarNavLink
-                key={item.href}
-                item={item}
-                onClick={closeMobile}
-              />
-            ))}
-          </div>
-        </aside>
-      </div>
+        <SidebarNavLink item={HOME_ITEM} onClick={closeMobile} />
+        <h2 className="text-muted-foreground mt-4 mb-1.5 ml-3 font-sans text-xs font-medium">
+          Workspace
+        </h2>
+        {WORKSPACE_ITEMS.map((item) => (
+          <SidebarNavLink
+            key={item.href}
+            item={item}
+            onClick={closeMobile}
+            badge={badges[item.href]}
+          />
+        ))}
+      </MobileDrawer>
     </>
   );
 }

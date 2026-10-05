@@ -114,7 +114,7 @@ export function PublicProposalView({ proposal, token }: Props) {
     });
   };
 
-  // Business name when set, else the person — the proposal's snapshot once
+  // Business name when set, else the person - the proposal's snapshot once
   // sent, so it matches what the client was sent.
   const issuer = formatIssuer(proposal.owner);
   const ownerName = issuer.title;
@@ -122,7 +122,7 @@ export function PublicProposalView({ proposal, token }: Props) {
   return (
     <main className="bg-muted/30 min-h-dvh px-4 py-8 sm:px-6 sm:py-12">
       <div className="bg-card border-border mx-auto w-full max-w-160 overflow-hidden rounded-2xl border shadow-sm">
-        {/* Branding strip. Shrinks on narrow screens but never disappears —
+        {/* Branding strip. Shrinks on narrow screens but never disappears -
             it is the freelancer's identity on this page. */}
         <div className="h-1.5 w-full" style={{ backgroundColor: brand }} />
 
@@ -306,7 +306,7 @@ export function PublicProposalView({ proposal, token }: Props) {
                 </button>
               </div>
 
-              {/* Declining reveals the reason inline — it never navigates
+              {/* Declining reveals the reason inline - it never navigates
                   away from the proposal. */}
               {showDecline && (
                 <div className="border-border flex flex-col gap-3 rounded-lg border p-4">
@@ -322,7 +322,7 @@ export function PublicProposalView({ proposal, token }: Props) {
                     value={declineReason}
                     onChange={(event) => setDeclineReason(event.target.value)}
                     maxLength={2000}
-                    placeholder="Budget, timing, scope — whatever is useful."
+                    placeholder="Budget, timing, scope - whatever is useful."
                     className="border-border bg-background focus-visible:border-ring focus-visible:ring-ring/20 w-full rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
                   />
                   <button
@@ -536,7 +536,7 @@ export function PublicProposalView({ proposal, token }: Props) {
               </p>
               {proposal.owner.testimonialAuthor?.trim() && (
                 <footer className="text-muted-foreground mt-2 text-xs">
-                  — {proposal.owner.testimonialAuthor}
+                  - {proposal.owner.testimonialAuthor}
                 </footer>
               )}
             </blockquote>
