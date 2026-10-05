@@ -16,9 +16,6 @@ const shapeStyles: Record<AvatarShape, string> = {
   circle: "rounded-full",
 };
 
-// global.css tokens (--color-ledger-500,
-// --color-amber-500, --color-success-600, --color-paper-100) instead of
-// avatars pick it up automatically.
 const COLOR_PALETTE = [
   "var(--color-ledger-500)",
   "var(--color-amber-500)",
@@ -27,8 +24,6 @@ const COLOR_PALETTE = [
 ] as const;
 const ON_COLOR_TEXT = "var(--color-ink-950)";
 
-// First letter of the first and last names ("Mohd Fuzail Ansari" → "MA");
-// a single name gives its first two letters ("Fuzail" → "FU").
 function getInitials(name: string) {
   const parts = name.trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return "";
@@ -36,8 +31,6 @@ function getInitials(name: string) {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-// Deterministic: the same name always hashes to the same palette color, so a
-// given client's avatar color stays stable across renders and sessions.
 function hashToColor(name: string) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) {
@@ -49,9 +42,6 @@ function hashToColor(name: string) {
 type AvatarInitialsProps = {
   name: string;
   size?: AvatarSize;
-  /** "neutral" = gray, matches surrounding UI (sidebar/footer, single-user contexts).
-   *  "colored" = deterministic color per name, for scanning many rows at once (tables/lists).
-   *  "accent" = soft brand tint with sans initials, for a single highlighted entity (detail-page side cards). */
   variant?: AvatarVariant;
   shape?: AvatarShape;
   className?: string;
