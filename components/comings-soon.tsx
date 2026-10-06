@@ -637,9 +637,9 @@ export default function ComingSoon({
                       </>
                     ) : (
                       <>
-                        Ready now?{" "}
+                        Got an invite?{" "}
                         <Link href="/register" className={INLINE_LINK}>
-                          Create a free account
+                          Create your account
                         </Link>{" "}
                         or{" "}
                         <Link href="/login" className={INLINE_LINK}>

@@ -29,6 +29,15 @@ describe("authErrorMessage", () => {
     ).toMatch(/No account found/);
   });
 
+  it("explains the beta invite list", () => {
+    expect(
+      authErrorMessage({
+        message: "Clentric is invite-only during the beta.",
+        code: "unexpected_failure",
+      }),
+    ).toMatch(/Join the waitlist/);
+  });
+
   it("passes unknown errors through", () => {
     expect(authErrorMessage({ message: "Something odd" })).toBe(
       "Something odd",

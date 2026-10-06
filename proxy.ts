@@ -63,7 +63,7 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // Webhooks carry no session; skip the Supabase Auth call for them.
-    "/((?!_next/static|_next/image|favicon.ico|api/webhooks/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Webhooks and the Sentry tunnel carry no session; skip the Supabase Auth call.
+    "/((?!_next/static|_next/image|favicon.ico|api/webhooks/|monitoring|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

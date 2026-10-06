@@ -47,7 +47,7 @@ export const projects = pgTable(
      * at proposals in TypeScript closes the loop
      * invoices -> projects -> proposals -> invoices and breaks Drizzle's
      * relational type inference. The real foreign key, with ON DELETE SET
-     * NULL, is added in the hand-written projects-proposal-fk.sql instead.
+     * NULL, is added in migration 0022_beta_hardening.sql instead.
      */
     proposalId: uuid("proposal_id"),
     // Optional; overrides the client's hourly rate when prefilling invoices.

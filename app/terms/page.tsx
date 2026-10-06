@@ -192,6 +192,11 @@ export default function TermsOfServicePage() {
           The limits only stop you creating new items beyond them until you
           upgrade again.
         </p>
+        <p>
+          During the beta, paid plans are switched off: every account gets all
+          features and no limits apply. We will email you before limits or paid
+          plans start, and nothing you made during the beta will be deleted.
+        </p>
       </LegalSection>
 
       <LegalSection

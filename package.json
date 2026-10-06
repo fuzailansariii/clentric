@@ -10,11 +10,14 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck && npm run lint && vitest run",
     "test:e2e": "playwright test",
-    "grant": "node --env-file=.env --disable-warning=ExperimentalWarning scripts/grant.mts"
+    "grant": "node --env-file=.env --disable-warning=ExperimentalWarning scripts/grant.mts",
+    "invite": "node --env-file=.env --disable-warning=ExperimentalWarning scripts/invite.mts",
+    "db:check": "node --env-file=.env --disable-warning=ExperimentalWarning scripts/check-db.mts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
     "@react-pdf/renderer": "^4.9.0",
+    "@sentry/nextjs": "^11.4.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.8",
     "class-variance-authority": "^0.7.1",

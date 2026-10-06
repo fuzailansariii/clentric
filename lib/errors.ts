@@ -1,3 +1,5 @@
+import * as Sentry from "@sentry/nextjs";
+
 export class AppError extends Error {
   constructor(
     public code: string,
@@ -10,6 +12,12 @@ export class AppError extends Error {
 
 export function logError(context: string, error: unknown) {
   console.error(`[${context}]`, error);
+  // AppErrors are expected, or wrap a failure already logged where it happened.
+  if (error instanceof AppError) return;
+  Sentry.captureException(
+    error instanceof Error ? error : new Error(`[${context}] ${String(error)}`),
+    { tags: { context } },
+  );
 }
 
 function hasCode(error: unknown, code: string): boolean {

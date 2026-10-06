@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import DashboardContainer from "@/components/dashboard/container";
 import { ErrorState } from "@/components/error-state";
 
@@ -15,6 +16,8 @@ export default function DashboardError({
 }) {
   useEffect(() => {
     console.error(error);
+    // Server errors carry a digest and are already reported by onRequestError.
+    if (!error.digest) Sentry.captureException(error);
   }, [error]);
 
   return (

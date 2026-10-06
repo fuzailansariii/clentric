@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { CustomButton } from "@/components/ui/custom-button";
 
 export default function ClientsError({
@@ -12,6 +13,7 @@ export default function ClientsError({
 }) {
   useEffect(() => {
     console.error(error);
+    if (!error.digest) Sentry.captureException(error);
   }, [error]);
 
   return (

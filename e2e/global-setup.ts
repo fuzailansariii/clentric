@@ -7,6 +7,7 @@ import {
   deleteTestData,
   E2E_EMAIL,
   requireEnv,
+  testDb,
 } from "./support/env";
 
 // Signs the test account in with an admin-minted code; no email is sent.
@@ -24,6 +25,14 @@ export default async function globalSetup() {
   const admin = createClient(url, requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+
+  // The beta sign-up hook refuses emails that aren't invited.
+  const db = testDb();
+  try {
+    await db`insert into beta_invites (email, note) values (${E2E_EMAIL.toLowerCase()}, 'e2e') on conflict (email) do nothing`;
+  } finally {
+    await db.end();
+  }
 
   const created = await admin.auth.admin.createUser({
     email: E2E_EMAIL,
