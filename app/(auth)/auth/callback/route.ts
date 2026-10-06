@@ -6,7 +6,7 @@ import { NextResponse } from "next/server";
  * `next` path says where to land afterwards (default /dashboard).
  */
 export async function GET(request: Request) {
-  const { searchParams, origin } = new URL(request.url);
+  const { searchParams } = new URL(request.url);
   const code = searchParams.get("code");
   const next = safeNext(searchParams.get("next"));
 
@@ -14,13 +14,22 @@ export async function GET(request: Request) {
     const supabase = await createClient();
     const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-    if (!error) {
-      return NextResponse.redirect(new URL(next, origin));
-    }
+    if (!error) return redirectTo(next);
+  }
+
+  // A new Google account refused by the beta invite hook.
+  if (searchParams.get("error_description")?.includes("invite-only")) {
+    return redirectTo("/register?error=invite_only");
   }
 
   // Code missing or exchange failed — send them to login with an error flag
-  return NextResponse.redirect(`${origin}/login?error=auth_failed`);
+  return redirectTo("/login?error=auth_failed");
+}
+
+// Relative Location: the browser stays on the domain it came from. request.url's
+// origin can be the host's internal address (e.g. localhost:3000) behind a proxy.
+function redirectTo(path: string) {
+  return new NextResponse(null, { status: 307, headers: { Location: path } });
 }
 
 /**

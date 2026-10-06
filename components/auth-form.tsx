@@ -14,6 +14,7 @@ import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
 import { OtpInput, type OtpInputHandle } from "./otp-input";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { AUTH_REDIRECT_ERRORS } from "@/lib/auth-error-message";
 
 type AuthFormProps = {
   mode: "login" | "register";
@@ -73,7 +74,10 @@ function AuthFormContent({
   const [saved] = useState(() => readSavedProgress(mode));
   const [step, setStep] = useState<"details" | "verify">(saved.step);
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    const code = new URLSearchParams(window.location.search).get("error");
+    return (code && AUTH_REDIRECT_ERRORS[code]) || null;
+  });
   const [submittedEmail, setSubmittedEmail] = useState(saved.email);
   const [code, setCode] = useState("");
   const [resendIn, setResendIn] = useState(saved.resendIn);
