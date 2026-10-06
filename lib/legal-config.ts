@@ -137,7 +137,8 @@ export const LEGAL = {
     { name: "ImageKit", purpose: "Storing and serving business logos" },
     { name: "Vercel", purpose: "Hosting" },
     {
-      name: "Payment provider",
+      // Legal pages must name it; the app UI says "our payment provider".
+      name: "Dodo Payments",
       purpose:
         "Subscription billing for Clentric plans only, as merchant of record",
     },

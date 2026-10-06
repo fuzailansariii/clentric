@@ -145,6 +145,11 @@ export default function TermsOfServicePage() {
           stores your card number.
         </p>
         <p>
+          Prices are set in USD. Checkout may show and charge them in your
+          local currency, converted at the time of payment, with local tax
+          (such as VAT or GST) added where it applies.
+        </p>
+        <p>
           Your subscription renews automatically at the end of each billing
           period until you cancel.
         </p>

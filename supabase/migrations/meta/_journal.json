@@ -141,6 +141,20 @@
       "when": 1791133348466,
       "tag": "0019_user_branding",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1791195871448,
+      "tag": "0020_drop_stripe_subscriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791195953310,
+      "tag": "0021_billing",
+      "breakpoints": true
     }
   ]
 }

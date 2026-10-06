@@ -38,6 +38,8 @@ export async function deleteTestData(userId: string) {
       await tx`delete from activity_logs where user_id = ${userId}`;
       await tx`delete from email_sends where user_id = ${userId}`;
       await tx`delete from invoice_counters where user_id = ${userId}`;
+      await tx`delete from subscriptions where user_id = ${userId}`;
+      await tx`delete from plan_grants where email = (select lower(email) from users where id = ${userId})`;
     });
     await resetBranding(sql, userId);
   } finally {

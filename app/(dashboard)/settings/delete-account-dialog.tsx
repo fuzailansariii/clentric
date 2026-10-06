@@ -79,6 +79,10 @@ export function DeleteAccountDialog({
                     you restore your account.
                   </li>
                   <li>
+                    A paid plan stops renewing. You won’t be charged again,
+                    and it isn’t restarted if you restore your account.
+                  </li>
+                  <li>
                     After {ACCOUNT_DELETION_GRACE_DAYS} days everything is
                     deleted for good. Sign back in before then to restore it.
                   </li>

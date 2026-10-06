@@ -14,14 +14,8 @@ export const runtime = "nodejs";
 // used to before unstable_rethrow was added there (see DEV_NOTES.md).
 export const dynamic = "force-dynamic";
 
-// TODO(billing): gate this behind the user's plan once Stripe billing
-// exists (see DEV_NOTES.md — "Invoice PDF export"). Shipped ungated for
-// this milestone: gating on subscriptions.plan today would lock PDF export
-// away from every real user, since no subscriptions row can exist without
-// a Stripe integration that isn't built yet, and users.plan isn't read for
-// gating anywhere else in the app. Revisit which of those two plan fields
-// is the real source of truth when billing lands — see the note on the
-// duplicate `subscription_plan` enum in users.ts vs subscriptions.ts.
+// TODO(billing): gate PDF export and branding with getEffectivePlan()
+// (lib/billing), never users.plan. Part of the plan-limits task.
 
 export async function GET(
   request: Request,
@@ -49,8 +43,7 @@ export async function GET(
       return new Response("Invoice not found.", { status: 404 });
     }
 
-    // Always true for now — see the TODO(billing) above. Once plan-gating
-    // exists, this becomes that same lookup instead of a literal.
+    // Always true until the TODO(billing) above lands.
     const showBranding = true;
 
     const pdf = await renderInvoicePdf(data, showBranding);

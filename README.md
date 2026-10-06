@@ -23,6 +23,10 @@ Open [http://localhost:3000](http://localhost:3000).
 | `RESEND_API_KEY` | Resend: invoice, reminder, proposal and contact-form emails |
 | `APP_URL` | Base URL for links in emails (`http://localhost:3000` in dev; defaults to `https://clentric.app`) |
 | `EMAIL_FROM`, `SUPPORT_EMAIL` | Optional. Sender address (default `noreply@clentric.app`) and where contact-form messages go (default the support email in `lib/legal-config.ts`) |
+| `DODO_PAYMENTS_API_KEY`, `DODO_PAYMENTS_ENVIRONMENT` | Billing API key and `test_mode` / `live_mode` (live is refused while `APP_URL` is localhost) |
+| `DODO_PRODUCT_PRO_MONTHLY`, `DODO_PRODUCT_PRO_YEARLY` | Product ids for Pro monthly ($16) and yearly ($168) |
+| `DODO_PAYMENTS_WEBHOOK_SECRET` | Signing secret of the webhook pointing at `/api/webhooks/dodo` |
+| `BILLING_ENFORCED` | `true` turns paid plans on. Anything else = beta: everyone gets Pro, upgrade buttons hidden |
 | `SUPABASE_SERVICE_ROLE_KEY` | **End-to-end tests only.** Never use it in app code or a `NEXT_PUBLIC_` variable |
 
 `.env*` files are gitignored.
@@ -37,6 +41,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run test:e2e` | End-to-end tests (Playwright) against the dev server |
 | `E2E_PROD=1 E2E_BASE_URL=http://localhost:3100 npm run test:e2e` | End-to-end tests against a fresh production build on port 3100 |
 | `npx playwright show-report` | Open the last end-to-end report (screenshots and traces on failure) |
+| `npm run grant add friend@x.com 2027-01-01 beta tester` | Free Pro for an email, works before sign-up (date and note optional). `npm run grant revoke <email>`, `npm run grant list` |
 
 ## Tests
 
