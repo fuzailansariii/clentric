@@ -20,6 +20,7 @@ export default function TermsOfServicePage() {
   return (
     <LegalLayout
       title="Terms of Service"
+      lastUpdated={LEGAL.lastUpdated}
       intro={
         <p>
           These terms are the agreement between you and{" "}
@@ -271,8 +272,8 @@ export default function TermsOfServicePage() {
 
       <LegalSection id="public-links" title="9. Public links and sharing">
         <p>
-          Proposal and portal links use long random tokens, and you can revoke
-          them or let them expire. Until then, anyone who has the link can open
+          Proposal links use long random tokens, and you can revoke them or let
+          them expire. Until then, anyone who has the link can open
           the page without signing in. Send links only to the people you mean to
           send them to, and revoke a link if it goes astray.
         </p>
@@ -295,7 +296,7 @@ export default function TermsOfServicePage() {
             interfere with other people using it;
           </li>
           <li>
-            guess, scrape or enumerate other people’s proposal or portal links;
+            guess, scrape or enumerate other people’s proposal links;
           </li>
           <li>
             resell or rent the service, or copy it to build a competing product.
@@ -311,10 +312,10 @@ export default function TermsOfServicePage() {
       <LegalSection id="ending" title="11. Ending your account">
         <p>
           You can stop using {LEGAL.productName} at any time. Cancelling your
-          subscription moves you to the Free plan; asking us to close your
-          account removes it. You can export your data for{" "}
-          {LEGAL.dataExportWindow} after closing your account - email us and we
-          will prepare it.
+          subscription moves you to the Free plan. You can download your data
+          and delete your account yourself in Settings: the account is locked at
+          once and permanently deleted {LEGAL.accountPurgeAfter} later, and you
+          can restore it until then.
         </p>
         <p>
           We may suspend or close an account that breaks these terms, is used
@@ -340,6 +341,29 @@ export default function TermsOfServicePage() {
           are responsible for checking that what you send is correct for your
           situation.
         </p>
+        <h3>The beta</h3>
+        <p>
+          While {LEGAL.productName} is in beta, features may change, stop
+          working or be removed without notice, and data may occasionally be
+          lost. Use the export in Settings to keep your own copies of anything
+          important.
+        </p>
+        <h3>Services run by others</h3>
+        <p>
+          {LEGAL.productName} relies on services operated by other companies,
+          including hosting, sign-in, email delivery, file storage and payment
+          processing, and on banks, payment apps and email providers that you
+          and your clients choose. We are not responsible for their outages,
+          delays, errors or decisions, such as an email landing in spam or a
+          payment being held by a bank.
+        </p>
+        <h3>You and your clients</h3>
+        <p>
+          You decide what you invoice, what you quote, and what you agree with
+          your clients. The accuracy of your invoices and proposals, the taxes
+          you charge and report, whether you get paid, and any dispute with a
+          client are your responsibility, not ours.
+        </p>
       </LegalSection>
 
       <LegalSection id="liability" title="13. Limitation of liability">
@@ -362,19 +386,40 @@ export default function TermsOfServicePage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="governing-law" title="14. Governing law">
+      <LegalSection id="indemnity" title="14. Your responsibility to us">
         <p>
-          These terms are governed by {LEGAL.governingLaw}. If something goes
-          wrong, please email us first at{" "}
-          <a href={mailtoHref("Question about the Terms")}>
-            {LEGAL.supportEmail}
-          </a>
-          . Most problems are settled faster and more cheaply by a conversation
-          than by anything formal.
+          If someone makes a claim against us because of content you put into{" "}
+          {LEGAL.productName}, personal data you entered about your clients,
+          documents you sent through the service, your dealings with your
+          clients, or your breach of these terms or of the law, you agree to
+          cover the reasonable costs and losses that result, including
+          reasonable legal fees. We will tell you about the claim promptly and
+          let you take part in dealing with it. This does not apply where the
+          claim is caused by our own fault.
         </p>
       </LegalSection>
 
-      <LegalSection id="changes" title="15. Changes to these terms">
+      <LegalSection id="force-majeure" title="15. Events outside our control">
+        <p>
+          We are not responsible for delays or failures caused by events we
+          cannot reasonably control, such as outages of internet, hosting or
+          other providers, cyber attacks, power cuts, natural disasters, strikes,
+          or actions of governments or authorities.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="governing-law" title="16. Disputes and governing law">
+        <p>
+          If something goes wrong, please contact us first at{" "}
+          <a href={mailtoHref("Dispute")}>{LEGAL.supportEmail}</a> or through
+          our Grievance Officer, and give us at least 30 days to try to resolve
+          it before starting any formal proceedings. Most problems are settled
+          faster and more cheaply by a conversation than by anything formal.
+        </p>
+        <p>These terms are governed by {LEGAL.governingLaw}.</p>
+      </LegalSection>
+
+      <LegalSection id="changes" title="17. Changes to these terms">
         <p>
           We may update these terms as the product and the law change. The
           version on this page is always the current one, and where a change
@@ -384,11 +429,18 @@ export default function TermsOfServicePage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="contact" title="16. How to contact us">
+      <LegalSection id="contact" title="18. How to contact us">
         <p>
           Email <a href={mailtoHref()}>{LEGAL.supportEmail}</a> and we will
           reply {LEGAL.responseTime}, or use our{" "}
           <Link href={LEGAL.routes.contact}>contact page</Link>.
+        </p>
+        <p>
+          Complaints go to our Grievance Officer,{" "}
+          {LEGAL.grievanceOfficer.name}, at{" "}
+          <a href={mailtoHref("Grievance")}>{LEGAL.supportEmail}</a>. We
+          acknowledge them within {LEGAL.grievanceOfficer.acknowledgeWithin} and
+          aim to resolve them within {LEGAL.grievanceOfficer.resolveWithin}.
         </p>
         <p>
           {LEGAL.operatorLegalName} · {LEGAL.entityType}

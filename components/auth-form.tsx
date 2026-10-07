@@ -15,6 +15,7 @@ import { FcGoogle } from "react-icons/fc";
 import { OtpInput, type OtpInputHandle } from "./otp-input";
 import { useHydrated } from "@/hooks/use-hydrated";
 import { AUTH_REDIRECT_ERRORS } from "@/lib/auth-error-message";
+import { LEGAL } from "@/lib/legal-config";
 
 type AuthFormProps = {
   mode: "login" | "register";
@@ -288,6 +289,24 @@ function AuthFormContent({
             <FcGoogle aria-hidden="true" size={20} />
             Continue with Google
           </CustomButton>
+
+          <p className="text-muted-foreground text-center text-xs leading-relaxed">
+            By continuing, you agree to our{" "}
+            <Link
+              href={LEGAL.routes.terms}
+              className="text-foreground underline underline-offset-2"
+            >
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link
+              href={LEGAL.routes.privacy}
+              className="text-foreground underline underline-offset-2"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </p>
 
           <div className="flex items-center justify-center space-x-1 text-[13px]">
             <span>

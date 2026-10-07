@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { scrubError } from "./scrub-error";
 
 export class AppError extends Error {
   constructor(
@@ -11,11 +12,13 @@ export class AppError extends Error {
 }
 
 export function logError(context: string, error: unknown) {
-  console.error(`[${context}]`, error);
+  // Database errors carry customer data (emails, names, notes); log a scrubbed copy.
+  const safe = scrubError(error);
+  console.error(`[${context}]`, safe);
   // AppErrors are expected, or wrap a failure already logged where it happened.
   if (error instanceof AppError) return;
   Sentry.captureException(
-    error instanceof Error ? error : new Error(`[${context}] ${String(error)}`),
+    safe instanceof Error ? safe : new Error(`[${context}] ${String(safe)}`),
     { tags: { context } },
   );
 }

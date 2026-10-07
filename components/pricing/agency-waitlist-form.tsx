@@ -3,7 +3,9 @@
 import { useId, useState, useTransition, type SubmitEventHandler } from "react";
 import { CheckIcon, LoaderCircleIcon } from "lucide-react";
 import { joinAgencyWaitlist } from "@/app/actions/waitlist";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { LEGAL } from "@/lib/legal-config";
 
 /**
  * Email form for the Agency waitlist. Styled for the dark Agency card, so it
@@ -118,6 +120,16 @@ export function AgencyWaitlistForm({
           {error}
         </p>
       )}
+
+      <p className="text-xs text-white/70">
+        We only use your email to tell you when Agency opens.{" "}
+        <Link
+          href={LEGAL.routes.privacy}
+          className="underline underline-offset-2 hover:text-white"
+        >
+          Privacy Policy
+        </Link>
+      </p>
     </form>
   );
 }

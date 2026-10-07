@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { LoaderCircleIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -83,6 +84,17 @@ export function ContactForm() {
           autoComplete="off"
         />
       </div>
+
+      <p className="text-muted-foreground text-xs">
+        We use your name and email only to reply to you. See our{" "}
+        <Link
+          href={LEGAL.routes.privacy}
+          className="text-primary underline underline-offset-2"
+        >
+          Privacy Policy
+        </Link>
+        .
+      </p>
 
       <div className="flex flex-wrap items-center gap-4">
         <Button

@@ -65,11 +65,21 @@ export default function ContactPage() {
 
         <h3>Privacy and data requests</h3>
         <p>
-          To get a copy of your data, correct it, export it or delete it, email
-          us from the address on your account. If you are a client who received
-          a proposal or portal link, contact the freelancer who sent it first -
-          they control that record. Our{" "}
+          You can download your data and delete your account yourself in
+          Settings → Account. For a correction or anything else, email us from
+          the address on your account. If you are a client who received a
+          proposal link, contact the freelancer who sent it first - they control
+          that record. Our{" "}
           <Link href={LEGAL.routes.privacy}>Privacy Policy</Link> explains why.
+        </p>
+
+        <h3>Grievance Officer</h3>
+        <p>
+          {LEGAL.grievanceOfficer.name}, {LEGAL.grievanceOfficer.designation} -{" "}
+          <a href={mailtoHref("Grievance")}>{LEGAL.supportEmail}</a>. We
+          acknowledge complaints within{" "}
+          {LEGAL.grievanceOfficer.acknowledgeWithin} and aim to resolve them
+          within {LEGAL.grievanceOfficer.resolveWithin}.
         </p>
 
         <h3>Everything else</h3>

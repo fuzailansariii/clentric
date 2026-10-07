@@ -77,6 +77,9 @@ export const users = pgTable(
     deletionRequestedAt: timestamp("deletion_requested_at", {
       withTimezone: true,
     }),
+    /** When the user first used the app after the sign-up notice, and which version. */
+    termsAcceptedAt: timestamp("terms_accepted_at", { withTimezone: true }),
+    termsVersion: text("terms_version"),
   },
   (table) => [
     check(
