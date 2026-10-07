@@ -38,6 +38,16 @@ describe("authErrorMessage", () => {
     ).toMatch(/Join the waitlist/);
   });
 
+  it("never shows a bare {} from a server error", () => {
+    for (const error of [
+      { message: "{}", name: "AuthRetryableFetchError", status: 504 },
+      { message: "{}" },
+      { message: "", status: 500 },
+    ]) {
+      expect(authErrorMessage(error)).toMatch(/couldn't reach the sign-in service/);
+    }
+  });
+
   it("passes unknown errors through", () => {
     expect(authErrorMessage({ message: "Something odd" })).toBe(
       "Something odd",

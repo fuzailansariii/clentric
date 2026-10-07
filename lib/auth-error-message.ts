@@ -7,9 +7,27 @@ export const AUTH_REDIRECT_ERRORS: Record<string, string> = {
   auth_failed: "Sign-in didn't finish. Please try again.",
 };
 
+const SERVICE_DOWN_MESSAGE =
+  "We couldn't reach the sign-in service just now. Please try again in a minute.";
+
 /** Turns a Supabase auth error into a sentence a user can act on. */
-export function authErrorMessage(error: { message: string; code?: string }) {
+export function authErrorMessage(error: {
+  message: string;
+  code?: string;
+  status?: number;
+  name?: string;
+}) {
   const message = error.message.toLowerCase();
+
+  // A 5xx reply has no message; supabase-js then shows "{}".
+  if (
+    error.name === "AuthRetryableFetchError" ||
+    (error.status !== undefined && error.status >= 500) ||
+    !message.trim() ||
+    message.trim() === "{}"
+  ) {
+    return SERVICE_DOWN_MESSAGE;
+  }
 
   if (
     error.code === "over_email_send_rate_limit" ||
