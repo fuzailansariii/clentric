@@ -49,7 +49,7 @@ export default function Login() {
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(authErrorMessage(error));
   };
 
   return (
