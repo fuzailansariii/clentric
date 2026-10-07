@@ -39,36 +39,36 @@ export default function AuthBrandPanel({
   return (
     <div
       className={cn(
-        "mx-5 flex h-full max-h-full flex-col justify-evenly gap-8 px-5 py-10 overflow-hidden",
+        "mx-5 flex h-full max-h-full flex-col justify-evenly gap-8 overflow-hidden px-5 py-10",
         className,
       )}
     >
       {/* Logo Section */}
       <div className="flex flex-col gap-2">
         {logo}
-        <span className="text-xs leading-none text-muted-foreground">
+        <span className="text-muted-foreground text-xs leading-none">
           {tagline}
         </span>
       </div>
 
       {/* Title, Description */}
       <div className="flex max-w-xs flex-col gap-2">
-        <h2 className="font-heading text-[30px] font-bold leading-[1.2] tracking-tight">
+        <h2 className="font-heading text-[30px] leading-[1.2] font-bold tracking-tight">
           {title}
         </h2>
         {description && (
-          <p className="font-sans tracking-tight max-w-68 text-sm text-muted-foreground">
+          <p className="text-muted-foreground max-w-68 font-sans text-sm tracking-tight">
             {description}
           </p>
         )}
       </div>
 
       {/* Features */}
-      <div className="flex flex-col divide-y divide-border">
+      <div className="divide-border flex flex-col divide-y">
         {features?.map((item, idx) => (
           <div
             key={idx}
-            className="flex items-center py-3 gap-4 first:pt-0 last:pb-0"
+            className="flex items-center gap-4 py-3 first:pt-0 last:pb-0"
           >
             <div
               className={cn(
@@ -82,7 +82,7 @@ export default function AuthBrandPanel({
               <span className="text-sm font-medium tracking-tight">
                 {item.title}
               </span>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-muted-foreground text-xs">
                 {item.description}
               </p>
             </div>
@@ -90,21 +90,21 @@ export default function AuthBrandPanel({
         ))}
       </div>
 
-      {/* Testimonial — only renders if a real quote is supplied */}
+      {/* Testimonial - only renders if a real quote is supplied */}
       {testimonial && (
-        <div className="max-w-xs rounded-xl border border-border bg-muted/50 p-4">
-          <p className="font-sans text-sm italic leading-relaxed text-foreground">
+        <div className="border-border bg-muted/50 max-w-xs rounded-xl border p-4">
+          <p className="text-foreground font-sans text-sm leading-relaxed italic">
             &ldquo;{testimonial.quote}&rdquo;
           </p>
           <div className="mt-3 flex items-center gap-2.5">
-            <div className="flex size-7 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-accent-foreground">
+            <div className="bg-accent text-accent-foreground flex size-7 items-center justify-center rounded-full text-[11px] font-semibold">
               {testimonial.initials}
             </div>
             <div className="font-sans">
-              <p className="text-xs font-semibold leading-tight">
+              <p className="text-xs leading-tight font-semibold">
                 {testimonial.name}
               </p>
-              <p className="text-[11px] leading-tight text-muted-foreground">
+              <p className="text-muted-foreground text-[11px] leading-tight">
                 {testimonial.role}
               </p>
             </div>
@@ -114,7 +114,7 @@ export default function AuthBrandPanel({
 
       {/* Trust badge */}
       {trustBadge && (
-        <h2 className="rounded-full w-fit cursor-pointer text-primary font-space font-medium bg-chart-2/20 text-xs px-3 py-2">
+        <h2 className="text-primary font-space bg-chart-2/20 w-fit cursor-pointer rounded-full px-3 py-2 text-xs font-medium">
           {trustBadge}
         </h2>
       )}

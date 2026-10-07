@@ -3,7 +3,9 @@
 import { useId, useState, useTransition, type SubmitEventHandler } from "react";
 import { CheckIcon, LoaderCircleIcon } from "lucide-react";
 import { joinAgencyWaitlist } from "@/app/actions/waitlist";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { LEGAL } from "@/lib/legal-config";
 
 /**
  * Email form for the Agency waitlist. Styled for the dark Agency card, so it
@@ -15,7 +17,7 @@ export function AgencyWaitlistForm({
   autoFocus?: boolean;
 }) {
   const [email, setEmail] = useState("");
-  // Honeypot value — real visitors never see the field (see below).
+  // Honeypot value - real visitors never see the field (see below).
   const [website, setWebsite] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -94,7 +96,7 @@ export function AgencyWaitlistForm({
         )}
       </button>
 
-      {/* Honeypot — clipped out of sight and out of the tab order, as in the
+      {/* Honeypot - clipped out of sight and out of the tab order, as in the
           main waitlist form. */}
       <div className="sr-only" aria-hidden="true">
         <label htmlFor={`${inputId}-website`}>Website</label>
@@ -118,6 +120,16 @@ export function AgencyWaitlistForm({
           {error}
         </p>
       )}
+
+      <p className="text-xs text-white/70">
+        We only use your email to tell you when Agency opens.{" "}
+        <Link
+          href={LEGAL.routes.privacy}
+          className="underline underline-offset-2 hover:text-white"
+        >
+          Privacy Policy
+        </Link>
+      </p>
     </form>
   );
 }

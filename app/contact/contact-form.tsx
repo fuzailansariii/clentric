@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useRef, useState, useTransition } from "react";
+import Link from "next/link";
 import { LoaderCircleIcon } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,17 @@ export function ContactForm() {
         />
       </div>
 
+      <p className="text-muted-foreground text-xs">
+        We use your name and email only to reply to you. See our{" "}
+        <Link
+          href={LEGAL.routes.privacy}
+          className="text-primary underline underline-offset-2"
+        >
+          Privacy Policy
+        </Link>
+        .
+      </p>
+
       <div className="flex flex-wrap items-center gap-4">
         <Button
           type="submit"
@@ -102,7 +114,7 @@ export function ContactForm() {
           className="text-muted-foreground min-h-5 text-sm"
         >
           {sent && !error
-            ? "Thanks — your message is on its way. We reply " +
+            ? "Thanks - your message is on its way. We reply " +
               LEGAL.responseTime +
               "."
             : ""}

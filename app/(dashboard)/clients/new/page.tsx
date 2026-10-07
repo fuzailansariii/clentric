@@ -1,0 +1,265 @@
+"use client";
+
+import React, { use, useRef, useState } from "react";
+import { useForm, useWatch, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
+import { ClientInput, clientSchema, clientStatusEnum } from "../schema";
+import { Field } from "@/components/ui/input";
+import { CustomButton } from "@/components/ui/custom-button";
+import { CountryCombobox } from "@/components/ui/country-combobox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { PhoneField, type PhoneFieldHandle } from "@/components/ui/phone-field";
+import DashboardContainer from "@/components/dashboard/container";
+import PageHeader from "@/components/dashboard/page-header";
+import FormSection from "@/components/dashboard/form-section";
+import { createClientAction } from "../actions";
+import { useRouter } from "next/navigation";
+import { runActionWithToast } from "@/lib/run-action-with-toast";
+import { getSafeReturnTo } from "@/lib/return-to";
+import { ArrowRight } from "lucide-react";
+
+export default function NewClientPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ returnTo?: string }>;
+}) {
+  const [formError, setFormError] = useState<string | null>(null);
+  const router = useRouter();
+  // Set when opened from the dashboard's setup steps: go back there instead.
+  const returnTo = getSafeReturnTo(use(searchParams).returnTo);
+  const backHref = returnTo ?? "/clients";
+
+  const {
+    handleSubmit,
+    register,
+    formState: { errors, isSubmitting },
+    control,
+    setValue,
+  } = useForm<ClientInput>({
+    resolver: zodResolver(clientSchema),
+    defaultValues: {
+      status: "active",
+    },
+  });
+
+  const countryValue = useWatch({ control, name: "country" });
+  const phoneFieldRef = useRef<PhoneFieldHandle>(null);
+
+  // form creation submit
+  const onSubmit = handleSubmit(async (data: ClientInput) => {
+    setFormError(null);
+    await runActionWithToast(createClientAction(data), {
+      loading: "Creating Client...",
+      success: "Client Created",
+      onSuccess: ({ clientId }) => {
+        router.push(returnTo ?? `/clients/${clientId}`);
+      },
+      onError: setFormError,
+    });
+  });
+
+  return (
+    <>
+      <PageHeader
+        title="Add a new client"
+        subtitle="This becomes a permanent record - client, projects and invoices all roll up to it."
+        backHref={backHref}
+        breadcrumbs={[
+          { label: "Dashboard", href: "/dashboard" },
+          { label: "Clients", href: "/clients" },
+          { label: "New" },
+        ]}
+      />
+
+      <DashboardContainer>
+        <form onSubmit={onSubmit} className="mx-auto max-w-4xl pb-12">
+          <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
+            {/* Basic information */}
+            <FormSection
+              title="Tell us about your client"
+              step="01 - Basic information"
+              description="Start with the basic details of the person or company
+                you're working with."
+            >
+              <div className="grid gap-5 sm:grid-cols-2">
+                <Field
+                  {...register("name")}
+                  label="Name"
+                  placeholder="e.g. John Doe"
+                  error={errors.name?.message}
+                />
+
+                <Field
+                  {...register("company")}
+                  label="Company"
+                  placeholder="e.g. Acme Inc."
+                  error={errors.company?.message}
+                />
+              </div>
+            </FormSection>
+
+            <div className="bg-border h-px" />
+
+            {/* Contact details */}
+            <FormSection
+              step="02 - Contact details"
+              title="Stay connected"
+              description="Add the contact information you'll use to communicate with
+                this client."
+            >
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div className="sm:col-span-1">
+                  <Field
+                    {...register("email")}
+                    label="Email"
+                    placeholder="e.g. john@acme.com"
+                    error={errors.email?.message}
+                  />
+                </div>
+
+                <div>
+                  <Controller
+                    control={control}
+                    name="phone"
+                    render={({ field }) => (
+                      <PhoneField
+                        ref={phoneFieldRef}
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={errors.phone?.message}
+                        syncCountryValue={countryValue}
+                        onDialCountryChange={(isoValue) =>
+                          setValue("country", isoValue, {
+                            shouldValidate: true,
+                          })
+                        }
+                      />
+                    )}
+                  />
+                </div>
+
+                <div>
+                  <Controller
+                    control={control}
+                    name="country"
+                    render={({ field }) => (
+                      <CountryCombobox
+                        value={field.value}
+                        onChange={(value) => {
+                          phoneFieldRef.current?.resetOverride();
+                          field.onChange(value);
+                        }}
+                      />
+                    )}
+                  />
+                  {errors.country && (
+                    <p className="text-destructive text-sm">
+                      {errors.country.message}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </FormSection>
+
+            <div className="bg-border h-px" />
+
+            {/* Additional information */}
+            <FormSection
+              step="03 - Workspace details"
+              title="Organize your relationship"
+              description="Keep a little context about where this client stands."
+            >
+              <div className="space-y-5 md:max-w-sm">
+                <Controller
+                  control={control}
+                  name="status"
+                  render={({ field }) => (
+                    <div className="w-32 space-y-2">
+                      <label className="text-sm font-medium">Status</label>
+
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+
+                        <SelectContent>
+                          {clientStatusEnum.options.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {status.charAt(0).toUpperCase() + status.slice(1)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                />
+
+                <Field
+                  {...register("notes")}
+                  label="Notes"
+                  placeholder="Add any useful context about this client..."
+                  multiline
+                  error={errors.notes?.message}
+                />
+              </div>
+            </FormSection>
+
+            {formError && (
+              <div className="border-t px-6 py-3 sm:px-8">
+                <p className="text-destructive text-sm">{formError}</p>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="bg-muted/30 flex flex-col-reverse gap-3 border-t px-6 py-4 sm:flex-row sm:items-center sm:justify-end sm:px-8">
+              {isSubmitting ? (
+                <CustomButton
+                  type="button"
+                  variant="secondary"
+                  disabled
+                  className="w-full sm:w-auto"
+                >
+                  Cancel
+                </CustomButton>
+              ) : (
+                <Link href={backHref}>
+                  <CustomButton
+                    type="button"
+                    variant="secondary"
+                    className="w-full sm:w-auto"
+                  >
+                    Cancel
+                  </CustomButton>
+                </Link>
+              )}
+
+              <CustomButton
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full sm:w-auto"
+              >
+                {isSubmitting ? "Creating..." : "Create client"}
+              </CustomButton>
+            </div>
+          </div>
+          <p className="text-muted-foreground mt-2 flex items-center gap-2 px-2 font-mono text-[8px] font-light sm:px-0 sm:text-xs">
+            <ArrowRight size={12} />
+            <span>
+              client records use soft deletes - nothing is lost, only archived
+            </span>
+          </p>
+        </form>
+      </DashboardContainer>
+    </>
+  );
+}

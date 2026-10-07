@@ -5,58 +5,46 @@ import { Logo } from "@/components/logo";
 import { createClient } from "@/lib/supabase/client";
 import { FileText, TrendingUp, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { authErrorMessage } from "@/lib/auth-error-message";
 
 export default function Login() {
-  const emailRef = useRef("");
   const supabase = createClient();
   const router = useRouter();
 
   // email submit handler
   const onSubmitEmail = async (data: { email: string }) => {
-    const { email } = data;
-    emailRef.current = email;
     const { error } = await supabase.auth.signInWithOtp({
-      email,
+      email: data.email,
       options: { shouldCreateUser: false },
     });
 
-    if (error) {
-      if (error.message.toLowerCase().includes("signups not allowed")) {
-        throw new Error(
-          "No account found with that email. Try creating one instead.",
-        );
-      }
-      throw new Error(error.message);
-    }
+    if (error) throw new Error(authErrorMessage(error));
   };
 
   // OTP Verification
-  const onVerifyCode = async (code: string) => {
+  const onVerifyCode = async (code: string, email: string) => {
     const { error } = await supabase.auth.verifyOtp({
-      email: emailRef.current,
+      email,
       token: code,
-      type: "recovery",
+      type: "email",
     });
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(authErrorMessage(error));
     router.replace("/dashboard");
     router.refresh();
   };
 
   // resend verification code
-  const onResendCode = async () => {
+  const onResendCode = async (email: string) => {
     const { error } = await supabase.auth.signInWithOtp({
-      email: emailRef.current,
-      options: {
-        shouldCreateUser: false,
-      },
+      email,
+      options: { shouldCreateUser: false },
     });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(authErrorMessage(error));
   };
 
   // OAuth handler
-  const onOAuth = async (provider: "google" | "github") => {
+  const onOAuth = async (provider: "google") => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },

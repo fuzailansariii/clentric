@@ -4,7 +4,9 @@ import { useId, useState, useTransition, type SubmitEventHandler } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRightIcon, CheckIcon, LoaderCircleIcon } from "lucide-react";
 import { joinWaitlist } from "@/app/actions/waitlist";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { LEGAL } from "@/lib/legal-config";
 
 type Source = "x" | "reddit" | "other";
 
@@ -18,7 +20,7 @@ type WaitlistFormProps = {
   /** "start" for a left-aligned hero, "center" for a centered call-to-action. */
   align?: "start" | "center";
   className?: string;
-  /** Called once a signup succeeds — lets the page bump its waiting count. */
+  /** Called once a signup succeeds - lets the page bump its waiting count. */
   onJoined?: () => void;
 };
 
@@ -29,7 +31,7 @@ export default function WaitlistForm({
 }: WaitlistFormProps) {
   const [email, setEmail] = useState("");
   const [source, setSource] = useState<Source | "">("");
-  // Honeypot value — real visitors never see the field (see below).
+  // Honeypot value - real visitors never see the field (see below).
   const [website, setWebsite] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
@@ -137,7 +139,7 @@ export default function WaitlistForm({
           )}
         </button>
 
-        {/* Honeypot — clipped out of sight (sr-only, not display:none, which
+        {/* Honeypot - clipped out of sight (sr-only, not display:none, which
             the simplest bots skip) and removed from the accessibility tree
             and tab order, so no real visitor, sighted or not, ever fills it. */}
         <div className="sr-only" aria-hidden="true">
@@ -173,7 +175,7 @@ export default function WaitlistForm({
       </AnimatePresence>
 
       {/* Optional. A labelled group of toggle chips rather than a <fieldset>
-          with <legend> — legends don't take part in flex layout, which is
+          with <legend> - legends don't take part in flex layout, which is
           what knocked the old label out of line with its options. */}
       <div
         role="group"
@@ -208,6 +210,21 @@ export default function WaitlistForm({
           );
         })}
       </div>
+
+      <p
+        className={cn(
+          "text-muted-foreground mt-3 text-xs",
+          align === "center" && "text-center",
+        )}
+      >
+        We only use your email to tell you about the launch.{" "}
+        <Link
+          href={LEGAL.routes.privacy}
+          className="hover:text-foreground underline underline-offset-2"
+        >
+          Privacy Policy
+        </Link>
+      </p>
     </form>
   );
 }

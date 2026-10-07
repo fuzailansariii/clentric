@@ -14,8 +14,8 @@ export const createClient = async () => {
             cookieStore.set(name, value, options),
           );
         } catch {
-          // Called from a Server Component, where cookies cannot be written.
-          // Proxy refreshes the session, so ignoring this is safe.
+          // Called from a Server Component, where cookies are read-only.
+          // Safe to ignore: the proxy (middleware) refreshes the session cookie.
         }
       },
     },

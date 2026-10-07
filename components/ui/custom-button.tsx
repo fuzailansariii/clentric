@@ -1,6 +1,7 @@
 import { type ButtonHTMLAttributes, forwardRef } from "react";
 
-type Variant = "primary" | "secondary" | "ghost" | "destructive";
+type Variant =
+  "primary" | "secondary" | "ghost" | "destructive" | "danger-outline";
 type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -9,11 +10,17 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const variantStyles: Record<Variant, string> = {
-  primary: "bg-ledger-600 text-white hover:bg-ledger-700 disabled:bg-ink-400",
+  primary:
+    "bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50",
   secondary:
-    "bg-paper-100 text-ink-900 border border-paper-200 hover:bg-paper-200",
-  ghost: "bg-transparent text-ink-700 hover:bg-paper-100",
-  destructive: "bg-danger-600 text-white hover:bg-danger-600/90",
+    "bg-secondary text-secondary-foreground border border-border hover:bg-accent hover:text-accent-foreground",
+  ghost:
+    "bg-transparent text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+  destructive: "bg-destructive text-white hover:bg-destructive/90",
+  // Opens something destructive (e.g. a confirm dialog) without being the
+  // final, solid-red action itself.
+  "danger-outline":
+    "border border-destructive/60 bg-transparent text-destructive hover:bg-destructive/10",
 };
 
 const sizeStyles: Record<Size, string> = {
@@ -27,7 +34,7 @@ export const CustomButton = forwardRef<HTMLButtonElement, ButtonProps>(
     return (
       <button
         ref={ref}
-        className={`inline-flex items-center justify-center rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+        className={`inline-flex cursor-pointer items-center justify-center rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
         {...props}
       />
     );

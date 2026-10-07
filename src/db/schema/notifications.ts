@@ -11,6 +11,13 @@ export const notifications = pgTable(
     type: text("type").notNull(),
     title: text("title").notNull(),
     body: text("body"),
+    /**
+     * Where clicking the notification goes, as an app-relative path such as
+     * "/proposals/<id>". Nullable because not every notification has a
+     * destination, and stored rather than derived so an old notification
+     * keeps working if routing changes.
+     */
+    link: text("link"),
     readAt: timestamp("read_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

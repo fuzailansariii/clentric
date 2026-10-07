@@ -12,22 +12,59 @@ import { Field } from "./ui/input";
 import { CustomButton } from "./ui/custom-button";
 import Link from "next/link";
 import { FcGoogle } from "react-icons/fc";
-import { FaGithub } from "react-icons/fa";
 import { OtpInput, type OtpInputHandle } from "./otp-input";
 import { useHydrated } from "@/hooks/use-hydrated";
+import { AUTH_REDIRECT_ERRORS } from "@/lib/auth-error-message";
+import { LEGAL } from "@/lib/legal-config";
 
 type AuthFormProps = {
   mode: "login" | "register";
   onSubmitDetails: (data: { name?: string; email: string }) => Promise<void>;
-  onVerifyCode: (code: string) => Promise<void>;
-  onResendCode: () => Promise<void>;
-  onOAuth: (provider: "google" | "github") => Promise<void>;
+  /** Gets the email the code was sent to, so a reload can't lose it. */
+  onVerifyCode: (code: string, email: string) => Promise<void>;
+  onResendCode: (email: string) => Promise<void>;
+  onOAuth: (provider: "google") => Promise<void>;
   switchHref: string;
 };
 
 const RESEND_SECONDS = 60;
 
-export default function AuthForm({
+function readSavedProgress(mode: AuthFormProps["mode"]) {
+  const savedStep = sessionStorage.getItem(`auth_${mode}_step`);
+  const savedEmail = sessionStorage.getItem(`auth_${mode}_email`);
+  const sentAt = sessionStorage.getItem(`auth_${mode}_sentAt`);
+
+  const isVerifying = savedStep === "verify" && Boolean(savedEmail);
+
+  let resendIn = 0;
+  if (sentAt) {
+    const elapsedSeconds = Math.floor((Date.now() - Number(sentAt)) / 1000);
+    const remaining = RESEND_SECONDS - elapsedSeconds;
+    resendIn = remaining > 0 ? remaining : 0;
+  }
+
+  return {
+    step: isVerifying ? ("verify" as const) : ("details" as const),
+    email: isVerifying ? (savedEmail ?? "") : "",
+    resendIn,
+  };
+}
+
+export default function AuthForm(props: AuthFormProps) {
+  const hydrated = useHydrated();
+
+  if (!hydrated) {
+    return (
+      <div className="bg-card w-full max-w-100 space-y-6 rounded-2xl border px-8 py-12">
+        <div className="bg-muted h-40 animate-pulse rounded-lg" />
+      </div>
+    );
+  }
+
+  return <AuthFormContent {...props} />;
+}
+
+function AuthFormContent({
   mode,
   onOAuth,
   onResendCode,
@@ -35,16 +72,17 @@ export default function AuthForm({
   onVerifyCode,
   switchHref,
 }: AuthFormProps) {
-  const [step, setStep] = useState<"details" | "verify">("details");
+  const [saved] = useState(() => readSavedProgress(mode));
+  const [step, setStep] = useState<"details" | "verify">(saved.step);
   const [loading, setLoading] = useState<boolean>(false);
-  const [error, setError] = useState<string | null>(null);
-  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [error, setError] = useState<string | null>(() => {
+    const code = new URLSearchParams(window.location.search).get("error");
+    return (code && AUTH_REDIRECT_ERRORS[code]) || null;
+  });
+  const [submittedEmail, setSubmittedEmail] = useState(saved.email);
   const [code, setCode] = useState("");
-  const [resendIn, setResendIn] = useState(0);
+  const [resendIn, setResendIn] = useState(saved.resendIn);
   const otpRef = useRef<OtpInputHandle>(null);
-
-  // hook
-  const hydrated = useHydrated();
 
   // Resend code
   useEffect(() => {
@@ -52,29 +90,6 @@ export default function AuthForm({
     const t = setTimeout(() => setResendIn((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [resendIn]);
-
-  // Restores a half-finished verification after a refresh. This is a one-shot
-  // read of an external store (sessionStorage) that is only available in the
-  // browser, so it cannot move into a state initialiser without breaking
-  // hydration. set-state-in-effect cannot tell that case apart from the
-  // cascading-render pattern it exists to catch.
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    const savedStep = sessionStorage.getItem(`auth_${mode}_step`);
-    const savedEmail = sessionStorage.getItem(`auth_${mode}_email`);
-    const sentAt = sessionStorage.getItem(`auth_${mode}_sentAt`);
-    if (savedStep === "verify" && savedEmail) {
-      setSubmittedEmail(savedEmail);
-      setStep("verify");
-    }
-
-    if (sentAt) {
-      const elapsedSeconds = Math.floor((Date.now() - Number(sentAt)) / 1000);
-      const remaining = RESEND_SECONDS - elapsedSeconds;
-      setResendIn(remaining > 0 ? remaining : 0);
-    }
-  }, [mode]);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // RHF + Schema
   const schema = mode === "register" ? registerSchema : loginSchema;
@@ -89,12 +104,7 @@ export default function AuthForm({
 
   // HANDLERS
   // Form submit handler
-  // react-hook-form's handleSubmit() is called during render by design — it
-  // returns the event handler the <form> uses. The rule reads the callback
-  // body as render code because of that, which is why the otpRef access below
-  // looks like a ref read during render when it only ever runs on submit.
-  // eslint-disable-next-line react-hooks/refs
-  const onSubmit = handleSubmit(async (data) => {
+  const submitDetails = async (data: AuthFormValues) => {
     setError(null);
     setLoading(true);
     try {
@@ -105,8 +115,6 @@ export default function AuthForm({
       // session storage for percistant data
       sessionStorage.setItem(`auth_${mode}_email`, data.email);
       sessionStorage.setItem(`auth_${mode}_step`, "verify");
-      // Same reason as above: this runs on submit, never during render.
-      // eslint-disable-next-line react-hooks/purity
       sessionStorage.setItem(`auth_${mode}_sentAt`, Date.now().toString());
       setTimeout(() => otpRef.current?.focusFirst(), 50);
     } catch (error) {
@@ -118,7 +126,20 @@ export default function AuthForm({
     } finally {
       setLoading(false);
     }
-  });
+  };
+
+  const onSubmit = (event: SubmitEvent<HTMLFormElement>) =>
+    handleSubmit(submitDetails)(event);
+
+  const startOver = (message: string) => {
+    sessionStorage.removeItem(`auth_${mode}_email`);
+    sessionStorage.removeItem(`auth_${mode}_step`);
+    sessionStorage.removeItem(`auth_${mode}_sentAt`);
+    setSubmittedEmail("");
+    setCode("");
+    setStep("details");
+    setError(message);
+  };
 
   //   OTP verification
   const handleVerifySubmit = async (
@@ -135,10 +156,14 @@ export default function AuthForm({
       setError(result.error.issues[0].message);
       return;
     }
+    if (!submittedEmail) {
+      startOver("Enter your email again to get a new code.");
+      return;
+    }
     setError(null);
     setLoading(true);
     try {
-      await onVerifyCode(codeToVerify);
+      await onVerifyCode(codeToVerify, submittedEmail);
       sessionStorage.removeItem(`auth_${mode}_email`);
       sessionStorage.removeItem(`auth_${mode}_step`);
       sessionStorage.removeItem(`auth_${mode}_sentAt`);
@@ -155,9 +180,14 @@ export default function AuthForm({
   //   Resend handler
   const handleResend = async () => {
     if (resendIn > 0) return;
+    if (!submittedEmail) {
+      startOver("Enter your email again to get a new code.");
+      return;
+    }
     setError(null);
     try {
-      await onResendCode();
+      await onResendCode(submittedEmail);
+      sessionStorage.setItem(`auth_${mode}_sentAt`, Date.now().toString());
       setResendIn(RESEND_SECONDS);
     } catch (error) {
       setError(
@@ -167,7 +197,7 @@ export default function AuthForm({
   };
 
   //   OAuth click handler
-  const handleOAuthClick = async (provider: "github" | "google") => {
+  const handleOAuthClick = async (provider: "google") => {
     setError(null);
     try {
       await onOAuth(provider);
@@ -178,23 +208,15 @@ export default function AuthForm({
     }
   };
 
-  if (!hydrated) {
-    return (
-      <div className="w-full max-w-100 space-y-6 px-8 py-12 bg-card border rounded-2xl">
-        <div className="h-40 animate-pulse rounded-lg bg-muted" />
-      </div>
-    );
-  }
-
   return (
-    <div className="w-full max-w-100 space-y-6 px-8 py-12 bg-card border rounded-2xl">
+    <div className="bg-card w-full max-w-100 space-y-6 rounded-2xl border px-8 py-12">
       {step === "details" ? (
         <form onSubmit={onSubmit} className="space-y-5" noValidate>
           <div className="space-y-1.5">
             <h1 className="text-2xl font-semibold tracking-tight">
               {mode === "register" ? "Create your account" : "Welcome back"}
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               {mode === "register"
                 ? "Start managing your freelance business."
                 : "We'll email you a one-time code."}
@@ -230,7 +252,7 @@ export default function AuthForm({
             )}
           </div>
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p role="alert" className="text-destructive text-sm">
               {error}
             </p>
           )}
@@ -238,7 +260,7 @@ export default function AuthForm({
           <CustomButton
             type="submit"
             variant="primary"
-            className="w-full mt-2"
+            className="mt-2 w-full"
             disabled={loading}
           >
             {loading
@@ -249,33 +271,44 @@ export default function AuthForm({
           </CustomButton>
 
           {/* divider */}
-          <div className="flex items-center justify-center gap-3 w-full">
+          <div className="flex w-full items-center justify-center gap-3">
             <span className="bg-border h-px w-1/4" />
-            <span className="text-xs text-muted-foreground">
+            <span className="text-muted-foreground text-xs">
               or continue with
             </span>
             <span className="bg-border h-px w-1/4" />
           </div>
 
           {/* OAuth button */}
-          <div className="grid grid-cols-2 gap-3 items-center">
-            <CustomButton
-              type="button"
-              variant="secondary"
-              onClick={() => handleOAuthClick("google")}
-            >
-              <FcGoogle size={20} />
-            </CustomButton>
-            <CustomButton
-              type="button"
-              variant="secondary"
-              onClick={() => handleOAuthClick("github")}
-            >
-              <FaGithub size={20} />
-            </CustomButton>
-          </div>
+          <CustomButton
+            type="button"
+            variant="secondary"
+            className="w-full gap-2"
+            onClick={() => handleOAuthClick("google")}
+          >
+            <FcGoogle aria-hidden="true" size={20} />
+            Continue with Google
+          </CustomButton>
 
-          <div className="space-x-1 text-[13px] flex items-center justify-center">
+          <p className="text-muted-foreground text-center text-xs leading-relaxed">
+            By continuing, you agree to our{" "}
+            <Link
+              href={LEGAL.routes.terms}
+              className="text-foreground underline underline-offset-2"
+            >
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link
+              href={LEGAL.routes.privacy}
+              className="text-foreground underline underline-offset-2"
+            >
+              Privacy Policy
+            </Link>
+            .
+          </p>
+
+          <div className="flex items-center justify-center space-x-1 text-[13px]">
             <span>
               {mode === "register"
                 ? "Already have an account?"
@@ -299,9 +332,9 @@ export default function AuthForm({
             <h1 className="text-2xl font-semibold tracking-tight">
               Check your email
             </h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-muted-foreground text-sm">
               We sent a 6-digit code to{" "}
-              <span className="font-medium text-foreground">
+              <span className="text-foreground font-medium">
                 {submittedEmail}
               </span>{" "}
               <button
@@ -312,7 +345,7 @@ export default function AuthForm({
                   sessionStorage.removeItem(`auth_${mode}_step`);
                   sessionStorage.removeItem(`auth_${mode}_sentAt`);
                 }}
-                className="font-medium text-primary hover:underline"
+                className="text-primary font-medium hover:underline"
               >
                 Edit
               </button>
@@ -341,14 +374,14 @@ export default function AuthForm({
             {loading ? "Verifying…" : "Verify code"}
           </CustomButton>
 
-          <p className="text-[13px] text-center text-muted-foreground">
+          <p className="text-muted-foreground text-center text-[13px]">
             {resendIn > 0 ? (
               <>Resend code in {resendIn}s</>
             ) : (
               <button
                 type="button"
                 onClick={handleResend}
-                className="font-medium text-primary hover:underline"
+                className="text-primary font-medium hover:underline"
               >
                 Resend code
               </button>

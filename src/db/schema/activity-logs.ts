@@ -1,9 +1,11 @@
+import { sql } from "drizzle-orm";
 import {
   index,
   jsonb,
   pgTable,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 import { users } from "./users";
@@ -25,5 +27,9 @@ export const activityLog = pgTable(
   },
   (table) => [
     index("idx_activity_logs_user_id").on(table.userId, table.createdAt),
+    // Each event happens once per entity; reminders are the only repeat.
+    uniqueIndex("uq_activity_logs_event")
+      .on(table.userId, table.action, table.entityId)
+      .where(sql`${table.action} <> 'invoice.reminder_sent'`),
   ],
 );

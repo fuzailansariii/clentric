@@ -7,6 +7,8 @@ import { logError } from "@/lib/errors";
 import { isRateLimited } from "@/lib/rate-limit";
 import { LEGAL } from "@/lib/legal-config";
 import type { ActionResult } from "@/lib/action-result";
+import { emailConfig } from "@/lib/email/config";
+import { sendEmail } from "@/lib/email/send-email";
 
 // Public support action — no requireUser() here on purpose, the same way the
 // waitlist actions work. Someone who cannot sign in (or has no account at
@@ -44,47 +46,22 @@ async function clientIp(): Promise<string> {
   return forwarded?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
 }
 
-/**
- * Sends the support email.
- *
- * TODO(resend): the `resend` package is not installed yet, so nothing is
- * delivered — the caller reports a friendly error telling the visitor to email
- * support directly. Once `npm i resend` has been run, replace the body with:
- *
- *   const { Resend } = await import("resend");
- *   await new Resend(apiKey).emails.send({
- *     from: fromEmail,
- *     to: supportEmail,
- *     replyTo: message.email,
- *     subject: `Clentric contact form: ${message.name}`,
- *     text: [...].join("\n"),   // plain text only, never HTML
- *   });
- *
- * The message itself is logged server-side below, so nothing submitted in the
- * meantime is silently lost.
- */
+/** Sends the support email. Plain text only, built from validated fields. */
 async function deliverContactMessage(
   message: ContactMessage,
-  config: { apiKey: string; fromEmail: string; supportEmail: string },
-): Promise<void> {
-  // Subject and body are built only from validated fields, so nothing a
-  // visitor types can inject headers or markup. Plain text only.
-  const subject = `${LEGAL.productName} contact form: ${message.name}`;
-  const text = [
-    `From: ${message.name} <${message.email}>`,
-    "",
-    message.message,
-  ].join("\n");
-
-  console.info("[contact] pending delivery", {
-    to: config.supportEmail,
-    from: config.fromEmail,
+): Promise<boolean> {
+  const result = await sendEmail({
+    to: emailConfig().supportEmail,
+    fromName: `${LEGAL.productName} contact form`,
     replyTo: message.email,
-    subject,
-    text,
+    subject: `${LEGAL.productName} contact form: ${message.name}`,
+    text: [
+      `From: ${message.name} <${message.email}>`,
+      "",
+      message.message,
+    ].join("\n"),
   });
-
-  throw new Error("Contact email delivery is not configured yet.");
+  return result.status !== "failed";
 }
 
 export async function submitContactForm(
@@ -119,28 +96,12 @@ export async function submitContactForm(
       };
     }
 
-    // Server-only secrets. These must never be NEXT_PUBLIC_ — anything with
-    // that prefix is inlined into the browser bundle.
-    const apiKey = process.env.RESEND_API_KEY;
-    const fromEmail = process.env.CONTACT_FROM_EMAIL;
-    const supportEmail = process.env.SUPPORT_EMAIL;
-
-    if (!apiKey || !fromEmail || !supportEmail) {
-      logError(
-        "submitContactForm",
-        "Missing RESEND_API_KEY, CONTACT_FROM_EMAIL or SUPPORT_EMAIL — contact form cannot send.",
-      );
+    if (!(await deliverContactMessage(parsed.data))) {
       return {
         success: false,
         error: `We could not send your message just now. Please email us at ${LEGAL.supportEmail} and we will pick it up there.`,
       };
     }
-
-    await deliverContactMessage(parsed.data, {
-      apiKey,
-      fromEmail,
-      supportEmail,
-    });
 
     return { success: true };
   } catch (error) {

@@ -1,17 +1,13 @@
 "use client";
 import { useSyncExternalStore } from "react";
 
-// Hydration is not something that changes over time, so there is nothing to
-// subscribe to — the unsubscribe function is a no-op.
+// Nothing to subscribe to — "are we in the browser?" never changes after mount.
 const subscribe = () => () => {};
 
 /**
- * False while rendering on the server and during hydration, true afterwards.
- *
- * useSyncExternalStore is the right tool here rather than a
- * useState + useEffect pair: React reads the server snapshot while hydrating
- * and the client snapshot after, without the extra render that setting state
- * inside an effect would cause.
+ * false during server render and hydration, true once running in the browser.
+ * useSyncExternalStore gives exactly that without a setState inside an effect,
+ * and returns true straight away on client-side navigations (no extra render).
  */
 export function useHydrated() {
   return useSyncExternalStore(

@@ -1,8 +1,27 @@
+import "server-only";
 import { config } from "dotenv";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import * as schema from "./schema/schema";
 
 config({ path: ".env" });
 
-const client = postgres(process.env.DATABASE_URL!);
-export const db = drizzle({ client });
+const globalForDb = globalThis as unknown as {
+  client: ReturnType<typeof postgres> | undefined;
+};
+
+const client =
+  globalForDb.client ??
+  postgres(process.env.DATABASE_URL!, {
+    prepare: false,
+    max: 10,
+  });
+
+if (process.env.NODE_ENV !== "production") {
+  globalForDb.client = client;
+}
+
+// The schema (tables + relations) is what powers `db.query.*`. Without it,
+// `db.query` is an empty object.
+export const db = drizzle({ client, schema });
+export type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];

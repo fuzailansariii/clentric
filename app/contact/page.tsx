@@ -19,7 +19,7 @@ export default function ContactPage() {
       intro={
         <p>
           We are a small operation, and the same people who build{" "}
-          {LEGAL.productName} answer the email. Write to us about anything —
+          {LEGAL.productName} answer the email. Write to us about anything -
           billing, a refund, your data, a bug, or an idea.
         </p>
       }
@@ -58,24 +58,34 @@ export default function ContactPage() {
           Write from the email address on your account, and include the account
           email and the approximate date of the charge. Any payment can be
           refunded in full if you ask within {LEGAL.refund.windowHours} hours of
-          the charge — the full rules are on our{" "}
+          the charge - the full rules are on our{" "}
           <Link href={LEGAL.routes.refund}>Refund & Cancellation Policy</Link>{" "}
           page.
         </p>
 
         <h3>Privacy and data requests</h3>
         <p>
-          To get a copy of your data, correct it, export it or delete it, email
-          us from the address on your account. If you are a client who received
-          a proposal or portal link, contact the freelancer who sent it first —
-          they control that record. Our{" "}
+          You can download your data and delete your account yourself in
+          Settings → Account. For a correction or anything else, email us from
+          the address on your account. If you are a client who received a
+          proposal link, contact the freelancer who sent it first - they control
+          that record. Our{" "}
           <Link href={LEGAL.routes.privacy}>Privacy Policy</Link> explains why.
+        </p>
+
+        <h3>Grievance Officer</h3>
+        <p>
+          {LEGAL.grievanceOfficer.name}, {LEGAL.grievanceOfficer.designation} -{" "}
+          <a href={mailtoHref("Grievance")}>{LEGAL.supportEmail}</a>. We
+          acknowledge complaints within{" "}
+          {LEGAL.grievanceOfficer.acknowledgeWithin} and aim to resolve them
+          within {LEGAL.grievanceOfficer.resolveWithin}.
         </p>
 
         <h3>Everything else</h3>
         <p>
           Bugs, feature requests, partnership questions, or anything that does
-          not fit a box above — same address, or use the form below.
+          not fit a box above - same address, or use the form below.
         </p>
       </LegalSection>
 
@@ -91,16 +101,16 @@ export default function ContactPage() {
       <LegalSection id="policies" title="Our policies">
         <ul>
           <li>
-            <Link href={LEGAL.routes.privacy}>Privacy Policy</Link> — what we
+            <Link href={LEGAL.routes.privacy}>Privacy Policy</Link> - what we
             collect and what you can ask us to do with it.
           </li>
           <li>
-            <Link href={LEGAL.routes.terms}>Terms of Service</Link> — the
+            <Link href={LEGAL.routes.terms}>Terms of Service</Link> - the
             agreement that applies when you use {LEGAL.productName}.
           </li>
           <li>
             <Link href={LEGAL.routes.refund}>Refund & Cancellation Policy</Link>{" "}
-            — how to cancel, and when a payment is refundable.
+            - how to cancel, and when a payment is refundable.
           </li>
         </ul>
         <p>

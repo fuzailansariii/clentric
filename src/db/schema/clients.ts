@@ -1,4 +1,5 @@
 import {
+  decimal,
   index,
   pgEnum,
   pgTable,
@@ -6,6 +7,7 @@ import {
   timestamp,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { users } from "./users";
 
 export const clientStatusEnum = pgEnum("client_status", [
@@ -29,6 +31,9 @@ export const clients = pgTable(
     country: text("country"),
     status: clientStatusEnum("status").default("active").notNull(),
     notes: text("notes"),
+    // Optional default for hour lines on this client's invoices. Applied by
+    // supabase/migrations/0004_hourly_billing.sql (with a > 0 CHECK).
+    hourlyRate: decimal("hourly_rate", { precision: 12, scale: 2 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -39,5 +44,12 @@ export const clients = pgTable(
   },
   (table) => [
     index("idx_clients_user_id").on(table.userId),
+    // Serves the list page: this user's live clients, newest first.
+    // Applied by supabase/migrations/0003_list_indexes.sql.
+    index("idx_clients_user_created")
+      .on(table.userId, table.createdAt.desc())
+      .where(sql`deleted_at is null`),
   ],
 );
+
+export type ClientRow = typeof clients.$inferSelect;

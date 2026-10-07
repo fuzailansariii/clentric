@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 type TrustBadgeProps = {
   avatarUrls: string[];
   count: number;
@@ -13,22 +15,17 @@ export function TrustBadge({
     <div className="flex items-center gap-3">
       <div className="flex -space-x-3">
         {avatarUrls.map((url, idx) => (
-          // next/image would need every avatar host listed in
-          // images.remotePatterns, and these URLs come in as props from
-          // wherever the caller sourced them. A plain <img> is the honest
-          // choice until the avatar source is fixed and configurable.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <Image
             key={idx}
             src={url}
             alt=""
-            className="size-8 rounded-full border-2 border-background object-cover"
+            className="border-background size-8 rounded-full border-2 object-cover"
           />
         ))}
       </div>
-      <p className="text-xs leading-snug text-muted-foreground">
+      <p className="text-muted-foreground text-xs leading-snug">
         Trusted by{" "}
-        <span className="font-semibold text-foreground">
+        <span className="text-foreground font-semibold">
           {count.toLocaleString()}+
         </span>{" "}
         {label}

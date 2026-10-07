@@ -3,7 +3,26 @@ import type { NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { supabaseAnonKey, supabaseUrl } from "./lib/supabase/config";
 
+const PROTECTED_PREFIXES = [
+  "/dashboard",
+  "/clients",
+  "/projects",
+  "/invoices",
+  "/proposals",
+  "/settings",
+];
+
+const AUTH_ROUTES = ["/register", "/login"];
+
 export async function proxy(request: NextRequest) {
+  const isProtectedRoute = PROTECTED_PREFIXES.some((prefix) =>
+    request.nextUrl.pathname.startsWith(prefix),
+  );
+
+  const pathname = request.nextUrl.pathname;
+
+  const isAuthRoute = AUTH_ROUTES.includes(pathname);
+
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
@@ -26,16 +45,25 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   //   protext everything under /dashboard - redirect to the /login if not signed in
-  if (!user && request.nextUrl.pathname.startsWith("/dashboard")) {
+  if (!user && isProtectedRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
+    url.searchParams.set("redirectTo", request.nextUrl.pathname);
     return NextResponse.redirect(url);
   }
+
+  if (user && isAuthRoute) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/dashboard";
+    return NextResponse.redirect(url);
+  }
+
   return supabaseResponse;
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    // Webhooks and the Sentry tunnel carry no session; skip the Supabase Auth call.
+    "/((?!_next/static|_next/image|favicon.ico|api/webhooks/|monitoring|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

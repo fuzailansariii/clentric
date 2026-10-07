@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import Link from "next/link";
 import {
   MotionConfig,
@@ -16,19 +22,31 @@ import {
   CircleCheckIcon,
   FileTextIcon,
   FolderKanbanIcon,
+  LogOutIcon,
+  MenuIcon,
   ReceiptIcon,
   TrendingUpIcon,
   UsersIcon,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useHydrated } from "@/hooks/use-hydrated";
+import { MobileDrawer } from "@/components/mobile-drawer";
+import { TopBarButton } from "@/components/sidebar/top-bar-button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { StatusBadge } from "@/components/ui/status-badge";
 import WaitlistForm from "@/components/waitlist-form";
 import { LegalFooter } from "@/components/legal/legal-footer";
 import { Logo } from "@/components/logo";
 import { PricingSection } from "@/components/pricing/pricing-section";
 import { cn } from "@/lib/utils";
+import { logoutToHomeAction } from "@/app/(auth)/action";
 
-// Visual direction: a freelancer's ledger — ruled paper, monospaced figures,
+// Visual direction: a freelancer's ledger - ruled paper, monospaced figures,
 // and the product's own invoice (with its status stamp) as the hero image.
 // Every colour comes from the app's theme tokens (app/globals.css), so light
 // and dark are the same design rather than one of them being an afterthought.
@@ -86,7 +104,7 @@ const FEATURES = [
   },
 ];
 
-// Generic tool categories only — this page never names another company's
+// Generic tool categories only - this page never names another company's
 // product.
 const BEFORE = [
   { name: "Notes app", job: "Client notes" },
@@ -122,9 +140,6 @@ const PREVIEW_INVOICES: {
   { name: "Møller Atelier", amount: 1240, status: "Overdue", tone: "danger" },
 ];
 
-// The stat tiles are derived from the rows above so the mock always adds
-// up: outstanding = sent + overdue (drafts aren't billed yet), and every
-// listed client is an active one.
 const PREVIEW_UNPAID = PREVIEW_INVOICES.filter(
   (row) => row.status === "Sent" || row.status === "Overdue",
 );
@@ -164,6 +179,8 @@ function CountUp({ target, prefix = "" }: { target: number; prefix?: string }) {
   const ref = useRef<HTMLSpanElement>(null);
   const inView = useInView(ref, { once: true, amount: 0.5 });
   const reduceMotion = useReducedMotion();
+  // The server can't know the motion setting: match its 0 until hydrated.
+  const hydrated = useHydrated();
   const [value, setValue] = useState(0);
 
   useEffect(() => {
@@ -183,7 +200,7 @@ function CountUp({ target, prefix = "" }: { target: number; prefix?: string }) {
   return (
     <span ref={ref} className="tabular-nums">
       {prefix}
-      {formatUsd(reduceMotion ? target : value)}
+      {formatUsd(reduceMotion && hydrated ? target : value)}
     </span>
   );
 }
@@ -242,9 +259,21 @@ function SectionHeading({
   );
 }
 
-function HomeLogo() {
+const SECTION_LINKS = [
+  { href: "#product", label: "Product" },
+  { href: "#features", label: "Features" },
+  { href: "#why", label: "Why Clentric" },
+  { href: "#pricing", label: "Pricing" },
+];
+
+function HomeLogo({ onClick }: { onClick?: () => void }) {
   return (
-    <Link href="#top" className="flex items-center" aria-label="Clentric home">
+    <Link
+      href="#top"
+      onClick={onClick}
+      className="flex items-center"
+      aria-label="Clentric home"
+    >
       <Logo className="h-6" aria-hidden />
     </Link>
   );
@@ -372,19 +401,28 @@ function HeroInvoice() {
   );
 }
 
+const PRIMARY_LINK =
+  "bg-primary text-primary-foreground font-space inline-flex h-9 items-center rounded-lg px-3.5 text-sm font-semibold transition-[filter] hover:brightness-110";
+const QUIET_LINK =
+  "text-muted-foreground hover:text-foreground inline-flex h-9 cursor-pointer items-center px-2.5 text-sm font-medium transition-colors";
+const OUTLINE_LINK =
+  "border-border hover:bg-accent inline-flex h-10 cursor-pointer items-center justify-center rounded-lg border text-sm font-medium transition-colors";
+const INLINE_LINK =
+  "text-foreground font-medium underline-offset-4 hover:underline";
+
 export default function ComingSoon({
   waitlistCount = null,
   today,
+  signedIn = false,
 }: {
-  /** Real, currently-subscribed signups. null when the count couldn't be
-   * read — the page then says nothing rather than claiming zero. */
   waitlistCount?: number | null;
   /** YYYY-MM-DD from the server, for the pricing section's dated tags. */
   today: string;
+  signedIn?: boolean;
 }) {
-  // Starts from the server's number and goes up by one when someone joins on
-  // this page, so the line reflects their own signup without a reload.
   const [count, setCount] = useState(waitlistCount);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
   const onJoined = () => setCount((c) => (c === null ? c : c + 1));
 
   const waitingText =
@@ -410,32 +448,122 @@ export default function ComingSoon({
               aria-label="Sections"
               className="hidden items-center gap-7 md:flex"
             >
-              {[
-                { href: "#product", label: "Product" },
-                { href: "#features", label: "Features" },
-                { href: "#why", label: "Why Clentric" },
-                { href: "#pricing", label: "Pricing" },
-              ].map((link) => (
-                <a
+              {SECTION_LINKS.map((link) => (
+                <Link
                   key={link.href}
                   href={link.href}
                   className="text-muted-foreground hover:text-foreground text-sm transition-colors"
                 >
                   {link.label}
-                </a>
+                </Link>
               ))}
             </nav>
             <div className="flex items-center gap-2">
-              <ThemeToggle />
-              <a
-                href="#waitlist"
-                className="bg-primary text-primary-foreground font-space inline-flex h-9 items-center rounded-lg px-3.5 text-sm font-semibold transition-[filter] hover:brightness-110"
+              <div className="hidden items-center gap-2 md:flex">
+                <ThemeToggle />
+                {signedIn ? (
+                  <form action={logoutToHomeAction}>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="submit"
+                            aria-label="Log out"
+                            className="border-border text-muted-foreground hover:border-foreground/20 hover:text-foreground hover:bg-accent focus-visible:ring-ring flex size-9 cursor-pointer items-center justify-center rounded-lg border transition-colors focus-visible:ring-2 focus-visible:outline-none"
+                          >
+                            <LogOutIcon className="size-4" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom">Log out</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </form>
+                ) : (
+                  <Link href="/login" className={QUIET_LINK}>
+                    Log in
+                  </Link>
+                )}
+              </div>
+              {signedIn ? (
+                <Link href="/dashboard" className={PRIMARY_LINK}>
+                  <span className="md:hidden">Dashboard</span>
+                  <span className="hidden md:inline">Go to dashboard</span>
+                </Link>
+              ) : (
+                <Link href="/register" className={PRIMARY_LINK}>
+                  Sign up
+                </Link>
+              )}
+              <TopBarButton
+                onClick={() => setMenuOpen(true)}
+                aria-label="Open menu"
+                aria-expanded={menuOpen}
+                className="-mr-3 md:hidden"
               >
-                Get early access
-              </a>
+                <MenuIcon className="size-5" />
+              </TopBarButton>
             </div>
           </div>
         </header>
+
+        <MobileDrawer
+          open={menuOpen}
+          onClose={closeMenu}
+          side="right"
+          header={<HomeLogo onClick={closeMenu} />}
+          footer={
+            <div className="flex flex-col gap-2 border-t pt-3 pb-2">
+              {signedIn ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className={cn(PRIMARY_LINK, "h-10 justify-center")}
+                  >
+                    Go to dashboard
+                  </Link>
+                  <form action={logoutToHomeAction}>
+                    <button
+                      type="submit"
+                      className={cn(OUTLINE_LINK, "w-full gap-2")}
+                    >
+                      <LogOutIcon className="size-4" />
+                      Log out
+                    </button>
+                  </form>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/register"
+                    className={cn(PRIMARY_LINK, "h-10 justify-center")}
+                  >
+                    Sign up
+                  </Link>
+                  <Link href="/login" className={OUTLINE_LINK}>
+                    Log in
+                  </Link>
+                </>
+              )}
+            </div>
+          }
+        >
+          {SECTION_LINKS.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              onClick={closeMenu}
+              className="text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
+            >
+              {link.label}
+            </Link>
+          ))}
+          <div className="mt-3 flex items-center justify-between border-t px-3 pt-4">
+            <span className="text-muted-foreground text-sm font-medium">
+              Theme
+            </span>
+            <ThemeToggle />
+          </div>
+        </MobileDrawer>
 
         <main>
           {/* ── Hero ─────────────────────────────────────────────── */}
@@ -497,6 +625,29 @@ export default function ComingSoon({
                       </>
                     )}
                     No card, no demo call.
+                  </p>
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    {signedIn ? (
+                      <>
+                        You&apos;re signed in.{" "}
+                        <Link href="/dashboard" className={INLINE_LINK}>
+                          Open your dashboard
+                        </Link>
+                        .
+                      </>
+                    ) : (
+                      <>
+                        Got an invite?{" "}
+                        <Link href="/register" className={INLINE_LINK}>
+                          Create your account
+                        </Link>{" "}
+                        or{" "}
+                        <Link href="/login" className={INLINE_LINK}>
+                          log in
+                        </Link>
+                        .
+                      </>
+                    )}
                   </p>
                 </motion.div>
 

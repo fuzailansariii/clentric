@@ -9,7 +9,6 @@ import { LEGAL } from "@/lib/legal-config";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 const robotoMono = Roboto_Mono({
   subsets: ["latin"],
-  weight: ["700"],
   variable: "--font-mono",
 });
 export const spaceGrotesk = Space_Grotesk({
@@ -18,10 +17,8 @@ export const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  // Without a metadataBase, the relative `alternates.canonical` values on the
-  // public policy pages cannot resolve into absolute URLs.
   metadataBase: new URL(LEGAL.siteUrl),
-  title: "Clentri",
+  title: "Clentric",
   description: "Freelance Workspace",
 };
 
@@ -43,11 +40,11 @@ export default function RootLayout({
         spaceGrotesk.variable,
       )}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col">
         <ThemeProvider
           attribute="class"
           defaultTheme="light"
-          enableSystem={false}
+          enableSystem
         >
           {children}
         </ThemeProvider>

@@ -11,7 +11,7 @@ export const webhookEvents = pgTable(
   "webhook_events",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    provider: text("provider").notNull().default("stripe"),
+    provider: text("provider").notNull().default("dodo"),
     eventId: text("event_id").unique().notNull(),
     eventType: text("event_type").notNull(),
     payload: jsonb("payload").notNull(),

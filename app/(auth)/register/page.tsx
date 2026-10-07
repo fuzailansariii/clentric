@@ -6,21 +6,17 @@ import { Logo } from "@/components/logo";
 import { createClient } from "@/lib/supabase/client";
 import { FileText, TrendingUp, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { authErrorMessage } from "@/lib/auth-error-message";
 
 export default function Register() {
   const router = useRouter();
   const supabase = createClient();
-  const emailRef = useRef("");
-  const nameRef = useRef("");
 
   // handlers
 
   // Registration form submit handler
   const onSubmitDetails = async (data: { name?: string; email: string }) => {
     const { email, name } = data;
-    emailRef.current = email;
-    nameRef.current = name ?? "";
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
@@ -30,46 +26,36 @@ export default function Register() {
       },
     });
 
-    if (error) {
-      throw new Error(error.message);
-    }
+    if (error) throw new Error(authErrorMessage(error));
   };
 
   // OTP Verification
-  const onVerifyCode = async (code: string) => {
-    let { error } = await supabase.auth.verifyOtp({
-      email: emailRef.current,
+  const onVerifyCode = async (code: string, email: string) => {
+    // "email" covers both a brand-new account's code and a returning
+    // user's, so this no longer tries "signup" and then "recovery".
+    const { error } = await supabase.auth.verifyOtp({
+      email,
       token: code,
-      type: "signup",
+      type: "email",
     });
-    if (error) {
-      const retry = await supabase.auth.verifyOtp({
-        email: emailRef.current,
-        token: code,
-        type: "recovery",
-      });
-      error = retry.error;
-    }
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(authErrorMessage(error));
     router.replace("/dashboard");
     router.refresh();
   };
 
   // resend verification code
-  const onResendCode = async () => {
+  // The account (and its name) was created by the first send.
+  const onResendCode = async (email: string) => {
     const { error } = await supabase.auth.signInWithOtp({
-      email: emailRef.current,
-      options: {
-        shouldCreateUser: true,
-        data: { full_name: nameRef.current },
-      },
+      email,
+      options: { shouldCreateUser: true },
     });
 
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(authErrorMessage(error));
   };
 
   // OAuth handler
-  const onOAuth = async (provider: "google" | "github") => {
+  const onOAuth = async (provider: "google") => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },

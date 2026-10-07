@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { db } from "@/src/db";
 import { waitlistEmails } from "@/src/db/schema/waitlist";
 import { and, count, eq, isNull } from "drizzle-orm";
-import { logError } from "@/lib/errors";
+import { isUniqueViolation, logError } from "@/lib/errors";
 import { isRateLimited } from "@/lib/rate-limit";
 import type { ActionResult } from "@/lib/action-result";
 import { z } from "zod";
@@ -24,28 +24,6 @@ const waitlistSchema = z.object({
 const emailSchema = z.object({
   email: z.email("Please enter a valid email address.").trim().toLowerCase(),
 });
-
-function hasCode(error: unknown, code: string): boolean {
-  return (
-    !!error &&
-    typeof error === "object" &&
-    "code" in error &&
-    error.code === code
-  );
-}
-
-/** Postgres unique_violation — used for both "already on the list" and
- * "prove there's actually a row before treating it as a resubscribe".
- * Drizzle wraps the driver's error in a DrizzleQueryError and puts the
- * real postgres error (the one with .code) on .cause, so both the error
- * itself and its cause need checking — the driver-level error postgres.js
- * throws directly (used elsewhere via raw sql``) only ever needs the first. */
-function isUniqueViolation(error: unknown): boolean {
-  return (
-    hasCode(error, "23505") ||
-    (error instanceof Error && hasCode(error.cause, "23505"))
-  );
-}
 
 async function clientIp(): Promise<string> {
   const h = await headers();

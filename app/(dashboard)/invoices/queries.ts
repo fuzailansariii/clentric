@@ -1,0 +1,434 @@
+import { unstable_rethrow } from "next/navigation";
+import { requireUser } from "@/lib/current-user";
+import { AppError, logError } from "@/lib/errors";
+import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
+import { db } from "@/src/db";
+import { clients } from "@/src/db/schema/clients";
+import { invoices, invoiceStatusEnum } from "@/src/db/schema/invoices";
+import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
+import { invoiceIdSchema, invoiceSearchParamsSchema } from "./schema";
+import {
+  invoiceItems,
+  type InvoiceItemUnit,
+} from "@/src/db/schema/invoice-items";
+import { clientIdSchema } from "../clients/schema";
+import {
+  getDisplayStatus,
+  InvoiceDisplayStatus,
+} from "@/lib/get-invoice-display-status";
+import { projects } from "@/src/db/schema/projects";
+import {
+  issuerUserColumns,
+  liveIssuer,
+  livePayment,
+  resolveIssuer,
+  resolvePayment,
+  visiblePaymentMethods,
+  type IssuerDetails,
+} from "@/lib/issuer-snapshot";
+import type { PaymentDetails } from "@/lib/payment-methods";
+import type { InvoiceTemplate } from "@/lib/invoice-templates";
+import { logoSrc } from "@/lib/logo-url";
+
+export type InvoiceListItem = {
+  id: string;
+  invoiceNumber: number;
+  numberPrefix: string;
+  clientName: string | null;
+  projectTitle: string | null;
+  total: string;
+  currency: string;
+  status: InvoiceDisplayStatus;
+  issueDate: string;
+  dueDate: string;
+  daysUntilDue: number;
+  createdAt: string | Date;
+  sentAt: Date | null;
+  paidAt: Date | null;
+  lastReminderSentAt: Date | null;
+};
+
+export type InvoiceSummary = {
+  totalCount: number;
+  total: string;
+  paidCount: number;
+  paid: string;
+  outstandingCount: number;
+  outstanding: string;
+  overdueCount: number;
+  overdue: string;
+};
+
+const daysUntilDue = sql<number>`(${invoices.dueDate} - current_date)`.mapWith(
+  Number,
+);
+
+const displayStatus = sql<InvoiceDisplayStatus>`case when ${invoices.status} = 'sent' and ${invoices.dueDate} < current_date then 'overdue' else ${invoices.status}::text end`;
+
+export async function getInvoicesByUserId(
+  rawParams: unknown,
+  scope: { clientId?: string } = {},
+) {
+  try {
+    const user = await requireUser();
+
+    const { page, pageSize, search, status } = invoiceSearchParamsSchema.parse(
+      rawParams ?? {},
+    );
+
+    const baseConditions = [
+      eq(invoices.userId, user.id),
+      isNull(invoices.deletedAt),
+    ];
+
+    if (scope.clientId) {
+      const parsedClientId = clientIdSchema.safeParse(scope.clientId);
+      if (!parsedClientId.success) {
+        throw new AppError("VALIDATION_ERROR", "Invalid client ID.");
+      }
+      baseConditions.push(eq(invoices.clientId, parsedClientId.data));
+    }
+
+    if (search) {
+      // Client, project, or invoice number — "INV-1042" matches on its digits.
+      const pattern = `%${search}%`;
+      const digits = search.replace(/\D/g, "");
+      baseConditions.push(
+        digits
+          ? sql`(${clients.name} ilike ${pattern} or ${projects.title} ilike ${pattern} or ${invoices.invoiceNumber}::text like ${`%${digits}%`})`
+          : sql`(${clients.name} ilike ${pattern} or ${projects.title} ilike ${pattern})`,
+      );
+    }
+
+    const listConditions = status
+      ? [...baseConditions, sql`${displayStatus} = ${status}`]
+      : baseConditions;
+
+    const offset = (page - 1) * pageSize;
+
+    const [rows, summaryRows] = await Promise.all([
+      db
+        .select({
+          id: invoices.id,
+          invoiceNumber: invoices.invoiceNumber,
+          numberPrefix: invoices.numberPrefix,
+          status: invoices.status,
+          issueDate: invoices.issueDate,
+          dueDate: invoices.dueDate,
+          daysUntilDue,
+          total: invoices.total,
+          currency: invoices.currency,
+          clientName: clients.name,
+          projectTitle: projects.title,
+          createdAt: invoices.createdAt,
+          sentAt: invoices.sentAt,
+          paidAt: invoices.paidAt,
+          lastReminderSentAt: invoices.lastReminderSentAt,
+        })
+        .from(invoices)
+        .innerJoin(clients, eq(invoices.clientId, clients.id))
+        .leftJoin(projects, eq(invoices.projectId, projects.id))
+        .where(and(...listConditions))
+        .orderBy(desc(invoices.createdAt))
+        .limit(pageSize)
+        .offset(offset),
+
+      db
+        .select({
+          status: sql<InvoiceDisplayStatus | null>`${displayStatus}`,
+          value: count(),
+          amount: sql<string>`coalesce(sum(${invoices.total}), 0)::text`,
+        })
+        .from(invoices)
+        .innerJoin(clients, eq(invoices.clientId, clients.id))
+        .leftJoin(projects, eq(invoices.projectId, projects.id))
+        .where(and(...baseConditions))
+        .groupBy(sql`rollup(${displayStatus})`),
+    ]);
+
+    const amountFor = (key: InvoiceDisplayStatus) =>
+      perStatus.find((row) => row.status === key)?.amount ?? "0";
+
+    const perStatus = summaryRows.flatMap((row) =>
+      row.status === null
+        ? []
+        : [{ status: row.status, value: row.value, amount: row.amount }],
+    );
+
+    const statusCounts = toStatusCounts(
+      invoiceStatusEnum.enumValues,
+      perStatus,
+    );
+    const allCount = sumStatusCounts(statusCounts);
+    const total = status ? statusCounts[status] : allCount;
+
+    const summary: InvoiceSummary = {
+      totalCount: allCount,
+      total: summaryRows.find((row) => row.status === null)?.amount ?? "0",
+      paidCount: statusCounts.paid,
+      paid: amountFor("paid"),
+      outstandingCount: statusCounts.sent,
+      outstanding: amountFor("sent"),
+      overdueCount: statusCounts.overdue,
+      overdue: amountFor("overdue"),
+    };
+
+    return {
+      invoices: rows.map((row) => ({
+        ...row,
+        status: getDisplayStatus(row),
+      })),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      statusCounts,
+      allCount,
+      summary,
+    };
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getInvoicesByUserId", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load invoices.");
+  }
+}
+
+export type InvoiceListResult = Awaited<ReturnType<typeof getInvoicesByUserId>>;
+
+export async function getInvoiceById(invoiceId: string) {
+  try {
+    const parsed = invoiceIdSchema.safeParse(invoiceId);
+    // A malformed id can't match anything — same as any missing invoice.
+    if (!parsed.success) return null;
+
+    const user = await requireUser();
+
+    // One query: the ownership check on the invoice gates the line items and
+    // the issuer, so they can't come back for an invoice this user doesn't own.
+    const row = await db.query.invoices.findFirst({
+      where: and(
+        eq(invoices.userId, user.id),
+        eq(invoices.id, parsed.data),
+        isNull(invoices.deletedAt),
+      ),
+      extras: { daysUntilDue: daysUntilDue.as("days_until_due") },
+      with: {
+        lineItems: { orderBy: [asc(invoiceItems.sortOrder)] },
+        user: {
+          columns: { ...issuerUserColumns, logoUrl: true },
+          with: { paymentMethods: visiblePaymentMethods },
+        },
+      },
+    });
+
+    if (!row) return null;
+
+    const { user: owner, ...invoice } = row;
+
+    return {
+      ...invoice,
+      logoSrc: owner?.logoUrl ? logoSrc(owner.logoUrl) : null,
+      // Sent invoices print the details they went out with; drafts (and
+      // invoices sent before snapshots existed) print the live ones.
+      issuer: owner
+        ? resolveIssuer(invoice.issuerSnapshot, liveIssuer(owner))
+        : null,
+      payment: resolvePayment(
+        invoice.issuerSnapshot,
+        invoice.paymentDetails,
+        owner ? livePayment(owner) : { methods: [], instructions: null },
+      ),
+    };
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getInvoiceById", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load invoice.");
+  }
+}
+
+export type InvoicePdfData = {
+  invoice: {
+    id: string;
+    invoiceNumber: number;
+    numberPrefix: string;
+    notes: string | null;
+    status: InvoiceDisplayStatus;
+    issueDate: string;
+    dueDate: string;
+    paidAt: Date | null;
+    subTotal: string;
+    taxRate: string;
+    taxAmount: string;
+    total: string;
+    currency: string;
+    payment: PaymentDetails;
+    clientName: string;
+    clientEmail: string | null;
+    clientCompany: string | null;
+    clientCountry: string | null;
+    projectTitle: string | null;
+  };
+  items: {
+    id: string;
+    description: string;
+    quantity: string;
+    rate: string;
+    amount: string;
+    unit: InvoiceItemUnit;
+  }[];
+  profile: IssuerDetails;
+  template: InvoiceTemplate;
+  logoUrl: string | null;
+};
+
+/** The signed-in user's invoice, ready for the PDF. */
+export async function getInvoiceForPdf(
+  invoiceId: string,
+): Promise<InvoicePdfData | null> {
+  try {
+    const user = await requireUser();
+    return await getInvoicePdfDataForOwner(invoiceId, user.id);
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getInvoiceForPdf", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load invoice.");
+  }
+}
+
+export async function getInvoicePdfDataForOwner(
+  invoiceId: string,
+  ownerId: string,
+): Promise<InvoicePdfData | null> {
+  try {
+    const parsed = invoiceIdSchema.safeParse(invoiceId);
+    if (!parsed.success) return null;
+
+    // Everything the PDF needs in a single round trip. The line items used to
+    // be fetched in a second, sequential await after this lookup resolved.
+    const row = await db.query.invoices.findFirst({
+      where: and(
+        eq(invoices.id, parsed.data),
+        eq(invoices.userId, ownerId),
+        isNull(invoices.deletedAt),
+      ),
+      columns: {
+        id: true,
+        invoiceNumber: true,
+        numberPrefix: true,
+        notes: true,
+        status: true,
+        issueDate: true,
+        dueDate: true,
+        paidAt: true,
+        subTotal: true,
+        taxRate: true,
+        taxAmount: true,
+        total: true,
+        currency: true,
+        paymentDetails: true,
+        issuerSnapshot: true,
+      },
+      with: {
+        client: {
+          columns: { name: true, email: true, company: true, country: true },
+        },
+        project: {
+          columns: { title: true, deletedAt: true },
+        },
+        lineItems: {
+          columns: {
+            id: true,
+            description: true,
+            quantity: true,
+            rate: true,
+            amount: true,
+            unit: true,
+          },
+          orderBy: [asc(invoiceItems.sortOrder), asc(invoiceItems.id)],
+        },
+        user: {
+          columns: {
+            ...issuerUserColumns,
+            invoiceTemplate: true,
+            logoUrl: true,
+          },
+          with: { paymentMethods: visiblePaymentMethods },
+        },
+      },
+    });
+
+    if (!row) return null;
+
+    const {
+      client,
+      project,
+      lineItems,
+      user: owner,
+      issuerSnapshot,
+      paymentDetails,
+      ...invoice
+    } = row;
+    if (!owner) throw new AppError("NOT_FOUND", "Profile not found.");
+
+    return {
+      invoice: {
+        ...invoice,
+        payment: resolvePayment(
+          issuerSnapshot,
+          paymentDetails,
+          livePayment(owner),
+        ),
+        status: getDisplayStatus(invoice),
+        clientName: client.name,
+        clientEmail: client.email,
+        clientCompany: client.company,
+        clientCountry: client.country,
+        projectTitle: project && !project.deletedAt ? project.title : null,
+      },
+      items: lineItems,
+      profile: resolveIssuer(issuerSnapshot, liveIssuer(owner)),
+      template: owner.invoiceTemplate,
+      logoUrl: owner.logoUrl,
+    };
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getInvoicePdfDataForOwner", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load invoice.");
+  }
+}
+
+/** Badge count for a client's Invoices tab. */
+export async function countInvoicesByClientId(
+  clientId: string,
+): Promise<number> {
+  try {
+    const parsed = clientIdSchema.safeParse(clientId);
+    if (!parsed.success) {
+      throw new AppError("VALIDATION_ERROR", "Invalid client ID.");
+    }
+
+    const user = await requireUser();
+
+    const [row] = await db
+      .select({ value: count() })
+      .from(invoices)
+      .where(
+        and(
+          eq(invoices.userId, user.id),
+          eq(invoices.clientId, parsed.data),
+          isNull(invoices.deletedAt),
+        ),
+      );
+
+    return row?.value ?? 0;
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("countInvoicesByClientId", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load invoices.");
+  }
+}
