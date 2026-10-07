@@ -19,6 +19,7 @@ export default function RefundPolicyPage() {
   return (
     <LegalLayout
       title="Refund & Cancellation Policy"
+      lastUpdated={LEGAL.lastUpdated}
       intro={
         <p>
           This page explains how to cancel a {LEGAL.productName} subscription,

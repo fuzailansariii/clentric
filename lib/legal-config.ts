@@ -36,6 +36,10 @@ export const LEGAL = {
   tagline:
     "A client-centric workspace for freelancers to manage clients, projects, invoices and proposals in one place.",
 
+  /** Shown as "Last updated" on the policy pages; also the accepted terms version. */
+  lastUpdated: "7 October 2026",
+  termsVersion: "2026-10-07",
+
   /** The business behind the product. */
   operatorLegalName: "Mohd Fuzail Ansari",
   entityType: "Sole Proprietorship (India)",
@@ -48,6 +52,14 @@ export const LEGAL = {
   supportEmail: "clentricapp@gmail.com",
   responseTime: "within 2 business days",
 
+  /** Grievance Officer under the DPDP Act, 2023 and the IT Rules, 2021. */
+  grievanceOfficer: {
+    name: "Mohd Fuzail Ansari",
+    designation: "Grievance Officer",
+    acknowledgeWithin: "24 hours",
+    resolveWithin: "15 days",
+  },
+
   /** Retention windows.
    *
    * legalRecordsRetentionPeriod covers billing and tax records we have to
@@ -57,12 +69,9 @@ export const LEGAL = {
    * year, and GST records seventy-two months. Worth confirming with an
    * accountant once there is revenue to account for.
    *
-   * There is intentionally no soft-delete purge window here. The database
-   * has deletedAt columns, but nothing hard-deletes those rows yet, so
-   * promising a purge after N days would be a claim the app does not keep.
-   * Add the value back only alongside a real purge job. */
+   * accountPurgeAfter must match purge_deleted_accounts() (migration 0016). */
   legalRecordsRetentionPeriod: "7 years",
-  dataExportWindow: "30 days",
+  accountPurgeAfter: "30 days",
 
   /** Governing law, used on the Terms page. Naming a specific city's courts
    * is stronger than this; swap it in when you want to. */
@@ -150,8 +159,8 @@ export const LEGAL = {
     { name: "Google", purpose: "Optional Google sign-in" },
   ],
 
-  /** Error monitoring is only disclosed once it is actually running. */
-  sentryIsLive: false,
+  /** Error monitoring is disclosed exactly when it runs: with a DSN set at build time. */
+  sentryIsLive: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
   /** Name of the analytics tool in use, or null when there is none. */
   analyticsTool: null as string | null,
 

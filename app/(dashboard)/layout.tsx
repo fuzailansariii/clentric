@@ -17,6 +17,8 @@ import { RestoreAccountScreen } from "./restore-account-screen";
 import { getEffectivePlan } from "@/lib/billing";
 import { logError } from "@/lib/errors";
 import type { Plan } from "@/components/sidebar/account-menu";
+import { after } from "next/server";
+import { recordTermsAcceptance } from "@/lib/terms-acceptance";
 
 export default async function DashboardLayout({
   children,
@@ -42,6 +44,10 @@ export default async function DashboardLayout({
   ]);
   const plan: Plan =
     billingState?.source === "beta" ? "beta" : (billingState?.plan ?? "free");
+
+  if (profile && !profile.termsAcceptedAt && !profile.deletionRequestedAt) {
+    after(() => recordTermsAcceptance(authUser.id));
+  }
 
   // Pending deletion: no app, only the choice to restore or leave. The
   // pages below would be refused anyway (requireUser locks the account).

@@ -4,7 +4,9 @@ import { useId, useState, useTransition, type SubmitEventHandler } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { ArrowRightIcon, CheckIcon, LoaderCircleIcon } from "lucide-react";
 import { joinWaitlist } from "@/app/actions/waitlist";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { LEGAL } from "@/lib/legal-config";
 
 type Source = "x" | "reddit" | "other";
 
@@ -208,6 +210,21 @@ export default function WaitlistForm({
           );
         })}
       </div>
+
+      <p
+        className={cn(
+          "text-muted-foreground mt-3 text-xs",
+          align === "center" && "text-center",
+        )}
+      >
+        We only use your email to tell you about the launch.{" "}
+        <Link
+          href={LEGAL.routes.privacy}
+          className="hover:text-foreground underline underline-offset-2"
+        >
+          Privacy Policy
+        </Link>
+      </p>
     </form>
   );
 }

@@ -33,6 +33,8 @@ export const getDashboardData = cache(async (userId: string) => {
       avatar: true,
       // Pending deletion: the layout shows the restore screen instead.
       deletionRequestedAt: true,
+      // Empty until the first visit after sign-up; the layout records it.
+      termsAcceptedAt: true,
     },
   });
 

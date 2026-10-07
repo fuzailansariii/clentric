@@ -1,4 +1,5 @@
 import type * as Sentry from "@sentry/nextjs";
+import { scrubText } from "./scrub-error";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -15,5 +16,13 @@ export const sentryOptions: Parameters<typeof Sentry.init>[0] = {
     httpHeaders: false,
     httpBodies: [],
     urlQueryParams: false,
+  },
+  // Second net for errors thrown straight from pages, which skip logError().
+  beforeSend(event) {
+    for (const ex of event.exception?.values ?? []) {
+      if (ex.value) ex.value = scrubText(ex.value);
+    }
+    if (event.message) event.message = scrubText(event.message);
+    return event;
   },
 };
