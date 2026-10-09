@@ -1,7 +1,16 @@
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { LayoutDashboard } from "lucide-react";
 
 import DashboardContainer from "@/components/dashboard/container";
+import {
+  ActivitySkeleton,
+  AttentionSkeleton,
+  RevenueSkeleton,
+  StatTilesSkeleton,
+  TablesSkeleton,
+  WelcomeSkeleton,
+} from "@/components/dashboard/dashboard-skeletons";
 import { NewMenu } from "@/components/dashboard/new-menu";
 import {
   OnboardingSteps,
@@ -46,25 +55,62 @@ function getStatus(money: DashboardMoney | null) {
   return `Nothing needs you right now.${owed}`;
 }
 
-export default async function Dashboard() {
+// Each section loads its own data and streams in as soon as it's ready.
+export default function Dashboard() {
+  return (
+    <>
+      <PageHeader
+        title="Dashboard"
+        icon={<LayoutDashboard className="h-5 w-5" />}
+        className="hidden md:block"
+        actions={<NewMenu />}
+      />
+
+      <DashboardContainer>
+        <Suspense fallback={<WelcomeSkeleton />}>
+          <WelcomeSection />
+        </Suspense>
+
+        <div className="mt-6">
+          <Suspense fallback={<AttentionSkeleton />}>
+            <AttentionSection />
+          </Suspense>
+        </div>
+
+        <div className="mt-6">
+          <Suspense fallback={<StatTilesSkeleton />}>
+            <StatsSection />
+          </Suspense>
+        </div>
+
+        <div className="mt-6">
+          <Suspense fallback={<RevenueSkeleton />}>
+            <RevenueSection />
+          </Suspense>
+        </div>
+
+        <div className="mt-6">
+          <Suspense fallback={<TablesSkeleton />}>
+            <TablesSection />
+          </Suspense>
+        </div>
+
+        <div className="mt-6">
+          <Suspense fallback={<ActivitySkeleton />}>
+            <ActivitySection />
+          </Suspense>
+        </div>
+      </DashboardContainer>
+    </>
+  );
+}
+
+async function WelcomeSection() {
   const user = await requireUser();
-  const [
-    { profile },
-    overview,
-    money,
-    attention,
-    activeProjects,
-    openProposals,
-    activity,
-    cookieStore,
-  ] = await Promise.all([
+  const [{ profile }, overview, money, cookieStore] = await Promise.all([
     getDashboardData(user.id),
     getDashboardOverview(),
     getDashboardMoney(),
-    getAttentionItems(),
-    getActiveProjects(),
-    getOpenProposals(),
-    getRecentActivity(),
     cookies(),
   ]);
 
@@ -83,56 +129,56 @@ export default async function Dashboard() {
 
   return (
     <>
-      <PageHeader
-        title="Dashboard"
-        icon={<LayoutDashboard className="h-5 w-5" />}
-        className="hidden md:block"
-        actions={<NewMenu />}
+      <WelcomeHeader
+        name={name}
+        isNewUser={isNewUser}
+        status={
+          isNewUser ? "Three steps to your first payment" : getStatus(money)
+        }
       />
 
-      <DashboardContainer>
-        <WelcomeHeader
-          name={name}
-          isNewUser={isNewUser}
-          status={
-            isNewUser ? "Three steps to your first payment" : getStatus(money)
-          }
-        />
-
-        {!allStepsDone && (
-          <div className="mt-6">
-            <OnboardingSteps
-              progress={progress}
-              userId={user.id}
-              initiallyHidden={setupHidden}
-            />
-          </div>
-        )}
-
+      {!allStepsDone && (
         <div className="mt-6">
-          <NeedsAttention items={attention} />
+          <OnboardingSteps
+            progress={progress}
+            userId={user.id}
+            initiallyHidden={setupHidden}
+          />
         </div>
-
-        <div className="mt-6">
-          <StatTiles money={money} />
-        </div>
-
-        <div className="mt-6">
-          <RevenueCard money={money} />
-        </div>
-
-        {/* Side by side once the content area (not the viewport) is wide enough. */}
-        <div className="@container mt-6">
-          <div className="grid gap-6 @3xl:grid-cols-2">
-            <OpenProposals data={openProposals} />
-            <ActiveProjects data={activeProjects} />
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <RecentActivity items={activity} />
-        </div>
-      </DashboardContainer>
+      )}
     </>
   );
+}
+
+async function AttentionSection() {
+  return <NeedsAttention items={await getAttentionItems()} />;
+}
+
+async function StatsSection() {
+  return <StatTiles money={await getDashboardMoney()} />;
+}
+
+async function RevenueSection() {
+  return <RevenueCard money={await getDashboardMoney()} />;
+}
+
+async function TablesSection() {
+  const [openProposals, activeProjects] = await Promise.all([
+    getOpenProposals(),
+    getActiveProjects(),
+  ]);
+
+  // Side by side once the content area (not the viewport) is wide enough.
+  return (
+    <div className="@container">
+      <div className="grid gap-6 @3xl:grid-cols-2">
+        <OpenProposals data={openProposals} />
+        <ActiveProjects data={activeProjects} />
+      </div>
+    </div>
+  );
+}
+
+async function ActivitySection() {
+  return <RecentActivity items={await getRecentActivity()} />;
 }
