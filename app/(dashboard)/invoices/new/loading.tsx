@@ -1,13 +1,13 @@
 import {
   DetailHeaderSkeleton,
+  FormSkeleton,
   PageSkeleton,
-  RecordDetailSkeleton,
 } from "@/components/dashboard/page-skeletons";
 
-export default function ClientLoading() {
+export default function NewInvoiceLoading() {
   return (
     <PageSkeleton header={<DetailHeaderSkeleton />}>
-      <RecordDetailSkeleton />
+      <FormSkeleton aside />
     </PageSkeleton>
   );
 }
