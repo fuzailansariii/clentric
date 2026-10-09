@@ -175,6 +175,132 @@
   }
 }
 
+/* Landing page tokens: the extra shades the landing design uses on top of the app theme. */
+.lp {
+  --background: #f2f1ee;
+  --lp-sunk: #eceae6;
+  --lp-muted: #62625f;
+  --lp-faint: #8a8a86;
+  --lp-border-strong: rgba(17, 17, 17, 0.16);
+  --lp-hover: rgba(17, 17, 17, 0.04);
+  --lp-grid: rgba(17, 17, 17, 0.07);
+  /* Hairlines: ink at 10% / 18% over the background, mixed opaque so overlaps never darken. */
+  --lp-frame: #dbdbd8;
+  --lp-frame-strong: #c9c8c7;
+  --lp-track: #ecebe8;
+  --lp-accent-bg: #eef1fb;
+  --lp-accent-fg: #2a44a8;
+  --lp-primary-hover: #2a44a8;
+  --lp-glass: rgba(242, 241, 238, 0.8);
+  --lp-lift: 0 24px 60px -28px rgba(17, 17, 17, 0.28), 0 2px 6px rgba(17, 17, 17, 0.05);
+  --lp-pop: 0 1px 2px rgba(17, 17, 17, 0.04), 0 12px 32px -8px rgba(17, 17, 17, 0.14), 0 32px 64px -24px rgba(17, 17, 17, 0.12);
+  --lp-neutral-bg: #f0efec;
+  --lp-neutral-fg: #4a4a4a;
+  --lp-info-bg: #eef1fb;
+  --lp-info-fg: #2a44a8;
+  --lp-viewed-bg: #ece8fc;
+  --lp-viewed-fg: #5a3fb8;
+  --lp-success-bg: #dcf3e6;
+  --lp-success-fg: #1f6b43;
+  --lp-warning-bg: #f7e6c8;
+  --lp-warning-fg: #8a5a12;
+  --lp-danger-bg: #fbe2dc;
+  --lp-danger-fg: #a3361f;
+}
+
+.dark .lp {
+  --background: #0b0b0c;
+  --lp-sunk: #111113;
+  --lp-muted: #a3a3a3;
+  --lp-faint: #7a7a7a;
+  --lp-border-strong: rgba(255, 255, 255, 0.17);
+  --lp-hover: rgba(255, 255, 255, 0.05);
+  --lp-grid: rgba(255, 255, 255, 0.08);
+  --lp-frame: #232324;
+  --lp-frame-strong: #373738;
+  --lp-track: rgba(255, 255, 255, 0.1);
+  --lp-accent-bg: rgba(124, 147, 240, 0.14);
+  --lp-accent-fg: #a9b9f6;
+  --lp-primary-hover: #98abf4;
+  --lp-glass: rgba(11, 11, 12, 0.72);
+  --lp-lift: none;
+  --lp-pop: none;
+  --lp-neutral-bg: rgba(255, 255, 255, 0.07);
+  --lp-neutral-fg: #bdbdbd;
+  --lp-info-bg: rgba(124, 147, 240, 0.14);
+  --lp-info-fg: #a9b9f6;
+  --lp-viewed-bg: rgba(155, 134, 240, 0.14);
+  --lp-viewed-fg: #bcaef7;
+  --lp-success-bg: rgba(47, 143, 91, 0.16);
+  --lp-success-fg: #6fd19c;
+  --lp-warning-bg: rgba(224, 169, 74, 0.14);
+  --lp-warning-fg: #f0c47a;
+  --lp-danger-bg: rgba(192, 67, 44, 0.18);
+  --lp-danger-fg: #f08a75;
+}
+
+/* LinkProgress: quick start, then crawls toward the end so it never looks finished early. */
+@keyframes link-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(0.92); }
+}
+
+@keyframes lp-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.98); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes lp-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes lp-rise {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+@keyframes lp-bob {
+  0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); }
+  50% { transform: translateY(-10px) rotate(var(--r, 0deg)); }
+}
+@keyframes lp-breathe {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.04); opacity: 0.6; }
+}
+@keyframes lp-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+@keyframes lp-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes lp-pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 40%, transparent); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+
+@keyframes lp-rv-fallback {
+  to { opacity: 1; transform: none; }
+}
+
+/* Scroll reveal. Shows anyway after 4s if the page script never runs. */
+.lp [data-rv] {
+  transition: opacity 0.8s cubic-bezier(0.2, 0.7, 0.2, 1), transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+@media (scripting: enabled) and (prefers-reduced-motion: no-preference) {
+  .lp [data-rv]:not(.rv-in) {
+    opacity: 0;
+    transform: translateY(22px);
+    animation: lp-rv-fallback 0s 4s forwards;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp *, .lp *::before, .lp *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
 /* Theme switch: ThemeToggle animates a circle reveal instead of the default fade. */
 ::view-transition-old(root),
 ::view-transition-new(root) {

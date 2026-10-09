@@ -3,7 +3,7 @@
 import { headers } from "next/headers";
 import { db } from "@/src/db";
 import { waitlistEmails } from "@/src/db/schema/waitlist";
-import { and, count, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { isUniqueViolation, logError } from "@/lib/errors";
 import { isRateLimited } from "@/lib/rate-limit";
 import type { ActionResult } from "@/lib/action-result";
@@ -178,23 +178,5 @@ export async function unsubscribeFromWaitlist(input: {
       success: false,
       error: "Something went wrong. Please try again.",
     };
-  }
-}
-
-/** Real, currently-subscribed signup count for the landing page's
- * social-proof line — never a made-up number, and never counts someone who
- * unsubscribed. Returns null when the read fails: the page must still render,
- * but a failed read must not show up as "0 people" (that's what had the page
- * saying "Be one of the first" while signups existed). */
-export async function getWaitlistCount(): Promise<number | null> {
-  try {
-    const [row] = await db
-      .select({ value: count() })
-      .from(waitlistEmails)
-      .where(isNull(waitlistEmails.unsubscribedAt));
-    return row?.value ?? 0;
-  } catch (error) {
-    logError("getWaitlistCount", error);
-    return null;
   }
 }
