@@ -108,8 +108,9 @@ const pro = {
       text: "Your logo and colours on proposals and invoices",
       availableAtLaunch: true,
     },
+    { text: "One-click payment reminders", availableAtLaunch: true },
     {
-      text: "Email notifications and payment reminders",
+      text: "Automatic reminders and email notifications",
       availableAtLaunch: false,
     },
   ] satisfies ProFeature[],
