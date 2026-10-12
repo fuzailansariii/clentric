@@ -16,6 +16,10 @@ import {
   getDisplayStatus,
   InvoiceDisplayStatus,
 } from "@/lib/get-invoice-display-status";
+import {
+  invoiceProjectBalance,
+  type InvoiceProjectBalance,
+} from "@/lib/project-ledger";
 import { projects } from "@/src/db/schema/projects";
 import {
   issuerUserColumns,
@@ -62,6 +66,17 @@ export type InvoiceSummary = {
 const daysUntilDue = sql<number>`(${invoices.dueDate} - current_date)`.mapWith(
   Number,
 );
+
+/** Paid invoices on the same project created before this one (the balance box). */
+const paidBeforeOnProject = sql<string>`(
+  select coalesce(sum(o.total), 0)::text from invoices o
+  where o.project_id = ${invoices.projectId}
+    and o.user_id = ${invoices.userId}
+    and o.id <> ${invoices.id}
+    and o.deleted_at is null
+    and o.status = 'paid'
+    and o.created_at < ${invoices.createdAt}
+)`;
 
 const displayStatus = sql<InvoiceDisplayStatus>`case when ${invoices.status} = 'sent' and ${invoices.dueDate} < current_date then 'overdue' else ${invoices.status}::text end`;
 
@@ -212,7 +227,10 @@ export async function getInvoiceById(invoiceId: string) {
         eq(invoices.id, parsed.data),
         isNull(invoices.deletedAt),
       ),
-      extras: { daysUntilDue: daysUntilDue.as("days_until_due") },
+      extras: {
+        daysUntilDue: daysUntilDue.as("days_until_due"),
+        paidBeforeOnProject: paidBeforeOnProject.as("paid_before_on_project"),
+      },
       with: {
         lineItems: { orderBy: [asc(invoiceItems.sortOrder)] },
         user: {
@@ -269,6 +287,8 @@ export type InvoicePdfData = {
     clientCompany: string | null;
     clientCountry: string | null;
     projectTitle: string | null;
+    /** Set only when the invoice opts in and its project has a fixed price. */
+    projectBalance: InvoiceProjectBalance | null;
   };
   items: {
     id: string;
@@ -330,13 +350,17 @@ export async function getInvoicePdfDataForOwner(
         currency: true,
         paymentDetails: true,
         issuerSnapshot: true,
+        showProjectBalance: true,
+      },
+      extras: {
+        paidBeforeOnProject: paidBeforeOnProject.as("paid_before_on_project"),
       },
       with: {
         client: {
           columns: { name: true, email: true, company: true, country: true },
         },
         project: {
-          columns: { title: true, deletedAt: true },
+          columns: { title: true, deletedAt: true, pricing: true, budget: true },
         },
         lineItems: {
           columns: {
@@ -369,8 +393,11 @@ export async function getInvoicePdfDataForOwner(
       user: owner,
       issuerSnapshot,
       paymentDetails,
+      showProjectBalance,
+      paidBeforeOnProject: paidBefore,
       ...invoice
     } = row;
+    const liveProject = project && !project.deletedAt ? project : null;
     if (!owner) throw new AppError("NOT_FOUND", "Profile not found.");
 
     return {
@@ -386,7 +413,16 @@ export async function getInvoicePdfDataForOwner(
         clientEmail: client.email,
         clientCompany: client.company,
         clientCountry: client.country,
-        projectTitle: project && !project.deletedAt ? project.title : null,
+        projectTitle: liveProject?.title ?? null,
+        projectBalance:
+          showProjectBalance && liveProject
+            ? invoiceProjectBalance({
+                pricing: liveProject.pricing,
+                budget: liveProject.budget,
+                paidBefore,
+                thisInvoice: invoice.total,
+              })
+            : null,
       },
       items: lineItems,
       profile: resolveIssuer(issuerSnapshot, liveIssuer(owner)),

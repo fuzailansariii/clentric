@@ -15,8 +15,16 @@ export const invoiceLineSchema = z.object({
 export const invoiceIdSchema = z.uuid();
 const invoiceDateSchema = z.iso.date();
 
+/** Someone billed without setting up a client first; saved as a client with the invoice. */
+export const newInvoiceClientSchema = z.object({
+  name: z.string().trim().min(1, "Enter who you're billing").max(100),
+  email: z.email("Invalid email").optional().or(z.literal("")),
+});
+
 export const invoiceObjectSchema = z.object({
-  clientId: z.string().trim().min(1, "Client is required").pipe(clientIdSchema),
+  // "" while billing a new client (newClient) instead of a saved one.
+  clientId: z.union([z.literal(""), clientIdSchema]).optional(),
+  newClient: newInvoiceClientSchema.optional(),
   projectId: projectIdSchema.optional(),
   issueDate: invoiceDateSchema,
   dueDate: invoiceDateSchema,
@@ -33,6 +41,8 @@ export const invoiceObjectSchema = z.object({
   lineItems: z
     .array(invoiceLineSchema)
     .min(1, "At least one line item is required"),
+  /** Print the project's balance (fixed-price projects only). */
+  showProjectBalance: z.boolean().default(false),
   /** Printed at the bottom of the invoice. Blank is stored as null. */
   notes: z
     .string()
@@ -41,17 +51,23 @@ export const invoiceObjectSchema = z.object({
     .optional(),
 });
 
-export const invoiceSchema = invoiceObjectSchema.refine(
-  (data) => data.dueDate >= data.issueDate,
-  {
+export const invoiceSchema = invoiceObjectSchema
+  .refine((data) => data.dueDate >= data.issueDate, {
     error: "Due date must be on or after issue date",
     path: ["dueDate"],
-  },
-);
+  })
+  .refine((data) => Boolean(data.clientId) || Boolean(data.newClient), {
+    error: "Choose a client or type who you're billing",
+    path: ["clientId"],
+  });
 
-export const updateInvoiceSchema = invoiceObjectSchema.extend({
-  invoiceId: invoiceIdSchema,
-});
+/** Editing keeps a saved client; new clients are only created with a new invoice. */
+export const updateInvoiceSchema = invoiceObjectSchema
+  .omit({ newClient: true })
+  .extend({
+    invoiceId: invoiceIdSchema,
+    clientId: z.string().trim().min(1, "Client is required").pipe(clientIdSchema),
+  });
 
 // Only paid -> sent; a sent invoice never goes back to draft.
 const revertibleStatuses = ["sent"] as const;

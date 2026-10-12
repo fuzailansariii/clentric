@@ -1,4 +1,5 @@
 import {
+  boolean,
   pgTable,
   pgEnum,
   text,
@@ -67,6 +68,8 @@ export const invoices = pgTable(
     dueDate: date("due_date").notNull(),
     paidAt: timestamp("paid_at", { withTimezone: true }),
     paymentDetails: text("payment_details"),
+    // Opt-in per invoice: print the project's balance (fixed-price projects only).
+    showProjectBalance: boolean("show_project_balance").notNull().default(false),
     /**
      * The sender's details as they were when this was sent (see
      * lib/issuer-snapshot.ts). Null for drafts, and for anything sent

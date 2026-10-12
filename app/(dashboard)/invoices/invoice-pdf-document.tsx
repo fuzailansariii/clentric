@@ -20,6 +20,7 @@ import {
 import { invoiceStatusConfig } from "./invoice-status-config";
 import { pdfFonts } from "./invoice-pdf-fonts";
 import type { InvoicePdfData } from "./queries";
+import { balanceRows } from "@/lib/project-ledger";
 
 const colors = {
   ink: "#111111",
@@ -189,6 +190,12 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
   },
   totals: { width: 236 },
+  balance: {
+    marginTop: 14,
+    paddingTop: 8,
+    borderTopWidth: 0.5,
+    borderTopColor: colors.rule,
+  },
   totalsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -433,6 +440,28 @@ export function InvoicePdfDocument({
                 {formatCurrency(invoice.total, invoice.currency)}
               </Text>
             </View>
+            {invoice.projectBalance ? (
+              <View style={styles.balance}>
+                <Text style={[styles.label, { marginBottom: 2 }]}>
+                  Project balance
+                </Text>
+                {balanceRows(invoice.projectBalance).map(([label, value], i, all) => {
+                  const last = i === all.length - 1;
+                  return (
+                    <View key={label} style={styles.totalsRow}>
+                      <Text style={last ? { fontWeight: 600 } : styles.cellMuted}>
+                        {label}
+                      </Text>
+                      <Text
+                        style={[styles.cellNumber, last ? { fontWeight: 600 } : {}]}
+                      >
+                        {formatCurrency(String(value), invoice.currency)}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
           </View>
         </View>
 

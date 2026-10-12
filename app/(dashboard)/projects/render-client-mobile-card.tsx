@@ -4,13 +4,13 @@ import { FolderIcon } from "lucide-react";
 import { MobileListRow } from "@/components/data-table/row-parts";
 import { IconTile } from "@/components/ui/icon-tile";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
 import { DeadlineProgress } from "./deadline-progress";
 import { getProjectDeadlineLabel } from "./project-deadline-label";
 import { ProjectRowActions } from "./project-row-actions";
 import { projectStatusConfig } from "./project-status-config";
 import type { ProjectListItem } from "./queries";
+import { formatProjectPrice } from "./format-project-price";
 
 // Mobile shows: title, client · deadline, budget, status, and a bar for time
 // used until the deadline (hidden with no deadline, or once delivered).
@@ -38,7 +38,7 @@ export function renderProjectMobileCard(row: ProjectListItem) {
       trailing={
         <>
           <span className="text-sm font-semibold tabular-nums">
-            {formatCurrency(row.budget, row.currency)}
+            {formatProjectPrice(row)}
           </span>
           <StatusBadge
             status={config.variant}

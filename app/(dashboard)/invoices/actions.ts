@@ -31,6 +31,8 @@ function revalidateInvoicePaths(invoiceId: string, clientId: string) {
   revalidatePath(`/invoices/${invoiceId}`);
   revalidatePath(`/clients/${clientId}`);
   revalidatePath("/dashboard");
+  // Project pages list invoices and show the budget strip.
+  revalidatePath("/(dashboard)/projects/[id]", "page");
 }
 
 export async function createInvoiceAction(
@@ -60,22 +62,44 @@ export async function createInvoiceAction(
     taxAmount = Math.round(subTotal * (parsed.data.taxRate / 100) * 100) / 100;
     total = Math.round((subTotal + taxAmount) * 100) / 100;
 
+    const { newClient } = parsed.data;
     const newInvoice = await db.transaction(async (tx) => {
-      // ownership check
-      const [client] = await tx
-        .select({ id: clients.id })
-        .from(clients)
-        .where(
-          and(
-            eq(clients.id, parsed.data.clientId),
-            eq(clients.userId, user.id),
-            isNull(clients.deletedAt),
-          ),
-        )
-        .limit(1);
+      let clientId: string;
+      if (parsed.data.clientId) {
+        // ownership check
+        const [client] = await tx
+          .select({ id: clients.id })
+          .from(clients)
+          .where(
+            and(
+              eq(clients.id, parsed.data.clientId),
+              eq(clients.userId, user.id),
+              isNull(clients.deletedAt),
+            ),
+          )
+          .limit(1);
 
-      if (!client) {
-        throw new AppError("NOT_FOUND", "Client not found");
+        if (!client) {
+          throw new AppError("NOT_FOUND", "Client not found");
+        }
+        clientId = client.id;
+      } else if (newClient) {
+        // Billed without setting up a client first: saved together with the invoice.
+        const [client] = await tx
+          .insert(clients)
+          .values({
+            userId: user.id,
+            name: newClient.name,
+            email: newClient.email || null,
+          })
+          .returning({ id: clients.id });
+
+        if (!client) {
+          throw new AppError("INSERT_FAILED", "Could not save the client");
+        }
+        clientId = client.id;
+      } else {
+        throw new AppError("VALIDATION_ERROR", "Choose a client");
       }
 
       // check project ownership
@@ -89,7 +113,7 @@ export async function createInvoiceAction(
             and(
               eq(projects.id, parsed.data.projectId),
               eq(projects.userId, user.id),
-              eq(projects.clientId, parsed.data.clientId),
+              eq(projects.clientId, clientId),
               isNull(projects.deletedAt),
             ),
           )
@@ -108,7 +132,7 @@ export async function createInvoiceAction(
         .insert(invoices)
         .values({
           userId: user.id,
-          clientId: parsed.data.clientId,
+          clientId,
           projectId: parsed.data.projectId,
           issueDate: parsed.data.issueDate,
           dueDate: parsed.data.dueDate,
@@ -117,6 +141,8 @@ export async function createInvoiceAction(
           invoiceNumber,
           numberPrefix: sql`(select ${users.invoicePrefix} from ${users} where ${users.id} = ${user.id})`,
           notes: parsed.data.notes || null,
+          showProjectBalance:
+            parsed.data.showProjectBalance && Boolean(parsed.data.projectId),
           taxAmount: taxAmount.toFixed(2),
           subTotal: subTotal.toFixed(2),
           total: total.toFixed(2),
@@ -140,10 +166,18 @@ export async function createInvoiceAction(
         })),
       );
 
-      return created;
+      return { ...created, clientId };
     });
 
-    revalidateInvoicePaths(newInvoice.invoiceId, parsed.data.clientId);
+    revalidateInvoicePaths(newInvoice.invoiceId, newInvoice.clientId);
+    if (newClient) {
+      revalidatePath("/clients");
+      logActivity({
+        userId: user.id,
+        action: "client.created",
+        entityId: newInvoice.clientId,
+      });
+    }
     logActivity({
       userId: user.id,
       action: "invoice.created",
@@ -262,6 +296,8 @@ export async function updateInvoiceAction(
         .set({
           clientId: parsed.data.clientId,
           projectId: parsed.data.projectId ?? null,
+          showProjectBalance:
+            parsed.data.showProjectBalance && Boolean(parsed.data.projectId),
           issueDate: parsed.data.issueDate,
           dueDate: parsed.data.dueDate,
           currency: parsed.data.currency,

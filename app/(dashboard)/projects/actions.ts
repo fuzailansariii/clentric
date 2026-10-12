@@ -65,6 +65,9 @@ export async function createProjectAction(
             createdAt: sql<Date>`now()`.as("created_at"),
             updatedAt: sql<Date>`now()`.as("updated_at"),
             deletedAt: sql<Date | null>`null::timestamptz`.as("deleted_at"),
+            pricing: sql<
+              typeof data.pricing
+            >`${data.pricing}::project_pricing`.as("pricing"),
           })
           .from(clients)
           .where(

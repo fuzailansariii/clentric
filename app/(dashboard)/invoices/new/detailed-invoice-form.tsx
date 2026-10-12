@@ -1,6 +1,6 @@
 "use client";
 
-import React, { SubmitEvent } from "react";
+import React, { SubmitEvent, type ReactNode } from "react";
 import {
   Controller,
   type Control,
@@ -8,7 +8,6 @@ import {
   type UseFormRegister,
   type UseFieldArrayReturn,
 } from "react-hook-form";
-import { ClientCombobox, ClientOption } from "@/components/client-combobox";
 import { ProjectCombobox, ProjectOption } from "@/components/project-combobox";
 import { DatePickerField } from "@/components/date-picker-field";
 import { Field } from "@/components/ui/input";
@@ -23,13 +22,13 @@ type DetailedInvoiceFormProps = {
   control: Control<InvoiceFormInput>;
   register: UseFormRegister<InvoiceFormInput>;
   errors: FieldErrors<InvoiceFormInput>;
-  clients: ClientOption[];
+  /** Saved-client picker or typed "Bill to" (BillToField). */
+  clientField: ReactNode;
   filteredProjects: ProjectOption[];
   fields: UseFieldArrayReturn<InvoiceFormInput, "lineItems">["fields"];
   watchedLineItems: InvoiceFormInput["lineItems"];
   append: UseFieldArrayReturn<InvoiceFormInput, "lineItems">["append"];
   remove: UseFieldArrayReturn<InvoiceFormInput, "lineItems">["remove"];
-  onClientChange: (onChange: (value: string) => void, value: string) => void;
   onProjectChange: (onChange: (value: string) => void, value: string) => void;
   onUnitChange: (index: number, unit: InvoiceItemUnit) => void;
   /** The default hourly rate in effect for the chosen client/project. */
@@ -41,13 +40,12 @@ export default function DetailedInvoiceForm({
   control,
   register,
   errors,
-  clients,
+  clientField,
   filteredProjects,
   fields,
   watchedLineItems,
   append,
   remove,
-  onClientChange,
   onProjectChange,
   onUnitChange,
   hourlyRateHint,
@@ -63,18 +61,7 @@ export default function DetailedInvoiceForm({
           description="Choose the client being billed, and optionally link it to a project."
         >
           <div className="grid gap-5 sm:grid-cols-2">
-            <Controller
-              control={control}
-              name="clientId"
-              render={({ field }) => (
-                <ClientCombobox
-                  clients={clients}
-                  value={field.value}
-                  onChange={(value) => onClientChange(field.onChange, value)}
-                  error={errors.clientId?.message}
-                />
-              )}
-            />
+            {clientField}
 
             <Controller
               control={control}

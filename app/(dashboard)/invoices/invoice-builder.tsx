@@ -25,8 +25,9 @@ import { addDays } from "date-fns";
 import { dateToFormValue } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { calculateInvoiceTotals } from "@/lib/calculate-totals";
-import { formatCurrency } from "@/lib/format-currency";
-import { AlertTriangle } from "lucide-react";
+import { projectLedger } from "@/lib/project-ledger";
+import { BudgetLine } from "./budget-line";
+import { BillToField } from "./bill-to-field";
 import InvoicePreview from "@/components/preview/invoice-preview";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { cn } from "@/lib/utils";
@@ -46,6 +47,7 @@ export type EditableInvoice = {
   currency: string;
   taxRate: number;
   notes: string;
+  showProjectBalance: boolean;
   lineItems: {
     description: string;
     quantity: number;
@@ -92,6 +94,9 @@ export default function InvoiceBuilder({
     invoice ? "detailed" : "quick",
   );
   const [showQuickConfirm, setShowQuickConfirm] = useState(false);
+  // No saved clients yet: start by typing who you're billing.
+  const startNew = !invoice && clients.length === 0;
+  const [billNew, setBillNew] = useState(startNew);
   const [formError, setFormError] = useState("");
 
   const router = useRouter();
@@ -110,10 +115,12 @@ export default function InvoiceBuilder({
           currency: invoice.currency,
           taxRate: invoice.taxRate,
           notes: invoice.notes,
+          showProjectBalance: invoice.showProjectBalance,
           lineItems: invoice.lineItems,
         }
       : {
           clientId: initialClientId ?? "",
+          newClient: startNew ? { name: "", email: "" } : undefined,
           projectId: initialProjectId ?? undefined,
           issueDate: dateToFormValue(new Date()),
           // Payment terms (users.payment_terms_days): due on receipt, or N
@@ -126,6 +133,7 @@ export default function InvoiceBuilder({
               ?.currency ?? "USD",
           taxRate: defaults?.taxRate ?? 0,
           notes: defaults?.notes ?? "",
+          showProjectBalance: false,
           lineItems: [{ description: "", quantity: 1, rate: 0, unit: "item" }],
         },
   });
@@ -138,6 +146,7 @@ export default function InvoiceBuilder({
     setValue,
     getValues,
     control,
+    unregister,
   } = form;
 
   const watchedLineItems = useWatch({
@@ -184,6 +193,8 @@ export default function InvoiceBuilder({
   };
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
+  const newClientName = useWatch({ control, name: "newClient.name" });
+  const showProjectBalance = useWatch({ control, name: "showProjectBalance" });
   const selectedProjectId = useWatch({ control, name: "projectId" });
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const watchedDueDate = useWatch({ control, name: "dueDate" });
@@ -215,6 +226,17 @@ export default function InvoiceBuilder({
         });
       }
     });
+  };
+
+  const toggleBillNew = (next: boolean) => {
+    setBillNew(next);
+    if (next) {
+      setValue("clientId", "");
+      setValue("projectId", undefined);
+      setValue("newClient", { name: "", email: "" });
+    } else {
+      unregister("newClient");
+    }
   };
 
   const handleClientChange = (
@@ -262,16 +284,24 @@ export default function InvoiceBuilder({
       }
     : null;
 
-  // Hidden while editing the deposit invoice itself.
-  const deposit =
-    selectedProject?.deposit && selectedProject.deposit.invoiceId !== invoice?.id
-      ? selectedProject.deposit
-      : null;
-
   const { subtotal, taxRate, taxAmount, total } = calculateInvoiceTotals(
     watchedLineItems,
     watchedTaxRate,
   );
+
+  const ledger = selectedProject
+    ? projectLedger({
+        budget: selectedProject.budget,
+        billed: selectedProject.billed,
+        thisInvoice: total,
+      })
+    : null;
+  // Not named while editing the deposit invoice itself.
+  const depositLabel =
+    selectedProject?.deposit &&
+    selectedProject.deposit.invoiceId !== invoice?.id
+      ? selectedProject.deposit.label
+      : null;
 
   const invoicePath = invoice
     ? `/invoices/${invoice.id}`
@@ -279,6 +309,18 @@ export default function InvoiceBuilder({
   const invoiceLabel = invoice
     ? formatInvoiceNumber(invoice.invoiceNumber, invoice.numberPrefix)
     : null;
+
+  const clientField = (
+    <BillToField
+      control={control}
+      register={register}
+      errors={errors}
+      clients={clients}
+      onClientChange={handleClientChange}
+      isNew={billNew}
+      onToggleNew={invoice ? null : toggleBillNew}
+    />
+  );
 
   // form submit handler
   const onSubmit = handleSubmit(async (data: InvoiceFormOutput) => {
@@ -415,26 +457,6 @@ export default function InvoiceBuilder({
           </div>
         </div>
 
-        {deposit && selectedProject && (
-          <div
-            role="status"
-            className="border-warning-600/30 bg-warning-600/10 text-warning-600 mb-6 flex items-start gap-2 rounded-lg border px-4 py-3 text-sm"
-          >
-            <AlertTriangle
-              aria-hidden="true"
-              className="mt-0.5 h-4 w-4 shrink-0"
-            />
-            <p>
-              {selectedProject.title} already has a deposit invoice,{" "}
-              {deposit.label} for{" "}
-              {formatCurrency(deposit.total, selectedProject.currency)}
-              {deposit.paid ? " (paid)" : " (not paid yet)"}. If this invoice
-              bills the full agreed price, take the deposit off so your client
-              isn&apos;t charged twice.
-            </p>
-          </div>
-        )}
-
         <div className="@container">
           <div className="grid gap-8 @[900px]:grid-cols-[minmax(0,1fr)_360px]">
             {/* Invoice details form */}
@@ -443,23 +465,21 @@ export default function InvoiceBuilder({
                 control={control}
                 register={register}
                 errors={errors}
-                clients={clients}
+                clientField={clientField}
                 onSubmit={onSubmit}
                 filteredProjects={filteredProjects}
-                onClientChange={handleClientChange}
               />
             ) : (
               <DetailedInvoiceForm
                 control={control}
                 register={register}
                 errors={errors}
-                clients={clients}
+                clientField={clientField}
                 filteredProjects={filteredProjects}
                 fields={fields}
                 watchedLineItems={watchedLineItems}
                 append={append}
                 remove={remove}
-                onClientChange={handleClientChange}
                 onProjectChange={handleProjectChange}
                 onUnitChange={handleUnitChange}
                 hourlyRateHint={hourlyRateHint}
@@ -468,11 +488,33 @@ export default function InvoiceBuilder({
             )}
 
             {/* Invoice Preview */}
-            <div className="sticky top-6 self-start">
+            <div className="sticky top-6 flex flex-col gap-4 self-start">
+              {selectedProject && ledger && ledger.budget !== null && (
+                <BudgetLine
+                  projectTitle={selectedProject.title}
+                  currency={selectedProject.currency}
+                  pricing={selectedProject.pricing}
+                  balance={
+                    selectedProject.pricing === "hourly"
+                      ? undefined
+                      : {
+                          checked: Boolean(showProjectBalance),
+                          onChange: (checked) =>
+                            setValue("showProjectBalance", checked, {
+                              shouldDirty: true,
+                            }),
+                        }
+                  }
+                  ledger={{ ...ledger, budget: ledger.budget }}
+                  depositLabel={depositLabel}
+                />
+              )}
               <InvoicePreview
                 issuerName={issuerName}
                 projectName={selectedProject?.title}
-                clientName={selectedClient?.name}
+                clientName={
+                  billNew ? newClientName || undefined : selectedClient?.name
+                }
                 dueDate={watchedDueDate}
                 subTotal={subtotal}
                 taxRate={taxRate}

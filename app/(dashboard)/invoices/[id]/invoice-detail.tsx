@@ -62,6 +62,11 @@ import {
   updateInvoiceStatusAction,
 } from "../actions";
 import { InvoiceTimeline } from "./invoice-timeline";
+import {
+  balanceRows,
+  invoiceProjectBalance,
+  type InvoiceProjectBalance,
+} from "@/lib/project-ledger";
 
 type InvoiceRow = typeof invoices.$inferSelect;
 type InvoiceItemRow = typeof invoiceItems.$inferSelect;
@@ -71,6 +76,8 @@ type InvoiceDetailProps = {
     lineItems: InvoiceItemRow[];
     /** Whole days until dueDate, negative once past - see getInvoiceById(). */
     daysUntilDue: number;
+    /** Paid invoices on the project created before this one. */
+    paidBeforeOnProject: string;
     /** The freelancer issuing this invoice, for the "From" block: the
      * invoice's snapshot once sent, live details while it's a draft. */
     issuer: IssuerDetails | null;
@@ -95,6 +102,44 @@ const labelClass =
 
 /** A slightly stronger hairline than --border, for structural rules. */
 const ruleClass = "border-foreground/12";
+
+/** "Project balance" under the totals, when the invoice opts in. */
+function ProjectBalanceRows({
+  balance,
+  currency,
+}: {
+  balance: InvoiceProjectBalance;
+  currency: string;
+}) {
+  const rows = balanceRows(balance);
+  return (
+    <div className={cn("mt-5 border-t border-dashed pt-3.5", ruleClass)}>
+      <h3 className={cn(labelClass, "mb-1.5")}>Project balance</h3>
+      {rows.map(([label, value], i) => {
+        const last = i === rows.length - 1;
+        return (
+          <div
+            key={label}
+            className={cn(
+              "flex justify-between gap-6 text-[13.5px]",
+              last ? "pt-1.5 font-semibold" : "text-muted-foreground py-1",
+            )}
+          >
+            <span>{label}</span>
+            <span
+              className={cn(
+                "font-mono tabular-nums",
+                !last && "text-foreground",
+              )}
+            >
+              {formatCurrency(String(value), currency)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 // Ink colour per status tone - the same tones the header's StatusBadge uses,
 // so the stamp and the badge always agree.
@@ -209,6 +254,16 @@ export function InvoiceDetail({
     invoice.invoiceNumber,
     invoice.numberPrefix,
   );
+
+  const balance =
+    invoice.showProjectBalance && project
+      ? invoiceProjectBalance({
+          pricing: project.pricing,
+          budget: project.budget,
+          paidBefore: invoice.paidBeforeOnProject,
+          thisInvoice: invoice.total,
+        })
+      : null;
 
   const isDraft = displayStatus === "draft";
   const isSent = displayStatus === "sent";
@@ -413,7 +468,7 @@ export function InvoiceDetail({
                       className={cn(
                         labelClass,
                         // Wide enough for "12.5 hrs" once there's room.
-                        "w-14 border-b py-3.5 pl-3 text-right @[560px]:w-22",
+                        "hidden w-22 border-b py-3.5 pl-3 text-right @[560px]:table-cell",
                         ruleClass,
                       )}
                     >
@@ -422,7 +477,7 @@ export function InvoiceDetail({
                     <th
                       className={cn(
                         labelClass,
-                        "w-21 border-b py-3.5 pl-3 text-right @[560px]:w-30",
+                        "hidden w-30 border-b py-3.5 pl-3 text-right @[560px]:table-cell",
                         ruleClass,
                       )}
                     >
@@ -444,11 +499,16 @@ export function InvoiceDetail({
                     <tr key={item.id} className="border-border border-b">
                       <td className="py-3.5 pr-4 align-top text-sm leading-[1.55] wrap-anywhere">
                         {item.description}
+                        {/* Phone: qty and rate move under the description. */}
+                        <span className="text-muted-foreground mt-0.5 block font-mono text-xs tabular-nums @[560px]:hidden">
+                          {formatLineItemQuantity(item.quantity, item.unit)} ×{" "}
+                          {formatLineItemRate(item.rate, item.unit)}
+                        </span>
                       </td>
-                      <td className="text-muted-foreground py-3.5 pl-3 text-right align-top font-mono text-[13.5px] tabular-nums">
+                      <td className="text-muted-foreground hidden py-3.5 pl-3 text-right align-top font-mono text-[13.5px] tabular-nums @[560px]:table-cell">
                         {formatLineItemQuantity(item.quantity, item.unit)}
                       </td>
-                      <td className="text-muted-foreground py-3.5 pl-3 text-right align-top font-mono text-[13.5px] tabular-nums">
+                      <td className="text-muted-foreground hidden py-3.5 pl-3 text-right align-top font-mono text-[13.5px] tabular-nums @[560px]:table-cell">
                         {formatLineItemRate(item.rate, item.unit)}
                       </td>
                       <td className="py-3.5 pl-3 text-right align-top font-mono text-[13.5px] tabular-nums">
@@ -495,6 +555,12 @@ export function InvoiceDetail({
                       {formatCurrency(invoice.total, invoice.currency)}
                     </span>
                   </div>
+                  {balance && (
+                    <ProjectBalanceRows
+                      balance={balance}
+                      currency={invoice.currency}
+                    />
+                  )}
                 </div>
               </div>
             </section>

@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { projectStatusEnum as projectStatusPgEnum } from "@/src/db/schema/projects";
+import {
+  projectPricingEnum as projectPricingPgEnum,
+  projectStatusEnum as projectStatusPgEnum,
+} from "@/src/db/schema/projects";
 import { milestoneStatusEnum as milestoneStatusPgEnum } from "@/src/db/schema/milestones";
 import { hourlyRateSchema } from "@/lib/hourly-rate-schema";
 
@@ -37,27 +40,47 @@ export const projectObjectSchema = z.object({
   title: z.string().trim().min(1, "Title is required").max(150),
   description: z.string().trim().max(2000).optional(),
   clientId: z.uuid("Please select a client"),
+  // No default here: inside .partial() Zod 4 would still fill it in on edits.
+  pricing: z.enum(projectPricingPgEnum.enumValues),
+  // Fixed: the agreed price. Hourly: an optional estimate; "" is stored as 0 (none).
   budget: z
     .string()
     .trim()
-    .min(1, "Budget is required")
-    .regex(/^\d+(\.\d{1,2})?$/, "Invalid budget")
-    .refine((value) => {
-      const [whole] = value.split(".");
-      return whole.length <= 10;
-    }, "Budget is too large"),
+    .transform((value) => (value === "" ? "0" : value))
+    .pipe(
+      z
+        .string()
+        .regex(/^\d+(\.\d{1,2})?$/, "Invalid amount")
+        .refine((value) => {
+          const [whole] = value.split(".");
+          return whole.length <= 10;
+        }, "Amount is too large"),
+    ),
   deadline: deadlineSchema.optional(),
   status: projectStatusEnum,
   // Overrides the client's rate when prefilling hour lines on invoices.
   hourlyRate: hourlyRateSchema,
 });
 
+/** A fixed price needs an amount; an hourly estimate may stay empty (stored as 0). */
+const fixedPriceNeedsAmount = (data: {
+  pricing?: "fixed" | "hourly";
+  budget?: string;
+}) =>
+  data.pricing !== "fixed" ||
+  data.budget === undefined ||
+  Number(data.budget) > 0;
+const fixedPriceError = { error: "Enter the agreed price", path: ["budget"] };
+
 /** Creating a project: a new deadline can't already have passed. */
-export const projectSchema = projectObjectSchema.extend({
-  deadline: deadlineSchema
-    .refine(isNotPast, "Deadline can't be in the past")
-    .optional(),
-});
+export const projectSchema = projectObjectSchema
+  .extend({
+    pricing: projectObjectSchema.shape.pricing.default("fixed"),
+    deadline: deadlineSchema
+      .refine(isNotPast, "Deadline can't be in the past")
+      .optional(),
+  })
+  .refine(fixedPriceNeedsAmount, fixedPriceError);
 
 export const projectSearchParamsSchema = z.object({
   search: z.string().trim().max(200).optional(),
@@ -93,8 +116,10 @@ export type MilestoneInput = z.input<typeof milestoneSchema>;
  */
 export const editableProjectsSchema = projectObjectSchema
   .omit({ clientId: true })
-  .partial();
+  .partial()
+  .refine(fixedPriceNeedsAmount, fixedPriceError);
 
 export type ProjectFormInput = z.input<typeof projectSchema>;
 export type ProjectInput = z.infer<typeof projectSchema>;
 export type EditableProjectInput = z.infer<typeof editableProjectsSchema>;
+export type EditableProjectFormInput = z.input<typeof editableProjectsSchema>;

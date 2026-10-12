@@ -20,6 +20,12 @@ export const projectStatusEnum = pgEnum("project_status_enum", [
   "completed",
 ]);
 
+/** fixed: budget is the agreed price. hourly: budget is an optional estimate (0 = none). */
+export const projectPricingEnum = pgEnum("project_pricing", [
+  "fixed",
+  "hourly",
+]);
+
 export const projects = pgTable(
   "projects",
   {
@@ -62,6 +68,8 @@ export const projects = pgTable(
       .notNull()
       .defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    // Last, matching where ALTER TABLE added it (project create inserts in this order).
+    pricing: projectPricingEnum("pricing").notNull().default("fixed"),
   },
   (table) => [
     index("idx_projects_user_id").on(table.userId),

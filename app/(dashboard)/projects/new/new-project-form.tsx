@@ -1,8 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
 import React, { useState } from "react";
-import { Controller, useForm } from "react-hook-form";
-import { ProjectInput, projectSchema } from "../schema";
+import { Controller, useForm, useWatch } from "react-hook-form";
+import { ProjectFormInput, ProjectInput, projectSchema } from "../schema";
+import { PricingPicker } from "../pricing-picker";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { createProjectAction } from "../actions";
@@ -33,13 +34,17 @@ export default function NewProjectsForm({
     register,
     formState: { errors, isSubmitting },
     control,
-  } = useForm<ProjectInput>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } = useForm<ProjectFormInput, any, ProjectInput>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
+      pricing: "fixed",
       status: "not_started",
       clientId: initialClientId ?? "",
     },
   });
+
+  const hourly = useWatch({ control, name: "pricing" }) === "hourly";
 
   const onSubmit = handleSubmit(async (data: ProjectInput) => {
     setFormError(null);
@@ -110,21 +115,36 @@ export default function NewProjectsForm({
             <div className="bg-border h-px" />
 
             <FormSection
-              title="Set the budget and timeline"
-              step="02 Budget & Timeline"
-              description="Estimate what this project is worth and when it's due."
+              title="Set the price and timeline"
+              step="02 Price & Timeline"
+              description="How you charge for this project, and when it's due."
             >
-              <div className="grid gap-5 sm:grid-cols-2">
+              <Controller
+                control={control}
+                name="pricing"
+                render={({ field }) => (
+                  <PricingPicker
+                    value={field.value ?? "fixed"}
+                    onChange={field.onChange}
+                  />
+                )}
+              />
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
                 <Field
                   {...register("budget")}
-                  label="Budget"
-                  placeholder="0.00"
+                  label={hourly ? "Estimate (optional)" : "Agreed price"}
+                  placeholder={hourly ? "No estimate" : "0.00"}
                   prefix="$"
+                  inputMode="decimal"
                   error={errors.budget?.message}
                 />
                 <Field
                   {...register("hourlyRate")}
-                  label="Hourly rate"
+                  label={
+                    hourly
+                      ? "Hourly rate"
+                      : "Hourly rate for extra work (optional)"
+                  }
                   placeholder="Client's rate"
                   prefix="$"
                   suffix="/hr"

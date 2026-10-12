@@ -11,6 +11,7 @@ import type { ProjectInvoiceRow } from "./queries";
 import Link from "next/link";
 import {
   Check,
+  ArrowUpRight,
   FileSignature,
   Folder,
   PencilIcon,
@@ -23,7 +24,7 @@ import { TabButton } from "@/components/ui/tab-button";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { useRouter } from "next/navigation";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Select,
@@ -35,7 +36,11 @@ import {
 import { DatePickerField } from "@/components/date-picker-field";
 import type { MilestoneItem, ProjectListItem } from "./queries";
 import { MilestonesPanel } from "./milestones-panel";
-import { EditableProjectInput, editableProjectsSchema } from "./schema";
+import {
+  EditableProjectFormInput,
+  EditableProjectInput,
+  editableProjectsSchema,
+} from "./schema";
 import { projectStatusConfig } from "./project-status-config";
 import { getProjectDeadlineLabel } from "./project-deadline-label";
 import { deleteProjectAction, updateProjectAction } from "./actions";
@@ -44,14 +49,20 @@ import DashboardContainer from "@/components/dashboard/container";
 import { cn } from "@/lib/utils";
 import { Field } from "@/components/ui/input";
 import { StatsCards } from "@/components/ui/stats-cards";
+import { ProjectBudget } from "./project-budget";
 
 export function toProjectFormDefaults(
   project: ProjectListItem,
-): EditableProjectInput {
+): EditableProjectFormInput {
   return {
     title: project.title,
     description: project.description ?? "",
-    budget: project.budget,
+    pricing: project.pricing,
+    // An hourly project without an estimate shows an empty field, not 0.00.
+    budget:
+      project.pricing === "hourly" && Number(project.budget) === 0
+        ? ""
+        : project.budget,
     hourlyRate: project.hourlyRate ?? "",
     deadline: project.deadline ?? "",
     status: project.status,
@@ -92,10 +103,13 @@ export function ProjectDetail({
     control,
     formState: { isSubmitting, errors },
     reset,
-  } = useForm<EditableProjectInput>({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  } = useForm<EditableProjectFormInput, any, EditableProjectInput>({
     resolver: zodResolver(editableProjectsSchema),
     defaultValues: toProjectFormDefaults(project),
   });
+
+  const editHourly = useWatch({ control, name: "pricing" }) === "hourly";
 
   const handleEditClick = () => {
     reset(toProjectFormDefaults(project));
@@ -216,12 +230,13 @@ export function ProjectDetail({
             )}
           >
             {/* Title area */}
-            <div className="flex items-start gap-3 px-5 pt-5 pb-4">
+            <div className="flex flex-wrap items-start gap-3 px-5 pt-5 pb-4 sm:flex-nowrap">
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/40">
                 <Folder className="h-5 w-5" />
               </div>
 
-              <div className="min-w-0 flex-1">
+              {/* Phone: keeps the full row so the proposal pill wraps under the title. */}
+              <div className="min-w-0 flex-1 max-sm:basis-[calc(100%-3.25rem)]">
                 <p className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wider uppercase">
                   Project Title
                 </p>
@@ -244,6 +259,19 @@ export function ProjectDetail({
                   </h2>
                 )}
               </div>
+
+              {/* Where this project came from: set when a proposal was accepted. */}
+              {fromProposal && !isEditing && (
+                <Link
+                  href={`/proposals/${fromProposal.id}`}
+                  title={fromProposal.title}
+                  className="text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring ml-13 inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none sm:ml-auto"
+                >
+                  <FileSignature aria-hidden="true" className="size-3.5" />
+                  From proposal
+                  <ArrowUpRight aria-hidden="true" className="size-3.5" />
+                </Link>
+              )}
             </div>
 
             {/* Edit form row (only when editing) */}
@@ -280,12 +308,37 @@ export function ProjectDetail({
 
                 <div className="space-y-1">
                   <label className="text-muted-foreground text-[11px] font-medium uppercase">
-                    Budget
+                    How you charge
+                  </label>
+                  <Controller
+                    control={control}
+                    name="pricing"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value}
+                        onValueChange={field.onChange}
+                      >
+                        <SelectTrigger className="bg-background h-9 w-37">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fixed">Fixed price</SelectItem>
+                          <SelectItem value="hourly">Hourly</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-muted-foreground text-[11px] font-medium uppercase">
+                    {editHourly ? "Estimate (optional)" : "Agreed price"}
                   </label>
                   <Field
                     {...register("budget")}
-                    placeholder="0.00"
+                    placeholder={editHourly ? "No estimate" : "0.00"}
                     prefix="$"
+                    inputMode="decimal"
                     error={errors.budget?.message}
                   />
                   {errors.budget && (
@@ -334,13 +387,23 @@ export function ProjectDetail({
                 variant="divided"
                 items={[
                   {
-                    label: "Budget",
-                    value: formatCurrency(project.budget, project.currency),
-                    hint: project.hourlyRate
-                      ? `${formatCurrency(project.hourlyRate, project.currency)}/hr for hour lines`
-                      : fromProposal
-                        ? "Fixed price (from proposal)"
-                        : undefined,
+                    label:
+                      project.pricing === "hourly"
+                        ? "Estimate"
+                        : "Agreed price",
+                    value:
+                      project.pricing === "hourly" &&
+                      Number(project.budget) === 0
+                        ? "-"
+                        : formatCurrency(project.budget, project.currency),
+                    hint:
+                      project.pricing === "hourly"
+                        ? project.hourlyRate
+                          ? `Hourly, ${formatCurrency(project.hourlyRate, project.currency)}/hr`
+                          : "Billed by the hour"
+                        : fromProposal
+                          ? "From the accepted proposal"
+                          : "Fixed price",
                   },
                   {
                     label: "Deadline",
@@ -384,35 +447,30 @@ export function ProjectDetail({
                 ]}
               />
 
+              <ProjectBudget
+                pricing={project.pricing}
+                budget={project.budget}
+                currency={project.currency}
+                invoices={invoices}
+              />
+
               {/* Waiting on the deposit: marking it paid starts the project. */}
               {project.status === "not_started" &&
                 fromProposal?.deposit &&
                 !fromProposal.deposit.paid && (
-                  <p className="bg-ledger-50 text-ledger-700 dark:bg-ledger-500/15 dark:text-ledger-500 mt-4 rounded-md px-3 py-2 text-[13px]">
-                    Waiting for deposit{" "}
-                    <Link
-                      href={`/invoices/${fromProposal.deposit.id}`}
-                      className="font-mono font-medium underline underline-offset-2"
-                    >
-                      {fromProposal.deposit.number}
-                    </Link>
-                    . The project starts when you mark it as paid.
-                  </p>
+                  <div className="border-t px-3 py-3 sm:px-5">
+                    <p className="bg-ledger-50 text-ledger-700 dark:bg-ledger-500/15 dark:text-ledger-500 rounded-md px-3 py-2 text-[13px]">
+                      Waiting for deposit{" "}
+                      <Link
+                        href={`/invoices/${fromProposal.deposit.id}`}
+                        className="font-mono font-medium underline underline-offset-2"
+                      >
+                        {fromProposal.deposit.number}
+                      </Link>
+                      . The project starts when you mark it as paid.
+                    </p>
+                  </div>
                 )}
-
-              {/* Where this project came from. Only set when it was created
-                  by accepting a proposal. */}
-              {fromProposal && (
-                <Link
-                  href={`/proposals/${fromProposal.id}`}
-                  className="text-muted-foreground hover:text-foreground focus-visible:ring-ring mt-4 inline-flex max-w-full items-center gap-1.5 rounded-sm text-xs underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:outline-none"
-                >
-                  <FileSignature className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">
-                    From proposal: {fromProposal.title}
-                  </span>
-                </Link>
-              )}
             </div>
           </div>
 
@@ -474,21 +532,32 @@ export function ProjectDetail({
                 </div>
                 <div>
                   <dt className="text-muted-foreground text-xs uppercase">
+                    Pricing
+                  </dt>
+                  <dd className="mt-1 font-medium">
+                    {project.pricing === "hourly" ? "Hourly" : "Fixed price"}
+                  </dd>
+                  <dd className="text-muted-foreground mt-0.5 text-xs">
+                    {project.pricing === "hourly"
+                      ? "Billed by the hour"
+                      : "One agreed price"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-muted-foreground text-xs uppercase">
                     Hourly rate
                   </dt>
                   <dd className="mt-1 font-medium">
                     {project.hourlyRate
                       ? `${formatCurrency(project.hourlyRate, project.currency)}/hr`
-                      : fromProposal
-                        ? "Fixed price"
-                        : "Not set"}
+                      : "Not set"}
                   </dd>
                   <dd className="text-muted-foreground mt-0.5 text-xs">
                     {project.hourlyRate
                       ? "Prefills hour lines on invoices"
-                      : fromProposal
-                        ? "From the proposal. Set a rate only for extra hourly work."
-                        : "Invoices use the client's rate"}
+                      : project.pricing === "hourly"
+                        ? "Invoices use the client's rate"
+                        : "Only needed for extra hourly work"}
                   </dd>
                 </div>
               </dl>

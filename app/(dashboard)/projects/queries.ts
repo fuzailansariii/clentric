@@ -13,7 +13,20 @@ import {
 } from "./schema";
 import { db } from "@/src/db";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
-import { and, asc, count, desc, eq, ilike, isNull, sql } from "drizzle-orm";
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  sql,
+} from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { BILLED_STATUSES } from "@/lib/project-ledger";
+import { invoiceIdSchema } from "../invoices/schema";
 import { projects, projectStatusEnum } from "@/src/db/schema/projects";
 import { clients } from "@/src/db/schema/clients";
 import { invoices } from "@/src/db/schema/invoices";
@@ -25,6 +38,8 @@ export type ProjectListItem = {
   title: string;
   description: string | null;
   status: "not_started" | "in_progress" | "on_hold" | "completed";
+  /** fixed: budget is the agreed price. hourly: budget is an estimate, "0" = none. */
+  pricing: "fixed" | "hourly";
   budget: string;
   /** Matches proposals.currency; existing projects default to USD. */
   currency: string;
@@ -82,6 +97,7 @@ const projectListFields = {
   title: projects.title,
   description: projects.description,
   status: projects.status,
+  pricing: projects.pricing,
   budget: projects.budget,
   currency: projects.currency,
   proposalId: projects.proposalId,
@@ -269,9 +285,13 @@ export async function countProjectsByClientId(
 }
 
 // get projects options to create invoice(project picker)
-export async function getProjectOptionsByUserId() {
+/** `excludeInvoiceId`: the invoice being edited, so it isn't counted twice. */
+export async function getProjectOptionsByUserId(excludeInvoiceId?: string) {
   try {
     const user = await requireUser();
+    const exclude = invoiceIdSchema.safeParse(excludeInvoiceId);
+    const deposits = alias(invoices, "deposit_invoice");
+
     const rows = await db
       .select({
         id: projects.id,
@@ -280,12 +300,20 @@ export async function getProjectOptionsByUserId() {
         // Prefills hour lines in the invoice builder.
         hourlyRate: projects.hourlyRate,
         currency: projects.currency,
-        // The builder warns that this was already billed on accept.
-        depositInvoiceId: invoices.id,
-        depositNumber: invoices.invoiceNumber,
-        depositPrefix: invoices.numberPrefix,
-        depositTotal: invoices.total,
-        depositStatus: invoices.status,
+        pricing: projects.pricing,
+        budget: projects.budget,
+        // The budget line in the invoice builder (lib/project-ledger.ts).
+        billed: sql<string>`(
+          select coalesce(sum(${invoices.total}), 0)::text from ${invoices}
+          where ${invoices.projectId} = ${projects.id}
+            and ${invoices.userId} = ${user.id}
+            and ${invoices.deletedAt} is null
+            and ${inArray(invoices.status, [...BILLED_STATUSES])}
+            ${exclude.success ? sql`and ${invoices.id} <> ${exclude.data}` : sql``}
+        )`,
+        depositInvoiceId: deposits.id,
+        depositNumber: deposits.invoiceNumber,
+        depositPrefix: deposits.numberPrefix,
       })
       .from(projects)
       .leftJoin(
@@ -296,11 +324,11 @@ export async function getProjectOptionsByUserId() {
         ),
       )
       .leftJoin(
-        invoices,
+        deposits,
         and(
-          eq(invoices.id, proposals.depositInvoiceId),
-          eq(invoices.userId, user.id),
-          isNull(invoices.deletedAt),
+          eq(deposits.id, proposals.depositInvoiceId),
+          eq(deposits.userId, user.id),
+          isNull(deposits.deletedAt),
         ),
       )
       .where(and(eq(projects.userId, user.id), isNull(projects.deletedAt)))
@@ -311,18 +339,14 @@ export async function getProjectOptionsByUserId() {
         depositInvoiceId,
         depositNumber,
         depositPrefix,
-        depositTotal,
-        depositStatus,
         ...project
       }) => ({
         ...project,
         deposit:
-          depositInvoiceId && depositNumber !== null && depositTotal
+          depositInvoiceId && depositNumber !== null
             ? {
                 invoiceId: depositInvoiceId,
                 label: formatInvoiceNumber(depositNumber, depositPrefix ?? ""),
-                total: depositTotal,
-                paid: depositStatus === "paid",
               }
             : null,
       }),

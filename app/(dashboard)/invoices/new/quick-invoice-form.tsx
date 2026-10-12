@@ -1,15 +1,11 @@
 "use client";
-import React, { SubmitEvent } from "react";
+import React, { SubmitEvent, type ReactNode } from "react";
 import {
   Controller,
   type Control,
   type FieldErrors,
   type UseFormRegister,
 } from "react-hook-form";
-import {
-  ClientCombobox,
-  type ClientOption,
-} from "@/components/client-combobox";
 import {
   ProjectCombobox,
   type ProjectOption,
@@ -23,20 +19,19 @@ type QuickInvoiceFormProps = {
   control: Control<InvoiceFormInput>;
   register: UseFormRegister<InvoiceFormInput>;
   errors: FieldErrors<InvoiceFormInput>;
-  clients: ClientOption[];
+  /** Saved-client picker or typed "Bill to" (BillToField). */
+  clientField: ReactNode;
   onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
   filteredProjects: ProjectOption[];
-  onClientChange: (onChange: (value: string) => void, value: string) => void;
 };
 
 export default function QuickInvoiceForm({
   control,
   register,
   errors,
-  clients,
+  clientField,
   onSubmit,
   filteredProjects,
-  onClientChange,
 }: QuickInvoiceFormProps) {
   return (
     <form onSubmit={onSubmit} className="pb-12">
@@ -48,18 +43,7 @@ export default function QuickInvoiceForm({
         >
           <div className="grid gap-5 sm:grid-cols-2">
             {/* Client */}
-            <Controller
-              control={control}
-              name="clientId"
-              render={({ field }) => (
-                <ClientCombobox
-                  clients={clients}
-                  value={field.value}
-                  onChange={(value) => onClientChange(field.onChange, value)}
-                  error={errors.clientId?.message}
-                />
-              )}
-            />
+            {clientField}
 
             {/* Description */}
             <Field

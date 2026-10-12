@@ -3,7 +3,6 @@ import type { Column } from "@/components/data-table/data-table.types";
 import { RowIdentity } from "@/components/data-table/row-parts";
 import { IconTile } from "@/components/ui/icon-tile";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { formatCurrency } from "@/lib/format-currency";
 import { formatDate } from "@/lib/format-date";
 import { cn } from "@/lib/utils";
 import { MilestoneProgress } from "./milestone-progress";
@@ -11,6 +10,7 @@ import { getProjectDeadlineLabel } from "./project-deadline-label";
 import { ProjectRowActions } from "./project-row-actions";
 import { projectStatusConfig } from "./project-status-config";
 import type { ProjectListItem } from "./queries";
+import { formatProjectPrice } from "./format-project-price";
 
 // Visibility by table width - always: Project (with client underneath),
 // Status, Budget · 860px+: Progress · 1000px+: Deadline. Budget is never
@@ -48,11 +48,11 @@ export const projectColumns: Column<ProjectListItem>[] = [
     },
   },
   {
-    header: "Budget",
+    header: "Price",
     className: "whitespace-nowrap text-right",
     cell: (row) => (
       <span className="font-semibold tabular-nums">
-        {formatCurrency(row.budget, row.currency)}
+        {formatProjectPrice(row)}
       </span>
     ),
   },

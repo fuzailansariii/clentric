@@ -55,6 +55,7 @@ export async function getAccountExport(userId: string) {
         title: projects.title,
         description: projects.description,
         status: projects.status,
+        pricing: projects.pricing,
         budget: projects.budget,
         currency: projects.currency,
         hourlyRate: projects.hourlyRate,

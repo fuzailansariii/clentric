@@ -17,7 +17,7 @@ export default async function EditInvoicePage({
   const [invoice, clients, projects] = await Promise.all([
     getInvoiceById(id),
     getClientOptions(),
-    getProjectOptionsByUserId(),
+    getProjectOptionsByUserId(id),
   ]);
 
   if (!invoice) {
@@ -41,6 +41,7 @@ export default async function EditInvoicePage({
         invoiceNumber: invoice.invoiceNumber,
         numberPrefix: invoice.numberPrefix,
         notes: invoice.notes ?? "",
+        showProjectBalance: invoice.showProjectBalance,
         clientId: invoice.clientId,
         projectId: invoice.projectId ?? undefined,
         issueDate: invoice.issueDate,
