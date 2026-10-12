@@ -25,6 +25,8 @@ import { addDays } from "date-fns";
 import { dateToFormValue } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { calculateInvoiceTotals } from "@/lib/calculate-totals";
+import { formatCurrency } from "@/lib/format-currency";
+import { AlertTriangle } from "lucide-react";
 import InvoicePreview from "@/components/preview/invoice-preview";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { cn } from "@/lib/utils";
@@ -260,6 +262,12 @@ export default function InvoiceBuilder({
       }
     : null;
 
+  // Hidden while editing the deposit invoice itself.
+  const deposit =
+    selectedProject?.deposit && selectedProject.deposit.invoiceId !== invoice?.id
+      ? selectedProject.deposit
+      : null;
+
   const { subtotal, taxRate, taxAmount, total } = calculateInvoiceTotals(
     watchedLineItems,
     watchedTaxRate,
@@ -406,6 +414,26 @@ export default function InvoiceBuilder({
             </button>
           </div>
         </div>
+
+        {deposit && selectedProject && (
+          <div
+            role="status"
+            className="border-warning-600/30 bg-warning-600/10 text-warning-600 mb-6 flex items-start gap-2 rounded-lg border px-4 py-3 text-sm"
+          >
+            <AlertTriangle
+              aria-hidden="true"
+              className="mt-0.5 h-4 w-4 shrink-0"
+            />
+            <p>
+              {selectedProject.title} already has a deposit invoice,{" "}
+              {deposit.label} for{" "}
+              {formatCurrency(deposit.total, selectedProject.currency)}
+              {deposit.paid ? " (paid)" : " (not paid yet)"}. If this invoice
+              bills the full agreed price, take the deposit off so your client
+              isn&apos;t charged twice.
+            </p>
+          </div>
+        )}
 
         <div className="@container">
           <div className="grid gap-8 @[900px]:grid-cols-[minmax(0,1fr)_360px]">

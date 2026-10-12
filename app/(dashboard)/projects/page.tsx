@@ -1,9 +1,6 @@
 import DashboardContainer from "@/components/dashboard/container";
-import PageHeader from "@/components/dashboard/page-header";
+import { ProjectsHeader } from "./projects-header";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
-import { CustomButton } from "@/components/ui/custom-button";
-import { FolderKanbanIcon, PlusIcon } from "lucide-react";
-import Link from "next/link";
 import {
   projectStatusConfig,
   type ProjectStatus,
@@ -31,27 +28,7 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
 
   return (
     <>
-      <PageHeader
-        title="Projects"
-        subtitle="Track and manage all your client projects"
-        icon={<FolderKanbanIcon className="h-4 w-4" />}
-        breadcrumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Projects" },
-        ]}
-        mobileActions="inline"
-        actions={
-          <CustomButton variant="primary">
-            <Link
-              href="/projects/new"
-              className="mx-auto flex items-center gap-1 text-xs"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span>Add Project</span>
-            </Link>
-          </CustomButton>
-        }
-      />
+      <ProjectsHeader />
 
       <DashboardContainer>
         <div className="flex flex-col gap-4">

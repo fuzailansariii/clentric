@@ -280,11 +280,53 @@ export async function getProjectOptionsByUserId() {
         // Prefills hour lines in the invoice builder.
         hourlyRate: projects.hourlyRate,
         currency: projects.currency,
+        // The builder warns that this was already billed on accept.
+        depositInvoiceId: invoices.id,
+        depositNumber: invoices.invoiceNumber,
+        depositPrefix: invoices.numberPrefix,
+        depositTotal: invoices.total,
+        depositStatus: invoices.status,
       })
       .from(projects)
+      .leftJoin(
+        proposals,
+        and(
+          eq(proposals.id, projects.proposalId),
+          eq(proposals.userId, user.id),
+        ),
+      )
+      .leftJoin(
+        invoices,
+        and(
+          eq(invoices.id, proposals.depositInvoiceId),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+        ),
+      )
       .where(and(eq(projects.userId, user.id), isNull(projects.deletedAt)))
       .orderBy(desc(projects.createdAt));
-    return rows;
+
+    return rows.map(
+      ({
+        depositInvoiceId,
+        depositNumber,
+        depositPrefix,
+        depositTotal,
+        depositStatus,
+        ...project
+      }) => ({
+        ...project,
+        deposit:
+          depositInvoiceId && depositNumber !== null && depositTotal
+            ? {
+                invoiceId: depositInvoiceId,
+                label: formatInvoiceNumber(depositNumber, depositPrefix ?? ""),
+                total: depositTotal,
+                paid: depositStatus === "paid",
+              }
+            : null,
+      }),
+    );
   } catch (error) {
     unstable_rethrow(error);
     logError("getProjectOptionsByUserId", error);

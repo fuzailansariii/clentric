@@ -1,10 +1,7 @@
-import Link from "next/link";
-import { FileSignature, Plus } from "lucide-react";
+import { ProposalsHeader } from "./proposals-header";
 import DashboardContainer from "@/components/dashboard/container";
-import PageHeader from "@/components/dashboard/page-header";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
-import { CustomButton } from "@/components/ui/custom-button";
 import { StatsSummary } from "@/components/ui/stats-summary";
 import { formatCurrency } from "@/lib/format-currency";
 import { getProposalsByUserId } from "./queries";
@@ -35,29 +32,7 @@ export default async function ProposalsPage({
 
   return (
     <>
-      <PageHeader
-        title="Proposals"
-        subtitle="Send quotes and track what clients accept or decline"
-        icon={<FileSignature className="h-5 w-5" />}
-        badge={
-          <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px] font-medium">
-            {total}
-          </span>
-        }
-        breadcrumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Proposals" },
-        ]}
-        mobileActions="inline"
-        actions={
-          <Link href={"/proposals/new"}>
-            <CustomButton className="mx-auto flex items-center gap-1 text-xs">
-              <Plus className="h-4 w-4" />
-              <span>New Proposal</span>
-            </CustomButton>
-          </Link>
-        }
-      />
+      <ProposalsHeader total={total} />
 
       <DashboardContainer>
         <div className="flex flex-col gap-4">

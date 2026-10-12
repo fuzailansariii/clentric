@@ -1,17 +1,7 @@
 import "server-only";
+import { cache } from "react";
 import { unstable_rethrow } from "next/navigation";
-import {
-  and,
-  count,
-  desc,
-  eq,
-  gt,
-  inArray,
-  isNull,
-  ne,
-  or,
-  sql,
-} from "drizzle-orm";
+import { and, count, eq, gt, inArray, isNull, or, sql } from "drizzle-orm";
 import { requireUser } from "@/lib/current-user";
 import { logError } from "@/lib/errors";
 import { db } from "@/src/db";
@@ -49,50 +39,58 @@ export type DashboardMoney = {
 };
 
 /** Money figures for the stat tiles and revenue chart; null on failure. */
-export async function getDashboardMoney(): Promise<DashboardMoney | null> {
-  try {
-    const user = await requireUser();
-    const mine = and(eq(invoices.userId, user.id), isNull(invoices.deletedAt));
+// cache(): the welcome line, stat tiles and chart stream separately but share one query.
+export const getDashboardMoney = cache(
+  async (): Promise<DashboardMoney | null> => {
+    try {
+      const user = await requireUser();
+      const mine = and(
+        eq(invoices.userId, user.id),
+        isNull(invoices.deletedAt),
+      );
 
-    // The currency most sent invoices use; USD for a brand-new account.
-    const [main] = await db
-      .select({ currency: invoices.currency })
-      .from(invoices)
-      .where(and(mine, ne(invoices.status, "draft")))
-      .groupBy(invoices.currency)
-      .orderBy(desc(count()), invoices.currency)
-      .limit(1);
-    const currency = main?.currency ?? "USD";
-    const inCurrency = eq(invoices.currency, currency);
+      // The currency most sent invoices use; USD for a brand-new account.
+      // A sub-query inside each query below, so all three go out in one round trip.
+      const currency = sql<string>`coalesce((
+        select ${invoices.currency} from ${invoices}
+        where ${invoices.userId} = ${user.id}
+          and ${invoices.deletedAt} is null
+          and ${invoices.status} <> 'draft'
+        group by ${invoices.currency}
+        order by count(*) desc, ${invoices.currency}
+        limit 1
+      ), 'USD')`;
+      const inCurrency = sql`${invoices.currency} = ${currency}`;
 
-    const [totalsRows, monthRows, proposalRows] = await Promise.all([
-      db
-        .select({
-          paidThisMonth: sql<string>`coalesce(sum(${invoices.total}) filter (where ${inCurrency} and ${invoices.status} = 'paid' and ${invoices.paidAt} >= date_trunc('month', now())), 0)::text`,
-          paidLastMonthSoFar: sql<string>`coalesce(sum(${invoices.total}) filter (where ${inCurrency} and ${invoices.status} = 'paid' and ${invoices.paidAt} >= date_trunc('month', now()) - interval '1 month' and ${invoices.paidAt} < now() - interval '1 month'), 0)::text`,
-          outstanding: sql<string>`coalesce(sum(${invoices.total}) filter (where ${inCurrency} and ${isOutstanding}), 0)::text`,
-          outstandingCount:
-            sql<number>`count(*) filter (where ${inCurrency} and ${isOutstanding})`.mapWith(
-              Number,
-            ),
-          overdue: sql<string>`coalesce(sum(${invoices.total}) filter (where ${inCurrency} and ${isOverdue}), 0)::text`,
-          overdueCount:
-            sql<number>`count(*) filter (where ${inCurrency} and ${isOverdue})`.mapWith(
-              Number,
-            ),
-          oldestOverdueDays: sql<
-            number | null
-          >`max(current_date - ${invoices.dueDate}) filter (where ${inCurrency} and ${isOverdue})`,
-          otherCurrencyCount:
-            sql<number>`count(*) filter (where ${invoices.currency} <> ${currency} and ${invoices.status} <> 'draft')`.mapWith(
-              Number,
-            ),
-        })
-        .from(invoices)
-        .where(mine),
+      const [totalsRows, monthRows, proposalRows] = await Promise.all([
+        db
+          .select({
+            currency,
+            paidThisMonth: sql<string>`coalesce(sum(${invoices.total}) filter (where ${inCurrency} and ${invoices.status} = 'paid' and ${invoices.paidAt} >= date_trunc('month', now())), 0)::text`,
+            paidLastMonthSoFar: sql<string>`coalesce(sum(${invoices.total}) filter (where ${inCurrency} and ${invoices.status} = 'paid' and ${invoices.paidAt} >= date_trunc('month', now()) - interval '1 month' and ${invoices.paidAt} < now() - interval '1 month'), 0)::text`,
+            outstanding: sql<string>`coalesce(sum(${invoices.total}) filter (where ${inCurrency} and ${isOutstanding}), 0)::text`,
+            outstandingCount:
+              sql<number>`count(*) filter (where ${inCurrency} and ${isOutstanding})`.mapWith(
+                Number,
+              ),
+            overdue: sql<string>`coalesce(sum(${invoices.total}) filter (where ${inCurrency} and ${isOverdue}), 0)::text`,
+            overdueCount:
+              sql<number>`count(*) filter (where ${inCurrency} and ${isOverdue})`.mapWith(
+                Number,
+              ),
+            oldestOverdueDays: sql<
+              number | null
+            >`max(current_date - ${invoices.dueDate}) filter (where ${inCurrency} and ${isOverdue})`,
+            otherCurrencyCount:
+              sql<number>`count(*) filter (where ${invoices.currency} <> ${currency} and ${invoices.status} <> 'draft')`.mapWith(
+                Number,
+              ),
+          })
+          .from(invoices)
+          .where(mine),
 
-      // One row per month, oldest first, including months with nothing.
-      db.execute<{ month: string; paid: string; invoiced: string }>(sql`
+        // One row per month, oldest first, including months with nothing.
+        db.execute<{ month: string; paid: string; invoiced: string }>(sql`
         select
           to_char(m, 'YYYY-MM-DD') as month,
           coalesce(sum(i.total) filter (where i.status = 'paid' and date_trunc('month', i.paid_at) = m), 0)::text as paid,
@@ -115,53 +113,54 @@ export async function getDashboardMoney(): Promise<DashboardMoney | null> {
         order by m
       `),
 
-      db
-        .select({
-          total: sql<string>`coalesce(sum(${proposals.total}), 0)::text`,
-          count: count(),
-        })
-        .from(proposals)
-        .where(
-          and(
-            eq(proposals.userId, user.id),
-            isNull(proposals.deletedAt),
-            eq(proposals.currency, currency),
-            inArray(proposals.status, ["sent", "viewed"]),
-            or(
-              isNull(proposals.expiresAt),
-              gt(proposals.expiresAt, sql`now()`),
+        db
+          .select({
+            total: sql<string>`coalesce(sum(${proposals.total}), 0)::text`,
+            count: count(),
+          })
+          .from(proposals)
+          .where(
+            and(
+              eq(proposals.userId, user.id),
+              isNull(proposals.deletedAt),
+              sql`${proposals.currency} = ${currency}`,
+              inArray(proposals.status, ["sent", "viewed"]),
+              or(
+                isNull(proposals.expiresAt),
+                gt(proposals.expiresAt, sql`now()`),
+              ),
             ),
           ),
-        ),
-    ]);
+      ]);
 
-    const [totals] = totalsRows;
-    const [awaiting] = proposalRows;
+      const [totals] = totalsRows;
+      const [awaiting] = proposalRows;
 
-    return {
-      currency,
-      hasOtherCurrencies: (totals?.otherCurrencyCount ?? 0) > 0,
-      paidThisMonth: totals?.paidThisMonth ?? "0",
-      paidLastMonthSoFar: totals?.paidLastMonthSoFar ?? "0",
-      outstanding: totals?.outstanding ?? "0",
-      outstandingCount: totals?.outstandingCount ?? 0,
-      overdue: totals?.overdue ?? "0",
-      overdueCount: totals?.overdueCount ?? 0,
-      oldestOverdueDays:
-        totals?.oldestOverdueDays == null
-          ? null
-          : Number(totals.oldestOverdueDays),
-      awaitingReply: awaiting?.total ?? "0",
-      awaitingReplyCount: awaiting?.count ?? 0,
-      months: [...monthRows].map((row) => ({
-        month: row.month,
-        paid: row.paid,
-        invoiced: row.invoiced,
-      })),
-    };
-  } catch (error) {
-    unstable_rethrow(error);
-    logError("getDashboardMoney", error);
-    return null;
-  }
-}
+      return {
+        currency: totals?.currency ?? "USD",
+        hasOtherCurrencies: (totals?.otherCurrencyCount ?? 0) > 0,
+        paidThisMonth: totals?.paidThisMonth ?? "0",
+        paidLastMonthSoFar: totals?.paidLastMonthSoFar ?? "0",
+        outstanding: totals?.outstanding ?? "0",
+        outstandingCount: totals?.outstandingCount ?? 0,
+        overdue: totals?.overdue ?? "0",
+        overdueCount: totals?.overdueCount ?? 0,
+        oldestOverdueDays:
+          totals?.oldestOverdueDays == null
+            ? null
+            : Number(totals.oldestOverdueDays),
+        awaitingReply: awaiting?.total ?? "0",
+        awaitingReplyCount: awaiting?.count ?? 0,
+        months: [...monthRows].map((row) => ({
+          month: row.month,
+          paid: row.paid,
+          invoiced: row.invoiced,
+        })),
+      };
+    } catch (error) {
+      unstable_rethrow(error);
+      logError("getDashboardMoney", error);
+      return null;
+    }
+  },
+);
