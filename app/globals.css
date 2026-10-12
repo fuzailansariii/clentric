@@ -273,6 +273,15 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+@keyframes lp-toast {
+  0% { opacity: 0; transform: translateY(6px); }
+  12%, 82% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-4px); }
+}
+@keyframes lp-dip {
+  0%, 100% { opacity: 1; }
+  10%, 86% { opacity: 0; }
+}
 @keyframes lp-pulse {
   0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--primary) 40%, transparent); }
   100% { box-shadow: 0 0 0 10px transparent; }

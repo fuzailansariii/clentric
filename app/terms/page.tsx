@@ -24,8 +24,7 @@ export default function TermsOfServicePage() {
       intro={
         <p>
           These terms are the agreement between you and{" "}
-          {LEGAL.operatorLegalName}, the {LEGAL.entityType} that operates{" "}
-          {LEGAL.productName}. By creating an account or using the service, you
+          {LEGAL.operatorLegalName}, run as a {LEGAL.entityType}. By creating an account or using the service, you
           agree to them. We have tried to write them in plain English.
         </p>
       }

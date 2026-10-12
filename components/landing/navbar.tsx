@@ -57,7 +57,7 @@ export const NAV_LINKS = [
 const EASE = "cubic-bezier(.2,.7,.2,1)";
 
 const BTN =
-  "relative inline-flex h-8.5 cursor-pointer items-center justify-center gap-1.5 rounded-[6px] border px-3 text-sm leading-none font-medium whitespace-nowrap transition-[background,border-color,color,transform] active:translate-y-px";
+  "relative inline-flex h-9 cursor-pointer items-center justify-center gap-1.5 rounded-[6px] border px-3.5 text-sm leading-none font-medium whitespace-nowrap transition-[background,border-color,color,transform] active:translate-y-px";
 const GHOST =
   "border-transparent text-(--lp-muted) hover:bg-(--lp-hover) hover:text-foreground";
 const PRIMARY =
@@ -184,18 +184,18 @@ export function Navbar({
           className={cn(
             FRAME,
             "relative flex items-stretch",
-            "h-12",
+            "h-14",
           )}
         >
           <Link
             href="#top"
             onClick={closeAll}
             aria-label="Clentric home"
-            className="group flex items-center gap-2.25 border-r border-(--lp-frame) px-4 text-[15px] font-semibold tracking-[-0.015em] sm:px-5"
+            className="group flex items-center gap-2.5 border-r border-(--lp-frame) px-5 text-base font-semibold tracking-[-0.015em] sm:px-6"
           >
             <LogoMark
               aria-hidden="true"
-              className="size-6 rounded-[6px] transition-transform duration-500 group-hover:-rotate-6"
+              className="size-7 rounded-[7px] transition-transform duration-500 group-hover:-rotate-6"
             />
             <span>Clentric</span>
           </Link>
@@ -207,7 +207,7 @@ export function Navbar({
           >
             <span
               aria-hidden="true"
-              className="pointer-events-none absolute top-1/2 left-0 -mt-4.25 h-8.5 rounded-[6px] bg-(--lp-hover) transition-[transform,width,opacity] duration-[320ms,320ms,180ms]"
+              className="pointer-events-none absolute top-1/2 left-0 -mt-4.5 h-9 rounded-[6px] bg-(--lp-hover) transition-[transform,width,opacity] duration-[320ms,320ms,180ms]"
               style={{
                 transform: `translateX(${ind.x}px)`,
                 width: ind.w,
@@ -228,7 +228,7 @@ export function Navbar({
               onMouseLeave={startProdClose}
               onFocus={(e) => moveInd(e.currentTarget)}
               className={cn(
-                "hover:text-foreground relative z-1 inline-flex h-8.5 cursor-pointer items-center gap-1.25 rounded-[6px] px-3 font-medium whitespace-nowrap transition-colors",
+                "hover:text-foreground relative z-1 inline-flex h-9 cursor-pointer items-center gap-1.25 rounded-[6px] px-3.5 font-medium whitespace-nowrap transition-colors",
                 prod ? "text-foreground" : "text-(--lp-muted)",
               )}
             >
@@ -308,7 +308,7 @@ export function Navbar({
                 onMouseEnter={(e) => moveInd(e.currentTarget)}
                 onFocus={(e) => moveInd(e.currentTarget)}
                 className={cn(
-                  "hover:text-foreground relative z-1 inline-flex h-8.5 items-center rounded-[6px] px-3 font-medium whitespace-nowrap transition-colors",
+                  "hover:text-foreground relative z-1 inline-flex h-9 items-center rounded-[6px] px-3.5 font-medium whitespace-nowrap transition-colors",
                   active === l.id
                     ? "text-foreground after:bg-primary after:absolute after:bottom-px after:left-1/2 after:-ml-0.5 after:size-1 after:animate-[lp-in_.35s_both] after:rounded-full"
                     : "text-(--lp-muted)",
@@ -320,10 +320,10 @@ export function Navbar({
           </nav>
 
           <div className="ml-auto flex items-stretch">
-            <div className="flex w-12 items-center justify-center border-l border-(--lp-frame)">
-              <ThemeToggle className="size-8.5 rounded-[6px] border-transparent text-(--lp-muted) hover:bg-(--lp-hover)" />
+            <div className="flex w-14 items-center justify-center border-l border-(--lp-frame)">
+              <ThemeToggle className="size-9 rounded-[6px] border-transparent text-(--lp-muted) hover:bg-(--lp-hover)" />
             </div>
-            <div className="hidden items-center gap-1 border-l border-(--lp-frame) px-3 min-[700px]:flex lg:px-4">
+            <div className="hidden items-center gap-1.5 border-l border-(--lp-frame) px-3.5 min-[700px]:flex lg:px-5">
               {signedIn ? (
                 <>
                   <form action={logoutToHomeAction} className="hidden lg:block">
@@ -331,7 +331,7 @@ export function Navbar({
                       type="submit"
                       aria-label="Log out"
                       title="Log out"
-                      className={cn(BTN, GHOST, "w-8.5 px-0")}
+                      className={cn(BTN, GHOST, "w-9 px-0")}
                     >
                       <LogOutIcon className="size-3.75" aria-hidden="true" />
                     </button>
@@ -377,7 +377,7 @@ export function Navbar({
                 </>
               )}
             </div>
-            <div className="flex w-12 items-center justify-center border-l border-(--lp-frame) lg:hidden">
+            <div className="flex w-14 items-center justify-center border-l border-(--lp-frame) lg:hidden">
               <button
                 type="button"
                 aria-label={open ? "Close menu" : "Open menu"}
@@ -387,21 +387,21 @@ export function Navbar({
                   setOpen((o) => !o);
                   setProd(false);
                 }}
-                className="text-foreground relative size-9 cursor-pointer rounded-[6px] transition-colors hover:bg-(--lp-hover)"
+                className="text-foreground relative size-10 cursor-pointer rounded-[6px] transition-colors hover:bg-(--lp-hover)"
               >
                 <span
-                  className="absolute left-2.5 h-[1.5px] w-4 rounded-[1px] bg-current transition-transform duration-400"
+                  className="absolute left-3 h-[1.5px] w-4 rounded-[1px] bg-current transition-transform duration-400"
                   style={{
-                    top: 14,
+                    top: 16,
                     transform: open
                       ? "translateY(3.25px) rotate(45deg)"
                       : "none",
                   }}
                 />
                 <span
-                  className="absolute left-2.5 h-[1.5px] w-4 rounded-[1px] bg-current transition-transform duration-400"
+                  className="absolute left-3 h-[1.5px] w-4 rounded-[1px] bg-current transition-transform duration-400"
                   style={{
-                    top: 20.5,
+                    top: 22.5,
                     transform: open
                       ? "translateY(-3.25px) rotate(-45deg)"
                       : "none",
@@ -502,7 +502,7 @@ function MobilePanel({
       inert={!open}
       className={cn(
         "bg-card absolute inset-x-0 top-full block border-b shadow-(--lp-pop) lg:hidden",
-        "max-[699px]:h-[calc(100dvh-49px)] max-[699px]:overflow-y-auto max-[699px]:overscroll-contain max-[699px]:border-b-0 max-[699px]:shadow-none",
+        "max-[699px]:h-[calc(100dvh-57px)] max-[699px]:overflow-y-auto max-[699px]:overscroll-contain max-[699px]:border-b-0 max-[699px]:shadow-none",
         open ? "visible" : "invisible",
       )}
       style={{
@@ -529,8 +529,8 @@ function MobilePanel({
             />
           ))}
         </div>
-        <div className="mt-2 flex flex-col border-t pt-2 min-[700px]:flex-row min-[700px]:flex-wrap">
-          {NAV_LINKS.map((l, i) => (
+        <div className="mt-2 flex flex-col border-t pt-2 min-[700px]:grid min-[700px]:grid-cols-3 min-[700px]:gap-1">
+          {NAV_LINKS.filter((l) => l.id !== "faq").map((l, i) => (
             <Link
               key={l.id}
               href={`#${l.id}`}
@@ -538,7 +538,7 @@ function MobilePanel({
               aria-current={active === l.id ? "true" : undefined}
               style={stagger(300 + i * 40)}
               className={cn(
-                "flex min-h-13 items-center justify-between gap-3 border-b px-3 text-base font-medium last:border-b-0 hover:bg-(--lp-hover) min-[700px]:min-h-12 min-[700px]:flex-[1_1_45%] min-[700px]:rounded-lg min-[700px]:border-b-0 min-[700px]:text-[15px]",
+                "flex min-h-13 items-center justify-between gap-3 border-b px-3 text-base font-medium last:border-b-0 hover:bg-(--lp-hover) min-[700px]:min-h-12 min-[700px]:rounded-lg min-[700px]:border-b-0 min-[700px]:text-[15px]",
                 active === l.id ? "text-(--lp-accent-fg)" : "text-foreground",
               )}
             >

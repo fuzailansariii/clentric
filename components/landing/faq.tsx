@@ -6,6 +6,7 @@ import { ArrowRightIcon, PlusIcon } from "lucide-react";
 import { LEGAL } from "@/lib/legal-config";
 import { PRICING } from "@/lib/plans";
 import { cn } from "@/lib/utils";
+import { LogoMark } from "@/components/logo";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { H2, SECTION, Eyebrow } from "./parts";
 
@@ -87,12 +88,10 @@ export function Faq() {
           </div>
           <div data-rv="160" className="bg-card flex flex-col gap-3.5 rounded-[14px] border p-5">
             <div className="flex items-center gap-3">
-              <span aria-hidden="true" className="font-space grid size-11 flex-none place-items-center rounded-full bg-(--lp-accent-bg) text-[15px] font-semibold text-(--lp-accent-fg)">
-                MF
-              </span>
+              <LogoMark aria-hidden="true" className="size-11 flex-none rounded-[10px]" />
               <div>
                 <div className="text-[15px] font-semibold">Still curious?</div>
-                <div className="text-sm text-(--lp-muted)">Questions go to Fuzail, who builds Clentric.</div>
+                <div className="text-sm text-(--lp-muted)">Write to the Clentric team. We reply {LEGAL.responseTime}.</div>
               </div>
             </div>
             <Link

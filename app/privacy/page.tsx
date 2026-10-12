@@ -96,8 +96,8 @@ export default function PrivacyPolicyPage() {
       <LegalSection id="who-we-are" title="1. Who we are">
         <p>{LEGAL.tagline}</p>
         <p>
-          The service is operated by {LEGAL.operatorLegalName}, a{" "}
-          {LEGAL.entityType} based in {LEGAL.operatorCountry}. Under India’s
+          {LEGAL.operatorLegalName} is run as a {LEGAL.entityType}. Under
+          India’s
           Digital Personal Data Protection Act, 2023 we are the{" "}
           <strong>Data Fiduciary</strong> for your account data. You can reach
           us at <a href={mailtoHref()}>{LEGAL.supportEmail}</a>, and we aim to

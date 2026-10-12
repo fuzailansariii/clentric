@@ -41,7 +41,7 @@ export const LEGAL = {
   termsVersion: "2026-10-07",
 
   /** The business behind the product. */
-  operatorLegalName: "Mohd Fuzail Ansari",
+  operatorLegalName: "Clentric",
   entityType: "Sole Proprietorship (India)",
   operatorCountry: "India",
   /** null hides the postal address everywhere rather than printing a
@@ -54,7 +54,7 @@ export const LEGAL = {
 
   /** Grievance Officer under the DPDP Act, 2023 and the IT Rules, 2021. */
   grievanceOfficer: {
-    name: "Mohd Fuzail Ansari",
+    name: "Clentric Support Team",
     designation: "Grievance Officer",
     acknowledgeWithin: "24 hours",
     resolveWithin: "15 days",
