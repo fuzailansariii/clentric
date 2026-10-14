@@ -10,8 +10,8 @@ import { LogoMark } from "@/components/logo";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { H2, SECTION, Eyebrow } from "./parts";
 
-type Cat = "Beta" | "Product" | "Payments";
-const CATS = ["All", "Beta", "Product", "Payments"] as const;
+type Cat = "Getting started" | "Product" | "Payments";
+const CATS = ["All", "Getting started", "Product", "Payments"] as const;
 
 const FAQS: { q: string; a: string; cat: Cat }[] = [
   {
@@ -25,14 +25,14 @@ const FAQS: { q: string; a: string; cat: Cat }[] = [
     a: "Never. They open a link to read and accept your proposal, and invoices reach them by email with the PDF attached. No sign-up, no password.",
   },
   {
-    cat: "Beta",
-    q: "When do I get access?",
-    a: "Clentric opens as an invite-only beta in mid-October 2026. Join the waitlist and we’ll email you once, when your invite is ready.",
+    cat: "Getting started",
+    q: "How do I get started?",
+    a: "Sign up free with your email or Google. No invite and no card needed, and you can upgrade to Pro from Settings whenever you like.",
   },
   {
-    cat: "Beta",
-    q: "What will it cost?",
-    a: `Everything is free during the beta. After that, Free covers your first client, Pro is $${PRICING.pro.price.monthly} a month for unlimited everything, and Agency arrives on ${PRICING.agency.launchDateLabel} for teams. Prices in USD, cancel anytime.`,
+    cat: "Getting started",
+    q: "What does it cost?",
+    a: `Free covers your first client, Pro is $${PRICING.pro.price.monthly} a month for unlimited everything, and Agency arrives on ${PRICING.agency.launchDateLabel} for teams. Prices in USD, cancel anytime.`,
   },
   {
     cat: "Payments",
@@ -40,7 +40,7 @@ const FAQS: { q: string; a: string; cat: Cat }[] = [
     a: "USD for now. Clients anywhere can pay in USD, and more currencies are on the roadmap.",
   },
   {
-    cat: "Beta",
+    cat: "Getting started",
     q: "Can I give feedback?",
     a: "Please do. Early users can write in any time, and a real person reads every message.",
   },

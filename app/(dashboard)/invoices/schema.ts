@@ -2,14 +2,19 @@ import { z } from "zod";
 import { CURRENCY_CODES } from "@/lib/currency-options";
 import { clientIdSchema } from "../clients/schema";
 import { projectIdSchema } from "../projects/schema";
-import { invoiceStatusEnum as invoiceStatusPgEnum } from "@/src/db/schema/invoices";
 import { invoiceItemUnitEnum as invoiceItemUnitPgEnum } from "@/src/db/schema/invoice-items";
 
+/** Drafts may be half-written: a blank description or a 0 rate is checked only on Send. */
 export const invoiceLineSchema = z.object({
-  description: z.string().min(1, "Item Description is required"),
+  description: z
+    .string()
+    .trim()
+    .max(2000, "Keep the description under 2000 characters"),
   quantity: z.coerce.number().positive("Quantity must be greater than 0"),
-  rate: z.coerce.number().positive("Rate must be a positive number"),
+  rate: z.coerce.number().min(0, "Rate cannot be negative"),
   unit: z.enum(invoiceItemUnitPgEnum.enumValues).default("item"),
+  /** The project milestone this line bills ("Invoice stage N"). */
+  milestoneId: z.uuid().optional(),
 });
 
 export const invoiceIdSchema = z.uuid();
@@ -66,7 +71,11 @@ export const updateInvoiceSchema = invoiceObjectSchema
   .omit({ newClient: true })
   .extend({
     invoiceId: invoiceIdSchema,
-    clientId: z.string().trim().min(1, "Client is required").pipe(clientIdSchema),
+    clientId: z
+      .string()
+      .trim()
+      .min(1, "Client is required")
+      .pipe(clientIdSchema),
   });
 
 // Only paid -> sent; a sent invoice never goes back to draft.
@@ -77,13 +86,15 @@ export const updateInvoiceStatusSchema = z.object({
   status: z.enum(revertibleStatuses),
 });
 
-export const invoiceStatusFilterEnum = z.enum(invoiceStatusPgEnum.enumValues);
-
-export const invoiceSearchParamsSchema = z.object({
+/** The invoices page: chip (none = all), search and paging. */
+export const invoiceListParamsSchema = z.object({
   search: z.string().trim().max(200).optional(),
-  status: invoiceStatusFilterEnum.optional().catch(undefined),
+  view: z
+    .enum(["draft", "open", "overdue", "paid"])
+    .optional()
+    .catch(undefined),
   page: z.coerce.number().int().min(1).catch(1),
-  pageSize: z.coerce.number().int().max(100).catch(20),
+  pageSize: z.coerce.number().int().min(1).max(100).catch(20),
 });
 
 export type InvoiceFormInput = z.input<typeof invoiceSchema>;

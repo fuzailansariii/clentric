@@ -30,12 +30,17 @@ describe("invoice bill-to", () => {
   });
 
   it("refuses a typed client without a name", () => {
-    const parsed = invoiceSchema.safeParse({ ...base, newClient: { name: " " } });
+    const parsed = invoiceSchema.safeParse({
+      ...base,
+      newClient: { name: " " },
+    });
     expect(parsed.success).toBe(false);
   });
 
   it("keeps the project balance off unless asked", () => {
-    expect(invoiceSchema.parse({ ...base, clientId }).showProjectBalance).toBe(false);
+    expect(invoiceSchema.parse({ ...base, clientId }).showProjectBalance).toBe(
+      false,
+    );
   });
 
   it("still needs a saved client when editing", () => {
@@ -45,5 +50,22 @@ describe("invoice bill-to", () => {
       clientId: "",
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+describe("invoice drafts", () => {
+  const withLine = (line: Record<string, unknown>) =>
+    invoiceSchema.safeParse({ ...base, clientId, lineItems: [line] }).success;
+
+  it("saves a half-written line (checked only on Send)", () => {
+    expect(withLine({ description: "", quantity: 1, rate: "" })).toBe(true);
+    expect(withLine({ description: "Logo", quantity: 1, rate: 0 })).toBe(true);
+  });
+
+  it("still refuses a negative rate or a zero quantity", () => {
+    expect(withLine({ description: "Logo", quantity: 1, rate: -5 })).toBe(
+      false,
+    );
+    expect(withLine({ description: "Logo", quantity: 0, rate: 5 })).toBe(false);
   });
 });

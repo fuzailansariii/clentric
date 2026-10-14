@@ -1,3 +1,5 @@
+import { PlanLimitPage } from "@/components/dashboard/plan-limit-page";
+import { planBlockMessage } from "@/lib/plan-limits";
 import { getSafeReturnTo } from "@/lib/return-to";
 import { getClientOptions } from "../../clients/queries";
 import { getDocumentDefaults } from "../../settings/queries";
@@ -9,10 +11,16 @@ export default async function NewProposal({
   searchParams: Promise<{ clientId?: string; returnTo?: string }>;
 }) {
   const { clientId, returnTo } = await searchParams;
-  const [clients, defaults] = await Promise.all([
+  const [clients, defaults, blocked] = await Promise.all([
     getClientOptions(),
     getDocumentDefaults(),
+    planBlockMessage("proposals"),
   ]);
+  if (blocked) {
+    return (
+      <PlanLimitPage title="New proposal" section="Proposals" sectionHref="/proposals" message={blocked} />
+    );
+  }
 
   // Only prefill from the URL when the id really belongs to this user's
   // clients - the action checks ownership too, but a bogus id should never
@@ -26,6 +34,7 @@ export default async function NewProposal({
       clients={clients}
       initialClientId={initialClientId}
       returnTo={getSafeReturnTo(returnTo)}
+      brandColor={defaults?.brandColor ?? null}
       defaults={
         defaults
           ? {

@@ -6,6 +6,7 @@ import { dodoProvider } from "./dodo";
 export const billing = dodoProvider;
 
 export { billingEnv, billingEnforced } from "./env";
-export { getEffectivePlan, type BillingState } from "./plan";
+export { getEffectivePlan, getPlanFeatures, type BillingState } from "./plan";
+export type { PlanFeatures } from "./resolve-plan";
 export { applyBillingEvent } from "./events";
 export type { BillingInterval, NormalizedEvent, PlanId } from "./types";

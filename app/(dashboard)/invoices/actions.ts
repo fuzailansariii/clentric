@@ -19,13 +19,43 @@ import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { clients } from "@/src/db/schema/clients";
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { projects } from "@/src/db/schema/projects";
+import { milestones } from "@/src/db/schema/milestones";
+import type { Transaction } from "@/src/db";
 import { proposals } from "@/src/db/schema/proposals";
 import { getDisplayStatus } from "@/lib/get-invoice-display-status";
 import { issuerSnapshotSql } from "@/lib/issuer-snapshot";
 import { emailInvoice } from "@/lib/email/document-emails";
+import { assertWithinPlan, planLimitsFor } from "@/lib/plan-limits";
 
 // Every page that renders an invoice: the list, its detail page, and its
 // client's page.
+/** Lines that bill a milestone must point at milestones of the invoice's own project. */
+async function checkLineMilestones(
+  tx: Transaction,
+  lines: { milestoneId?: string }[],
+  projectId: string | undefined,
+) {
+  const ids = [
+    ...new Set(lines.flatMap((l) => (l.milestoneId ? [l.milestoneId] : []))),
+  ];
+  if (ids.length === 0) return;
+  if (!projectId) {
+    throw new AppError(
+      "BAD_REQUEST",
+      "Pick the project this milestone belongs to.",
+    );
+  }
+  const found = await tx
+    .select({ id: milestones.id })
+    .from(milestones)
+    .where(
+      and(inArray(milestones.id, ids), eq(milestones.projectId, projectId)),
+    );
+  if (found.length !== ids.length) {
+    throw new AppError("NOT_FOUND", "Milestone not found");
+  }
+}
+
 function revalidateInvoicePaths(invoiceId: string, clientId: string) {
   revalidatePath("/invoices");
   revalidatePath(`/invoices/${invoiceId}`);
@@ -34,6 +64,15 @@ function revalidateInvoicePaths(invoiceId: string, clientId: string) {
   // Project pages list invoices and show the budget strip.
   revalidatePath("/(dashboard)/projects/[id]", "page");
 }
+
+const NOT_SENDABLE = "Add a description and an amount before sending.";
+
+/** Drafts may be half-written; only a complete invoice with a total goes out.
+ * The id is spelled out: single-table queries leave it unqualified. */
+const sendable = sql<boolean>`(${invoices.total} > 0 and not exists (
+  select 1 from invoice_items ii
+  where ii.invoice_id = "invoices"."id" and btrim(ii.description) = ''
+))`;
 
 export async function createInvoiceAction(
   input: unknown,
@@ -63,7 +102,16 @@ export async function createInvoiceAction(
     total = Math.round((subTotal + taxAmount) * 100) / 100;
 
     const { newClient } = parsed.data;
+    const limits = await planLimitsFor(user.id);
     const newInvoice = await db.transaction(async (tx) => {
+      await assertWithinPlan(
+        tx,
+        user.id,
+        limits,
+        newClient && !parsed.data.clientId
+          ? ["invoicesPerMonth", "clients"]
+          : ["invoicesPerMonth"],
+      );
       let clientId: string;
       if (parsed.data.clientId) {
         // ownership check
@@ -123,6 +171,11 @@ export async function createInvoiceAction(
           throw new AppError("NOT_FOUND", "Project not found");
         }
       }
+      await checkLineMilestones(
+        tx,
+        parsed.data.lineItems,
+        parsed.data.projectId,
+      );
 
       // generate invoice number
       const invoiceNumber = await getNextInvoiceNumber(tx, user.id);
@@ -163,6 +216,7 @@ export async function createInvoiceAction(
           amount: item.amount.toFixed(2),
           unit: item.unit,
           sortOrder: idx,
+          milestoneId: item.milestoneId ?? null,
         })),
       );
 
@@ -264,6 +318,11 @@ export async function updateInvoiceAction(
           throw new AppError("NOT_FOUND", "Project not found");
         }
       }
+      await checkLineMilestones(
+        tx,
+        parsed.data.lineItems,
+        parsed.data.projectId,
+      );
 
       // invoice ownership — confirms THIS invoice is actually yours
       const [existingInvoice] = await tx
@@ -288,6 +347,12 @@ export async function updateInvoiceAction(
       // Paid invoices are a closed record (the UI disables Edit for them).
       if (existingInvoice.status === "paid") {
         throw new AppError("BAD_REQUEST", "Paid invoices can't be edited.");
+      }
+      // Only drafts may be half-written; a sent invoice stays complete.
+      const complete =
+        total > 0 && parsed.data.lineItems.every((item) => item.description);
+      if (existingInvoice.status !== "draft" && !complete) {
+        throw new AppError("BAD_REQUEST", NOT_SENDABLE);
       }
 
       // update invoice — note: invoiceNumber is NOT touched, it's assigned once at creation
@@ -316,6 +381,7 @@ export async function updateInvoiceAction(
             // Re-checked in the write itself: it may have been marked paid
             // between the read above and this update.
             ne(invoices.status, "paid"),
+            ...(complete ? [] : [eq(invoices.status, "draft")]),
           ),
         )
         .returning({ id: invoices.id, clientId: invoices.clientId });
@@ -338,6 +404,7 @@ export async function updateInvoiceAction(
           amount: item.amount.toFixed(2),
           unit: item.unit,
           sortOrder: idx,
+          milestoneId: item.milestoneId ?? null,
         })),
       );
 
@@ -442,6 +509,7 @@ export async function updateInvoiceStatusAction(
  * email can fail (no client email, daily limit, Resend down) without undoing
  * the send: `emailError` says why, so the freelancer can deliver it by hand.
  */
+
 export async function sendInvoiceAction(
   invoiceId: string,
 ): Promise<ActionResult<{ emailError: string | null }>> {
@@ -458,6 +526,7 @@ export async function sendInvoiceAction(
         id: invoices.id,
         status: invoices.status,
         sentAt: invoices.sentAt,
+        ready: sendable,
       })
       .from(invoices)
       .where(
@@ -476,6 +545,9 @@ export async function sendInvoiceAction(
     if (invoice.status === "paid") {
       throw new AppError("BAD_REQUEST", "Invoice is already paid");
     }
+    if (!invoice.ready) {
+      throw new AppError("BAD_REQUEST", NOT_SENDABLE);
+    }
 
     const [updated] = await db
       .update(invoices)
@@ -491,12 +563,13 @@ export async function sendInvoiceAction(
           eq(invoices.userId, user.id),
           isNull(invoices.deletedAt),
           ne(invoices.status, "paid"),
+          sendable,
         ),
       )
       .returning({ id: invoices.id, clientId: invoices.clientId });
 
     if (!updated) {
-      throw new AppError("BAD_REQUEST", "Invoice is already paid");
+      throw new AppError("BAD_REQUEST", "This invoice can no longer be sent.");
     }
 
     revalidateInvoicePaths(updated.id, updated.clientId);
@@ -747,6 +820,108 @@ export async function deleteInvoiceAction(
         error instanceof AppError
           ? error.message
           : "Could not delete invoice. Try again.",
+    };
+  }
+}
+
+/** "Not received yet": drops the client's payment claim; the invoice stays due. */
+export async function clearPaymentClaimAction(
+  invoiceId: string,
+): Promise<ActionResult> {
+  try {
+    const parsedId = invoiceIdSchema.safeParse(invoiceId);
+    if (!parsedId.success) {
+      return { success: false, error: "Invalid invoice ID." };
+    }
+
+    const user = await requireUser();
+
+    const [updated] = await db
+      .update(invoices)
+      .set({
+        paymentClaimedAt: null,
+        paymentClaimedNote: null,
+        updatedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(invoices.id, parsedId.data),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+          eq(invoices.status, "sent"),
+        ),
+      )
+      .returning({ id: invoices.id, clientId: invoices.clientId });
+
+    if (!updated) {
+      throw new AppError("NOT_FOUND", "Invoice not found.");
+    }
+
+    revalidateInvoicePaths(updated.id, updated.clientId);
+    return { success: true };
+  } catch (error) {
+    logError("clearPaymentClaimAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof AppError
+          ? error.message
+          : "Could not clear the claim. Try again.",
+    };
+  }
+}
+
+/** Links an invoice to one of its client's projects. */
+export async function linkInvoiceProjectAction(
+  invoiceId: string,
+  projectId: string,
+): Promise<ActionResult> {
+  try {
+    const parsedId = invoiceIdSchema.safeParse(invoiceId);
+    const parsedProject = invoiceIdSchema.safeParse(projectId);
+    if (!parsedId.success || !parsedProject.success) {
+      return { success: false, error: "Invalid invoice or project." };
+    }
+
+    const user = await requireUser();
+
+    // The project check lives in the write itself: it must be this user's,
+    // not deleted, and belong to the invoice's own client.
+    const [updated] = await db
+      .update(invoices)
+      .set({ projectId: parsedProject.data, updatedAt: new Date() })
+      .where(
+        and(
+          eq(invoices.id, parsedId.data),
+          eq(invoices.userId, user.id),
+          isNull(invoices.deletedAt),
+          sql`exists (
+            select 1 from projects p
+            where p.id = ${parsedProject.data}
+              and p.user_id = ${user.id}
+              and p.client_id = "invoices"."client_id"
+              and p.deleted_at is null
+          )`,
+        ),
+      )
+      .returning({ id: invoices.id, clientId: invoices.clientId });
+
+    if (!updated) {
+      throw new AppError("NOT_FOUND", "Invoice or project not found.");
+    }
+
+    revalidateInvoicePaths(updated.id, updated.clientId);
+    revalidatePath(`/projects/${parsedProject.data}`);
+    revalidatePath("/projects");
+    return { success: true };
+  } catch (error) {
+    logError("linkInvoiceProjectAction", error);
+    return {
+      success: false,
+      error:
+        error instanceof AppError
+          ? error.message
+          : "Could not link the project. Try again.",
     };
   }
 }

@@ -51,6 +51,7 @@ export async function createMilestoneAction(
 
     const { title } = parsed.data;
     const dueDate = parsed.data.dueDate || null;
+    const amount = parsed.data.amount || null;
 
     // INSERT ... SELECT: the row is only produced when the project exists,
     // belongs to this user and isn't deleted — no separate check-then-insert
@@ -76,6 +77,7 @@ export async function createMilestoneAction(
               ),
             createdAt: sql<Date>`now()`.as("created_at"),
             updatedAt: sql<Date>`now()`.as("updated_at"),
+            amount: sql<string | null>`${amount}::numeric`.as("amount"),
           })
           .from(projects)
           .where(
@@ -124,10 +126,17 @@ export async function updateMilestoneAction(
     }
 
     // Only fields that were sent get written; "" clears the due date.
-    const changes: { title?: string; dueDate?: string | null } = {};
+    const changes: {
+      title?: string;
+      dueDate?: string | null;
+      amount?: string | null;
+    } = {};
     if (parsed.data.title !== undefined) changes.title = parsed.data.title;
     if (parsed.data.dueDate !== undefined) {
       changes.dueDate = parsed.data.dueDate || null;
+    }
+    if (parsed.data.amount !== undefined) {
+      changes.amount = parsed.data.amount || null;
     }
 
     if (Object.keys(changes).length === 0) {

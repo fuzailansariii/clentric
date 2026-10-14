@@ -70,3 +70,22 @@ export function resolvePlan(input: {
   if (paid) return { plan: "pro", source: "subscription", subscription: paid, grant: null };
   return { plan: "free", source: "free", subscription: null, grant: null };
 }
+
+export type PlanFeatures = {
+  /** Downloading invoice PDFs. Emailed PDFs go out on every plan. */
+  pdfDownload: boolean;
+  /** The user's logo and brand colour on documents. */
+  customBranding: boolean;
+  /** "Made with Clentric" on documents; only paid Pro removes it. */
+  clentricBranding: boolean;
+};
+
+/** What a plan unlocks. Gifted Pro gets Pro's features but keeps the branding. */
+export function planFeatures(state: Pick<EffectivePlan, "plan" | "source">): PlanFeatures {
+  const pro = state.plan !== "free";
+  return {
+    pdfDownload: pro,
+    customBranding: pro,
+    clentricBranding: state.source !== "subscription",
+  };
+}

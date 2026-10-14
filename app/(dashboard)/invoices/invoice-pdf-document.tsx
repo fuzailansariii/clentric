@@ -445,21 +445,28 @@ export function InvoicePdfDocument({
                 <Text style={[styles.label, { marginBottom: 2 }]}>
                   Project balance
                 </Text>
-                {balanceRows(invoice.projectBalance).map(([label, value], i, all) => {
-                  const last = i === all.length - 1;
-                  return (
-                    <View key={label} style={styles.totalsRow}>
-                      <Text style={last ? { fontWeight: 600 } : styles.cellMuted}>
-                        {label}
-                      </Text>
-                      <Text
-                        style={[styles.cellNumber, last ? { fontWeight: 600 } : {}]}
-                      >
-                        {formatCurrency(String(value), invoice.currency)}
-                      </Text>
-                    </View>
-                  );
-                })}
+                {balanceRows(invoice.projectBalance).map(
+                  ([label, value], i, all) => {
+                    const last = i === all.length - 1;
+                    return (
+                      <View key={label} style={styles.totalsRow}>
+                        <Text
+                          style={last ? { fontWeight: 600 } : styles.cellMuted}
+                        >
+                          {label}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.cellNumber,
+                            last ? { fontWeight: 600 } : {},
+                          ]}
+                        >
+                          {formatCurrency(String(value), invoice.currency)}
+                        </Text>
+                      </View>
+                    );
+                  },
+                )}
               </View>
             ) : null}
           </View>

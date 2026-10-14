@@ -18,7 +18,6 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { logoutToHomeAction } from "@/app/(auth)/action";
 import { cn } from "@/lib/utils";
 import { FRAME, FrameLine, FrameRails } from "./parts";
-import { useOpenWaitlist } from "./waitlist-context";
 
 const PRODUCT = [
   {
@@ -72,7 +71,6 @@ export function Navbar({
   active: string;
   signedIn: boolean;
 }) {
-  const openWaitlist = useOpenWaitlist();
   const [open, setOpen] = useState(false);
   const [prod, setProd] = useState(false);
   const [scrolled, setScrolled] = useState(false);
@@ -147,10 +145,6 @@ export function Navbar({
     if (!canHover()) return;
     clearTimeout(closeTimer.current);
     closeTimer.current = setTimeout(() => setProd(false), 160);
-  };
-  const startWaitlist = () => {
-    closeAll();
-    openWaitlist();
   };
 
   const isHidden = hidden && !open && !prod;
@@ -359,21 +353,20 @@ export function Navbar({
                   >
                     Log in
                   </Link>
-                  <button
-                    type="button"
-                    onClick={startWaitlist}
+                  <Link
+                    href="/register"
                     className={cn(
                       BTN,
                       PRIMARY,
                       "hidden min-[700px]:inline-flex",
                     )}
                   >
-                    Join waitlist
+                    Get started free
                     <ChevronRightIcon
                       aria-hidden="true"
                       className="size-3.75 transition-transform group-hover/btn:translate-x-0.5"
                     />
-                  </button>
+                  </Link>
                 </>
               )}
             </div>
@@ -419,7 +412,6 @@ export function Navbar({
         signedIn={signedIn}
         active={active}
         onClose={closeAll}
-        onStart={startWaitlist}
       />
     </div>
   );
@@ -480,13 +472,11 @@ function MobilePanel({
   signedIn,
   active,
   onClose,
-  onStart,
 }: {
   open: boolean;
   signedIn: boolean;
   active: string;
   onClose: () => void;
-  onStart: () => void;
 }) {
   // Each row fades up in turn as the panel opens.
   const stagger = (ms: number): CSSProperties => ({
@@ -596,18 +586,18 @@ function MobilePanel({
               >
                 Log in
               </Link>
-              <button
-                type="button"
-                onClick={onStart}
+              <Link
+                href="/register"
+                onClick={onClose}
                 className={cn(
                   BTN,
                   PRIMARY,
                   "h-12 text-[15px] min-[700px]:h-11",
                 )}
               >
-                Join waitlist
+                Get started free
                 <ChevronRightIcon aria-hidden="true" className="size-3.75" />
-              </button>
+              </Link>
             </>
           )}
         </div>

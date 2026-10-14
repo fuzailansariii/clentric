@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  planFeatures,
   proAccessEndsAt,
   resolvePlan,
   subscriptionGivesPro,
@@ -70,5 +71,29 @@ describe("resolvePlan", () => {
     expect(resolvePlan({ enforced: true, grant: null, subscription: sub({}), now }).source).toBe("subscription");
     const dead = resolvePlan({ enforced: true, grant: null, subscription: sub({ status: "expired" }), now });
     expect(dead).toMatchObject({ plan: "free", source: "free" });
+  });
+});
+
+describe("planFeatures", () => {
+  it("Free gets no PDF download or custom branding, and shows Clentric", () => {
+    expect(planFeatures({ plan: "free", source: "free" })).toEqual({
+      pdfDownload: false,
+      customBranding: false,
+      clentricBranding: true,
+    });
+  });
+
+  it("gifted and beta Pro unlock Pro features but keep Clentric branding", () => {
+    for (const source of ["grant", "beta"] as const) {
+      expect(planFeatures({ plan: "pro", source })).toEqual({
+        pdfDownload: true,
+        customBranding: true,
+        clentricBranding: true,
+      });
+    }
+  });
+
+  it("only a paid subscription removes Clentric branding", () => {
+    expect(planFeatures({ plan: "pro", source: "subscription" }).clentricBranding).toBe(false);
   });
 });

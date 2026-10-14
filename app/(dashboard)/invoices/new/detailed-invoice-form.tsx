@@ -1,189 +1,86 @@
 "use client";
 
-import React, { SubmitEvent, type ReactNode } from "react";
-import {
-  Controller,
-  type Control,
-  type FieldErrors,
-  type UseFormRegister,
-  type UseFieldArrayReturn,
+import type {
+  Control,
+  FieldErrors,
+  UseFieldArrayReturn,
+  UseFormRegister,
 } from "react-hook-form";
-import { ProjectCombobox, ProjectOption } from "@/components/project-combobox";
-import { DatePickerField } from "@/components/date-picker-field";
-import { Field } from "@/components/ui/input";
-import FormSection from "@/components/dashboard/form-section";
-import { Plus } from "lucide-react";
-import { InvoiceFormInput } from "../schema";
-import LineItems from "../line-items";
+import { PlusIcon } from "lucide-react";
+import { DetailCard } from "@/components/dashboard/detail-parts";
+import { CustomButton } from "@/components/ui/custom-button";
 import { formatCurrency } from "@/lib/format-currency";
 import type { InvoiceItemUnit } from "@/src/db/schema/invoice-items";
+import LineItems from "../line-items";
+import type { InvoiceFormInput } from "../schema";
+import { InvoiceExtras } from "./quick-invoice-form";
 
 type DetailedInvoiceFormProps = {
   control: Control<InvoiceFormInput>;
   register: UseFormRegister<InvoiceFormInput>;
   errors: FieldErrors<InvoiceFormInput>;
-  /** Saved-client picker or typed "Bill to" (BillToField). */
-  clientField: ReactNode;
-  filteredProjects: ProjectOption[];
   fields: UseFieldArrayReturn<InvoiceFormInput, "lineItems">["fields"];
   watchedLineItems: InvoiceFormInput["lineItems"];
   append: UseFieldArrayReturn<InvoiceFormInput, "lineItems">["append"];
   remove: UseFieldArrayReturn<InvoiceFormInput, "lineItems">["remove"];
-  onProjectChange: (onChange: (value: string) => void, value: string) => void;
   onUnitChange: (index: number, unit: InvoiceItemUnit) => void;
   /** The default hourly rate in effect for the chosen client/project. */
   hourlyRateHint: { rate: number; source: string } | null;
-  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
 };
 
+/** Detailed mode: line items with units, then tax and the note. */
 export default function DetailedInvoiceForm({
   control,
   register,
   errors,
-  clientField,
-  filteredProjects,
   fields,
   watchedLineItems,
   append,
   remove,
-  onProjectChange,
   onUnitChange,
   hourlyRateHint,
-  onSubmit,
 }: DetailedInvoiceFormProps) {
   return (
-    <form onSubmit={onSubmit} className="pb-12">
-      <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
-        {/* Client & Project */}
-        <FormSection
-          title="Who's this invoice for?"
-          step="01 Client & Project"
-          description="Choose the client being billed, and optionally link it to a project."
+    <DetailCard title="Line items" className="@container">
+      <LineItems
+        fields={fields}
+        register={register}
+        control={control}
+        errors={errors}
+        watchedLineItems={watchedLineItems}
+        remove={remove}
+        onUnitChange={onUnitChange}
+      />
+
+      <div className="flex flex-wrap items-center gap-3 border-t pt-2.5">
+        <CustomButton
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() =>
+            append({ description: "", quantity: 1, rate: "", unit: "item" })
+          }
+          className="gap-1.5"
         >
-          <div className="grid gap-5 sm:grid-cols-2">
-            {clientField}
-
-            <Controller
-              control={control}
-              name="projectId"
-              render={({ field }) => (
-                <ProjectCombobox
-                  projects={filteredProjects}
-                  value={field.value ?? ""}
-                  onChange={(value) => onProjectChange(field.onChange, value)}
-                  error={errors.projectId?.message}
-                />
-              )}
-            />
-          </div>
-        </FormSection>
-
-        {/* Invoice Details */}
-        <FormSection
-          title="Invoice details"
-          step="02 Dates & Tax"
-          description="Set when this invoice is issued, when it's due, and any applicable tax rate."
-        >
-          <div className="grid gap-5 sm:grid-cols-2">
-            <Controller
-              control={control}
-              name="issueDate"
-              render={({ field }) => (
-                <DatePickerField
-                  label="Issue Date"
-                  value={field.value}
-                  onChange={field.onChange}
-                  error={errors.issueDate?.message}
-                />
-              )}
-            />
-
-            <Controller
-              control={control}
-              name="dueDate"
-              render={({ field }) => (
-                <DatePickerField
-                  label="Due Date"
-                  value={field.value}
-                  onChange={field.onChange}
-                  error={errors.dueDate?.message}
-                  disablePast
-                />
-              )}
-            />
-
-            <Field
-              {...register("taxRate")}
-              label="Tax Rate"
-              placeholder="0"
-              suffix="%"
-              error={errors.taxRate?.message}
-            />
-          </div>
-        </FormSection>
-
-        {/* Line Items */}
-        <FormSection
-          title="What are you billing for?"
-          step="03 Line Items"
-          description="Add the services or products included in this invoice."
-        >
-          <div className="space-y-4">
-            <LineItems
-              fields={fields}
-              register={register}
-              control={control}
-              errors={errors}
-              watchedLineItems={watchedLineItems}
-              remove={remove}
-              onUnitChange={onUnitChange}
-            />
-
-            {hourlyRateHint && (
-              <p className="text-muted-foreground text-xs">
-                Lines set to{" "}
-                <span className="text-foreground font-medium">Hours</span> use{" "}
-                {hourlyRateHint.source}&rsquo;s rate of{" "}
-                <span className="text-foreground font-mono">
-                  {formatCurrency(String(hourlyRateHint.rate))}/hr
-                </span>{" "}
-                while their rate is empty.
-              </p>
-            )}
-
-            <button
-              type="button"
-              onClick={() =>
-                append({
-                  description: "",
-                  quantity: 1,
-                  rate: 0,
-                  unit: "item",
-                })
-              }
-              className="text-primary hover:text-primary/80 inline-flex items-center gap-2 text-sm font-medium"
-            >
-              <Plus className="h-4 w-4" />
-              Add line item
-            </button>
-          </div>
-        </FormSection>
-
-        <FormSection
-          title="Anything else?"
-          step="04 Notes"
-          description="Printed at the bottom of the invoice."
-        >
-          <Field
-            {...register("notes")}
-            multiline
-            rows={3}
-            label="Notes"
-            placeholder="e.g. Thanks for your business!"
-            error={errors.notes?.message}
-          />
-        </FormSection>
+          <PlusIcon className="size-4" />
+          Add line
+        </CustomButton>
+        {errors.lineItems?.root?.message && (
+          <span className="text-danger-600 text-xs">
+            {errors.lineItems.root.message}
+          </span>
+        )}
+        {hourlyRateHint && (
+          <span className="text-muted-foreground text-xs">
+            Hour lines use the {hourlyRateHint.source} rate,{" "}
+            {formatCurrency(String(hourlyRateHint.rate))}/hr
+          </span>
+        )}
       </div>
-    </form>
+
+      <div className="mt-4">
+        <InvoiceExtras register={register} errors={errors} />
+      </div>
+    </DetailCard>
   );
 }

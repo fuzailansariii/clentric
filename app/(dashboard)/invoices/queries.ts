@@ -1,12 +1,13 @@
 import { unstable_rethrow } from "next/navigation";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
-import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
+
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
-import { invoices, invoiceStatusEnum } from "@/src/db/schema/invoices";
+import { invoices } from "@/src/db/schema/invoices";
 import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
-import { invoiceIdSchema, invoiceSearchParamsSchema } from "./schema";
+import { invoiceIdSchema, invoiceListParamsSchema } from "./schema";
+import { invoiceState } from "./invoice-state";
 import {
   invoiceItems,
   type InvoiceItemUnit,
@@ -21,6 +22,7 @@ import {
   type InvoiceProjectBalance,
 } from "@/lib/project-ledger";
 import { projects } from "@/src/db/schema/projects";
+import { activityLog } from "@/src/db/schema/activity-logs";
 import {
   issuerUserColumns,
   liveIssuer,
@@ -33,35 +35,7 @@ import {
 import type { PaymentDetails } from "@/lib/payment-methods";
 import type { InvoiceTemplate } from "@/lib/invoice-templates";
 import { logoSrc } from "@/lib/logo-url";
-
-export type InvoiceListItem = {
-  id: string;
-  invoiceNumber: number;
-  numberPrefix: string;
-  clientName: string | null;
-  projectTitle: string | null;
-  total: string;
-  currency: string;
-  status: InvoiceDisplayStatus;
-  issueDate: string;
-  dueDate: string;
-  daysUntilDue: number;
-  createdAt: string | Date;
-  sentAt: Date | null;
-  paidAt: Date | null;
-  lastReminderSentAt: Date | null;
-};
-
-export type InvoiceSummary = {
-  totalCount: number;
-  total: string;
-  paidCount: number;
-  paid: string;
-  outstandingCount: number;
-  outstanding: string;
-  overdueCount: number;
-  overdue: string;
-};
+import { getPlanFeatures } from "@/lib/billing";
 
 const daysUntilDue = sql<number>`(${invoices.dueDate} - current_date)`.mapWith(
   Number,
@@ -78,139 +52,6 @@ const paidBeforeOnProject = sql<string>`(
     and o.created_at < ${invoices.createdAt}
 )`;
 
-const displayStatus = sql<InvoiceDisplayStatus>`case when ${invoices.status} = 'sent' and ${invoices.dueDate} < current_date then 'overdue' else ${invoices.status}::text end`;
-
-export async function getInvoicesByUserId(
-  rawParams: unknown,
-  scope: { clientId?: string } = {},
-) {
-  try {
-    const user = await requireUser();
-
-    const { page, pageSize, search, status } = invoiceSearchParamsSchema.parse(
-      rawParams ?? {},
-    );
-
-    const baseConditions = [
-      eq(invoices.userId, user.id),
-      isNull(invoices.deletedAt),
-    ];
-
-    if (scope.clientId) {
-      const parsedClientId = clientIdSchema.safeParse(scope.clientId);
-      if (!parsedClientId.success) {
-        throw new AppError("VALIDATION_ERROR", "Invalid client ID.");
-      }
-      baseConditions.push(eq(invoices.clientId, parsedClientId.data));
-    }
-
-    if (search) {
-      // Client, project, or invoice number — "INV-1042" matches on its digits.
-      const pattern = `%${search}%`;
-      const digits = search.replace(/\D/g, "");
-      baseConditions.push(
-        digits
-          ? sql`(${clients.name} ilike ${pattern} or ${projects.title} ilike ${pattern} or ${invoices.invoiceNumber}::text like ${`%${digits}%`})`
-          : sql`(${clients.name} ilike ${pattern} or ${projects.title} ilike ${pattern})`,
-      );
-    }
-
-    const listConditions = status
-      ? [...baseConditions, sql`${displayStatus} = ${status}`]
-      : baseConditions;
-
-    const offset = (page - 1) * pageSize;
-
-    const [rows, summaryRows] = await Promise.all([
-      db
-        .select({
-          id: invoices.id,
-          invoiceNumber: invoices.invoiceNumber,
-          numberPrefix: invoices.numberPrefix,
-          status: invoices.status,
-          issueDate: invoices.issueDate,
-          dueDate: invoices.dueDate,
-          daysUntilDue,
-          total: invoices.total,
-          currency: invoices.currency,
-          clientName: clients.name,
-          projectTitle: projects.title,
-          createdAt: invoices.createdAt,
-          sentAt: invoices.sentAt,
-          paidAt: invoices.paidAt,
-          lastReminderSentAt: invoices.lastReminderSentAt,
-        })
-        .from(invoices)
-        .innerJoin(clients, eq(invoices.clientId, clients.id))
-        .leftJoin(projects, eq(invoices.projectId, projects.id))
-        .where(and(...listConditions))
-        .orderBy(desc(invoices.createdAt))
-        .limit(pageSize)
-        .offset(offset),
-
-      db
-        .select({
-          status: sql<InvoiceDisplayStatus | null>`${displayStatus}`,
-          value: count(),
-          amount: sql<string>`coalesce(sum(${invoices.total}), 0)::text`,
-        })
-        .from(invoices)
-        .innerJoin(clients, eq(invoices.clientId, clients.id))
-        .leftJoin(projects, eq(invoices.projectId, projects.id))
-        .where(and(...baseConditions))
-        .groupBy(sql`rollup(${displayStatus})`),
-    ]);
-
-    const amountFor = (key: InvoiceDisplayStatus) =>
-      perStatus.find((row) => row.status === key)?.amount ?? "0";
-
-    const perStatus = summaryRows.flatMap((row) =>
-      row.status === null
-        ? []
-        : [{ status: row.status, value: row.value, amount: row.amount }],
-    );
-
-    const statusCounts = toStatusCounts(
-      invoiceStatusEnum.enumValues,
-      perStatus,
-    );
-    const allCount = sumStatusCounts(statusCounts);
-    const total = status ? statusCounts[status] : allCount;
-
-    const summary: InvoiceSummary = {
-      totalCount: allCount,
-      total: summaryRows.find((row) => row.status === null)?.amount ?? "0",
-      paidCount: statusCounts.paid,
-      paid: amountFor("paid"),
-      outstandingCount: statusCounts.sent,
-      outstanding: amountFor("sent"),
-      overdueCount: statusCounts.overdue,
-      overdue: amountFor("overdue"),
-    };
-
-    return {
-      invoices: rows.map((row) => ({
-        ...row,
-        status: getDisplayStatus(row),
-      })),
-      total,
-      page,
-      pageSize,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
-      statusCounts,
-      allCount,
-      summary,
-    };
-  } catch (error) {
-    unstable_rethrow(error);
-    logError("getInvoicesByUserId", error);
-    if (error instanceof AppError) throw error;
-    throw new AppError("FETCH_FAILED", "Could not load invoices.");
-  }
-}
-
-export type InvoiceListResult = Awaited<ReturnType<typeof getInvoicesByUserId>>;
-
 export async function getInvoiceById(invoiceId: string) {
   try {
     const parsed = invoiceIdSchema.safeParse(invoiceId);
@@ -219,6 +60,8 @@ export async function getInvoiceById(invoiceId: string) {
 
     const user = await requireUser();
 
+    // Started first so it runs alongside the invoice query.
+    const features = getPlanFeatures(user.id);
     // One query: the ownership check on the invoice gates the line items and
     // the issuer, so they can't come back for an invoice this user doesn't own.
     const row = await db.query.invoices.findFirst({
@@ -246,7 +89,11 @@ export async function getInvoiceById(invoiceId: string) {
 
     return {
       ...invoice,
-      logoSrc: owner?.logoUrl ? logoSrc(owner.logoUrl) : null,
+      logoSrc:
+        owner?.logoUrl && (await features).customBranding
+          ? logoSrc(owner.logoUrl)
+          : null,
+      canDownloadPdf: (await features).pdfDownload,
       // Sent invoices print the details they went out with; drafts (and
       // invoices sent before snapshots existed) print the live ones.
       issuer: owner
@@ -360,7 +207,12 @@ export async function getInvoicePdfDataForOwner(
           columns: { name: true, email: true, company: true, country: true },
         },
         project: {
-          columns: { title: true, deletedAt: true, pricing: true, budget: true },
+          columns: {
+            title: true,
+            deletedAt: true,
+            pricing: true,
+            budget: true,
+          },
         },
         lineItems: {
           columns: {
@@ -437,34 +289,219 @@ export async function getInvoicePdfDataForOwner(
   }
 }
 
-/** Badge count for a client's Invoices tab. */
-export async function countInvoicesByClientId(
-  clientId: string,
-): Promise<number> {
+const money = (where: ReturnType<typeof sql>) =>
+  sql<string>`coalesce(sum(${invoices.total}) filter (where ${where}), 0)::text`;
+const tally = (where: ReturnType<typeof sql>) =>
+  sql<number>`count(*) filter (where ${where})`.mapWith(Number);
+
+/**
+ * The invoices page: one page of rows for the chosen chip, plus chip counts
+ * and the money strip (search applied, chip not). Two queries in parallel.
+ */
+export async function getInvoiceList(
+  rawParams: unknown,
+  scope: { clientId?: string } = {},
+) {
   try {
-    const parsed = clientIdSchema.safeParse(clientId);
-    if (!parsed.success) {
-      throw new AppError("VALIDATION_ERROR", "Invalid client ID.");
+    const user = await requireUser();
+    const { page, pageSize, search, view } = invoiceListParamsSchema.parse(
+      rawParams ?? {},
+    );
+
+    const base = [eq(invoices.userId, user.id), isNull(invoices.deletedAt)];
+    if (scope.clientId) {
+      const parsedClientId = clientIdSchema.safeParse(scope.clientId);
+      if (!parsedClientId.success) {
+        throw new AppError("VALIDATION_ERROR", "Invalid client ID.");
+      }
+      base.push(eq(invoices.clientId, parsedClientId.data));
+    }
+    if (search) {
+      // Client, project, or invoice number - "INV-1042" matches on its digits.
+      const pattern = `%${search}%`;
+      const digits = search.replace(/\D/g, "");
+      base.push(
+        digits
+          ? sql`(${clients.name} ilike ${pattern} or ${projects.title} ilike ${pattern} or ${invoices.invoiceNumber}::text like ${`%${digits}%`})`
+          : sql`(${clients.name} ilike ${pattern} or ${projects.title} ilike ${pattern})`,
+      );
     }
 
-    const user = await requireUser();
+    // A claimed invoice waits on you, not the client, so it isn't "overdue".
+    const views = {
+      draft: sql`${invoices.status} = 'draft'`,
+      open: sql`${invoices.status} = 'sent'`,
+      overdue: sql`${invoices.status} = 'sent' and ${invoices.dueDate} < current_date and ${invoices.paymentClaimedAt} is null`,
+      paid: sql`${invoices.status} = 'paid'`,
+    };
+    const claimed = sql`${invoices.status} = 'sent' and ${invoices.paymentClaimedAt} is not null`;
+    const pending = sql`${invoices.status} = 'sent' and ${invoices.dueDate} >= current_date and ${invoices.paymentClaimedAt} is null`;
+    // Groups in the order the list shows them: what needs you first.
+    const groupRank = sql`case when ${views.overdue} then 0 when ${claimed} then 1 when ${views.draft} then 2 when ${pending} then 3 else 4 end`;
+    const paidThisMonth = sql`${invoices.status} = 'paid' and ${invoices.paidAt} >= date_trunc('month', now())`;
 
-    const [row] = await db
-      .select({ value: count() })
-      .from(invoices)
-      .where(
-        and(
-          eq(invoices.userId, user.id),
-          eq(invoices.clientId, parsed.data),
-          isNull(invoices.deletedAt),
-        ),
-      );
+    const [rows, [totals]] = await Promise.all([
+      db
+        .select({
+          id: invoices.id,
+          invoiceNumber: invoices.invoiceNumber,
+          numberPrefix: invoices.numberPrefix,
+          status: invoices.status,
+          issueDate: invoices.issueDate,
+          dueDate: invoices.dueDate,
+          daysUntilDue,
+          total: invoices.total,
+          currency: invoices.currency,
+          clientName: clients.name,
+          projectTitle: projects.title,
+          createdAt: invoices.createdAt,
+          sentAt: invoices.sentAt,
+          paidAt: invoices.paidAt,
+          paymentClaimedAt: invoices.paymentClaimedAt,
+          lastReminderSentAt: invoices.lastReminderSentAt,
+          // Same rule sendInvoiceAction enforces.
+          sendReady: sql<boolean>`(${invoices.total} > 0 and not exists (
+            select 1 from invoice_items ii
+            where ii.invoice_id = ${invoices.id} and btrim(ii.description) = ''
+          ))`,
+          clientHasEmail: sql<boolean>`coalesce(${clients.email}, '') <> ''`,
+          firstLine: sql<string | null>`(
+            select ii.description from invoice_items ii
+            where ii.invoice_id = ${invoices.id}
+            order by ii.sort_order, ii.id limit 1
+          )`,
+        })
+        .from(invoices)
+        .innerJoin(clients, eq(invoices.clientId, clients.id))
+        .leftJoin(projects, eq(invoices.projectId, projects.id))
+        .where(and(...base, ...(view ? [views[view]] : [])))
+        .orderBy(groupRank, desc(invoices.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db
+        .select({
+          all: count(),
+          draft: tally(views.draft),
+          draftSum: money(views.draft),
+          open: tally(views.open),
+          openSum: money(views.open),
+          overdue: tally(views.overdue),
+          overdueSum: money(views.overdue),
+          paid: tally(views.paid),
+          paidMonth: tally(paidThisMonth),
+          paidMonthSum: money(paidThisMonth),
+          paidSum: money(views.paid),
+          claimed: tally(claimed),
+          claimedSum: money(claimed),
+          pending: tally(pending),
+          pendingSum: money(pending),
+          billedSum: money(sql`${invoices.status} in ('sent', 'paid')`),
+        })
+        .from(invoices)
+        .innerJoin(clients, eq(invoices.clientId, clients.id))
+        .leftJoin(projects, eq(invoices.projectId, projects.id))
+        .where(and(...base)),
+    ]);
 
-    return row?.value ?? 0;
+    const counts = {
+      all: totals?.all ?? 0,
+      draft: totals?.draft ?? 0,
+      open: totals?.open ?? 0,
+      overdue: totals?.overdue ?? 0,
+      paid: totals?.paid ?? 0,
+    };
+    const total = view ? counts[view] : counts.all;
+
+    return {
+      invoices: rows.map((row) => {
+        const status = getDisplayStatus(row);
+        return { ...row, status, state: invoiceState({ ...row, status }) };
+      }),
+      counts,
+      groups: [
+        {
+          key: "overdue",
+          label: "Overdue",
+          count: counts.overdue,
+          sum: totals?.overdueSum ?? "0",
+        },
+        {
+          key: "claimed",
+          label: "Client says paid",
+          count: totals?.claimed ?? 0,
+          sum: totals?.claimedSum ?? "0",
+        },
+        {
+          key: "draft",
+          label: "Drafts",
+          count: counts.draft,
+          sum: totals?.draftSum ?? "0",
+        },
+        {
+          key: "pending",
+          label: "Pending",
+          count: totals?.pending ?? 0,
+          sum: totals?.pendingSum ?? "0",
+        },
+        {
+          key: "paid",
+          label: "Paid",
+          count: counts.paid,
+          sum: totals?.paidSum ?? "0",
+        },
+      ],
+      strip: {
+        open: { count: counts.open, sum: totals?.openSum ?? "0" },
+        overdue: { count: counts.overdue, sum: totals?.overdueSum ?? "0" },
+        paidMonth: {
+          count: totals?.paidMonth ?? 0,
+          sum: totals?.paidMonthSum ?? "0",
+        },
+        draft: { count: counts.draft, sum: totals?.draftSum ?? "0" },
+        paid: totals?.paidSum ?? "0",
+        billed: totals?.billedSum ?? "0",
+      },
+      view: view ?? null,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
   } catch (error) {
     unstable_rethrow(error);
-    logError("countInvoicesByClientId", error);
+    logError("getInvoiceList", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load invoices.");
+  }
+}
+
+export type InvoiceListRow = Awaited<
+  ReturnType<typeof getInvoiceList>
+>["invoices"][number];
+
+/** When each reminder went out, oldest first (one activity row per reminder). */
+export async function getInvoiceReminderDates(invoiceId: string) {
+  try {
+    const parsed = invoiceIdSchema.safeParse(invoiceId);
+    if (!parsed.success) return [];
+
+    const user = await requireUser();
+    const rows = await db
+      .select({ at: activityLog.createdAt })
+      .from(activityLog)
+      .where(
+        and(
+          eq(activityLog.userId, user.id),
+          eq(activityLog.entityId, parsed.data),
+          eq(activityLog.action, "invoice.reminder_sent"),
+        ),
+      )
+      .orderBy(asc(activityLog.createdAt));
+
+    return rows.map((row) => row.at);
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getInvoiceReminderDates", error);
+    return [];
   }
 }

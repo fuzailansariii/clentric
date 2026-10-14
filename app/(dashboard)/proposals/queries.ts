@@ -2,61 +2,33 @@ import { unstable_rethrow } from "next/navigation";
 import { and, asc, count, desc, eq, isNull, sql } from "drizzle-orm";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
-import { sumStatusCounts, toStatusCounts } from "@/lib/status-counts";
+
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
-import { proposals, proposalStatusEnum } from "@/src/db/schema/proposals";
+import { proposals } from "@/src/db/schema/proposals";
 import { projects } from "@/src/db/schema/projects";
-import { proposalIdSchema, proposalSearchParamsSchema } from "./schema";
+import { proposalIdSchema, proposalListParamsSchema } from "./schema";
+import { activityLog } from "@/src/db/schema/activity-logs";
+import {
+  issuerUserColumns,
+  liveIssuer,
+  resolveIssuer,
+} from "@/lib/issuer-snapshot";
+import { logoSrc } from "@/lib/logo-url";
+import { getPlanFeatures } from "@/lib/billing";
+import { proposalState } from "./proposal-state";
 import { clientIdSchema } from "../clients/schema";
 import { proposalItems } from "@/src/db/schema/proposal-items";
 import { proposalMilestones } from "@/src/db/schema/proposal-milestones";
-import { invoices } from "@/src/db/schema/invoices";
+
 import type { ProposalStatus } from "./proposal-status-config";
 
-export type ProposalListItem = {
-  id: string;
-  title: string;
-  clientName: string;
-  clientCompany: string | null;
-  total: string; // decimal(12,2) comes back from drizzle as a string
-  currency: string;
-  status: ProposalStatus;
-  expiresAt: Date | null;
-  viewedAt: Date | null;
-  acceptedAt: Date | null;
-  createdAt: Date;
-  milestoneCount: number;
-  depositPercent: string;
-  /** null when no deposit invoice has been raised yet. */
-  depositPaid: boolean | null;
-};
-
-export type ProposalSummary = {
-  totalCount: number;
-  total: string;
-  acceptedCount: number;
-  accepted: string;
-  awaitingCount: number;
-  awaiting: string;
-  declinedCount: number;
-  declined: string;
-};
-
-/**
- * An unanswered proposal past its expiry reads as expired without a job
- * having to rewrite the row, the same way an unpaid invoice past its due date
- * reads as overdue. Computed in SQL so filtering and counting agree with what
- * the table renders.
- */
 // Counted in the list query rather than by fetching milestones: the list
 // only ever shows "2 of 2", never the stages themselves.
 const milestoneCount =
   sql<number>`(select count(*) from ${proposalMilestones} where ${proposalMilestones.proposalId} = ${proposals.id})`.mapWith(
     Number,
   );
-
-const displayStatus = sql<ProposalStatus>`case when ${proposals.status} in ('sent', 'viewed') and ${proposals.expiresAt} is not null and ${proposals.expiresAt} <= now() then 'expired' else ${proposals.status}::text end`;
 
 /** Applies the same expiry rule to an already-fetched row. */
 export function getProposalDisplayStatus(row: {
@@ -70,147 +42,6 @@ export function getProposalDisplayStatus(row: {
   return row.status;
 }
 
-export async function getProposalsByUserId(
-  rawParams: unknown,
-  scope: { clientId?: string } = {},
-) {
-  try {
-    const user = await requireUser();
-
-    const { page, pageSize, search, status } = proposalSearchParamsSchema.parse(
-      rawParams ?? {},
-    );
-
-    const baseConditions = [
-      eq(proposals.userId, user.id),
-      isNull(proposals.deletedAt),
-    ];
-
-    // Used by the client detail page to show only that client's proposals.
-    if (scope.clientId) {
-      const parsedClientId = clientIdSchema.safeParse(scope.clientId);
-      if (!parsedClientId.success) {
-        throw new AppError("VALIDATION_ERROR", "Invalid client ID.");
-      }
-      baseConditions.push(eq(proposals.clientId, parsedClientId.data));
-    }
-
-    if (search) {
-      const pattern = `%${search}%`;
-      baseConditions.push(
-        sql`(${proposals.title} ilike ${pattern} or ${clients.name} ilike ${pattern} or ${clients.company} ilike ${pattern})`,
-      );
-    }
-
-    const listConditions = status
-      ? [...baseConditions, sql`${displayStatus} = ${status}`]
-      : baseConditions;
-
-    const offset = (page - 1) * pageSize;
-
-    const [rows, summaryRows] = await Promise.all([
-      db
-        .select({
-          id: proposals.id,
-          title: proposals.title,
-          total: proposals.total,
-          currency: proposals.currency,
-          status: proposals.status,
-          expiresAt: proposals.expiresAt,
-          viewedAt: proposals.viewedAt,
-          acceptedAt: proposals.acceptedAt,
-          createdAt: proposals.createdAt,
-          clientName: clients.name,
-          clientCompany: clients.company,
-          milestoneCount,
-          depositPercent: proposals.depositPercent,
-          depositInvoiceStatus: invoices.status,
-        })
-        .from(proposals)
-        .innerJoin(clients, eq(proposals.clientId, clients.id))
-        .leftJoin(invoices, eq(proposals.depositInvoiceId, invoices.id))
-        .where(and(...listConditions))
-        .orderBy(desc(proposals.createdAt))
-        .limit(pageSize)
-        .offset(offset),
-
-      // rollup() gives the per-status rows and the grand total (status null)
-      // in one pass, so the tab counts and the stat cards cannot disagree.
-      db
-        .select({
-          status: sql<ProposalStatus | null>`${displayStatus}`,
-          value: count(),
-          amount: sql<string>`coalesce(sum(${proposals.total}), 0)::text`,
-        })
-        .from(proposals)
-        .innerJoin(clients, eq(proposals.clientId, clients.id))
-        .where(and(...baseConditions))
-        .groupBy(sql`rollup(${displayStatus})`),
-    ]);
-
-    const perStatus = summaryRows.flatMap((row) =>
-      row.status === null
-        ? []
-        : [{ status: row.status, value: row.value, amount: row.amount }],
-    );
-
-    const statusCounts = toStatusCounts(
-      proposalStatusEnum.enumValues,
-      perStatus,
-    );
-    const allCount = sumStatusCounts(statusCounts);
-    const total = status ? statusCounts[status] : allCount;
-
-    // "Awaiting" is anything still with the client and still openable.
-    const awaitingCount = statusCounts.sent + statusCounts.viewed;
-
-    const amountFor = (key: ProposalStatus) =>
-      perStatus.find((row) => row.status === key)?.amount ?? "0";
-
-    const summary: ProposalSummary = {
-      totalCount: allCount,
-      total: summaryRows.find((row) => row.status === null)?.amount ?? "0",
-      acceptedCount: statusCounts.accepted,
-      accepted: amountFor("accepted"),
-      awaitingCount,
-      awaiting: (
-        Number(amountFor("sent")) + Number(amountFor("viewed"))
-      ).toFixed(2),
-      declinedCount: statusCounts.rejected,
-      declined: amountFor("rejected"),
-    };
-
-    return {
-      proposals: rows.map(({ depositInvoiceStatus, ...row }) => ({
-        ...row,
-        status: getProposalDisplayStatus(row),
-        // Only the freelancer's own "Mark as paid" click sets an invoice to
-        // paid, so this badge reflects that and nothing the client clicked.
-        depositPaid:
-          depositInvoiceStatus === undefined || depositInvoiceStatus === null
-            ? null
-            : depositInvoiceStatus === "paid",
-      })),
-      total,
-      page,
-      pageSize,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
-      statusCounts,
-      allCount,
-      summary,
-    };
-  } catch (error) {
-    unstable_rethrow(error);
-    logError("getProposalsByUserId", error);
-    if (error instanceof AppError) throw error;
-    throw new AppError("FETCH_FAILED", "Could not load proposals.");
-  }
-}
-
-export type ProposalListResult = Awaited<
-  ReturnType<typeof getProposalsByUserId>
->;
-
 export async function getProposalById(proposalId: string) {
   try {
     const parsed = proposalIdSchema.safeParse(proposalId);
@@ -219,6 +50,8 @@ export async function getProposalById(proposalId: string) {
 
     const user = await requireUser();
 
+    // Started first so it runs alongside the proposal query.
+    const features = getPlanFeatures(user.id);
     // One query: the ownership check on the proposal gates its client and
     // line items, so neither can come back for a row this user doesn't own.
     const row = await db.query.proposals.findFirst({
@@ -247,6 +80,7 @@ export async function getProposalById(proposalId: string) {
             id: true,
             name: true,
             description: true,
+            timeframe: true,
             sortOrder: true,
           },
           orderBy: [
@@ -254,15 +88,48 @@ export async function getProposalById(proposalId: string) {
             asc(proposalMilestones.id),
           ],
         },
+        user: {
+          columns: { ...issuerUserColumns, logoUrl: true, brandColor: true },
+        },
+      },
+      extras: {
+        // Sends are only recorded in the activity log.
+        sentAt: sql<string | null>`(
+          select max(a.created_at) from activity_logs a
+          where a.entity_id = ${proposals.id}
+            and a.user_id = ${user.id}
+            and a.action = 'proposal.sent'
+        )`.as("sent_at"),
+        expiresInDays: sql<
+          number | null
+        >`(${proposals.expiresAt}::date - current_date)`.as("expires_in_days"),
       },
     });
 
     if (!row) return null;
 
+    const { user: owner, ...proposal } = row;
+    const status = getProposalDisplayStatus(row);
+    const expiresInDays =
+      proposal.expiresInDays === null ? null : Number(proposal.expiresInDays);
+
     return {
-      ...row,
+      ...proposal,
       // The stored status is the record; this is what the screen should say.
-      status: getProposalDisplayStatus(row),
+      status,
+      state: proposalState({ status, expiresInDays }),
+      sentAt: proposal.sentAt ? new Date(proposal.sentAt) : null,
+      expiresInDays,
+      // Sent proposals show the details they went out with; drafts the live ones.
+      issuer: owner
+        ? resolveIssuer(proposal.issuerSnapshot, liveIssuer(owner))
+        : null,
+      ...((await features).customBranding
+        ? {
+            logoSrc: owner?.logoUrl ? logoSrc(owner.logoUrl) : null,
+            brandColor: owner?.brandColor ?? null,
+          }
+        : { logoSrc: null, brandColor: null }),
     };
   } catch (error) {
     unstable_rethrow(error);
@@ -310,31 +177,200 @@ export async function getProjectForProposal(proposalId: string) {
   }
 }
 
-/** Badge count for the client detail page's Proposals tab. */
-export async function countProposalsByClientId(
-  clientId: string,
-): Promise<number> {
+const sumWhere = (where: ReturnType<typeof sql>) =>
+  sql<string>`coalesce(sum(${proposals.total}) filter (where ${where}), 0)::text`;
+const countWhere = (where: ReturnType<typeof sql>) =>
+  sql<number>`count(*) filter (where ${where})`.mapWith(Number);
+const toNumber = (value: number | string | null) =>
+  value === null ? null : Number(value);
+
+/**
+ * The proposals page: one page of rows for the chosen chip, chip counts and
+ * the money strip (search applied, chip not). Two queries in parallel.
+ */
+export async function getProposalList(
+  rawParams: unknown,
+  scope: { clientId?: string } = {},
+) {
   try {
-    const parsed = clientIdSchema.safeParse(clientId);
-    if (!parsed.success) return 0;
-
     const user = await requireUser();
+    const { page, pageSize, search, view } = proposalListParamsSchema.parse(
+      rawParams ?? {},
+    );
 
-    const rows = await db
-      .select({ value: count() })
-      .from(proposals)
-      .where(
-        and(
-          eq(proposals.clientId, parsed.data),
-          eq(proposals.userId, user.id),
-          isNull(proposals.deletedAt),
-        ),
+    const base = [eq(proposals.userId, user.id), isNull(proposals.deletedAt)];
+    if (scope.clientId) {
+      const parsedClientId = clientIdSchema.safeParse(scope.clientId);
+      if (!parsedClientId.success) {
+        throw new AppError("VALIDATION_ERROR", "Invalid client ID.");
+      }
+      base.push(eq(proposals.clientId, parsedClientId.data));
+    }
+    if (search) {
+      const pattern = `%${search}%`;
+      base.push(
+        sql`(${proposals.title} ilike ${pattern} or ${clients.name} ilike ${pattern} or ${clients.company} ilike ${pattern})`,
       );
+    }
 
-    return rows[0]?.value ?? 0;
+    const live = sql`(${proposals.expiresAt} is null or ${proposals.expiresAt} > now())`;
+    const views = {
+      draft: sql`${proposals.status} = 'draft'`,
+      awaiting: sql`${proposals.status} in ('sent', 'viewed') and ${live}`,
+      accepted: sql`${proposals.status} = 'accepted'`,
+      closed: sql`(${proposals.status} in ('rejected', 'revoked', 'expired') or (${proposals.status} in ('sent', 'viewed') and not ${live}))`,
+    };
+    const acceptedThisQuarter = sql`${proposals.status} = 'accepted' and ${proposals.acceptedAt} >= date_trunc('quarter', now())`;
+    // Groups in the order the list shows them: what's waiting on a reply first.
+    const groupRank = sql`case when ${views.awaiting} then 0 when ${views.draft} then 1 when ${views.accepted} then 2 else 3 end`;
+    const declined = sql`${proposals.status} = 'rejected'`;
+
+    const [rows, [totals]] = await Promise.all([
+      db
+        .select({
+          id: proposals.id,
+          title: proposals.title,
+          token: proposals.token,
+          total: proposals.total,
+          currency: proposals.currency,
+          status: proposals.status,
+          expiresAt: proposals.expiresAt,
+          viewedAt: proposals.viewedAt,
+          acceptedAt: proposals.acceptedAt,
+          rejectedAt: proposals.rejectedAt,
+          revokedAt: proposals.revokedAt,
+          createdAt: proposals.createdAt,
+          updatedAt: proposals.updatedAt,
+          depositPercent: proposals.depositPercent,
+          clientName: clients.name,
+          clientHasEmail: sql<boolean>`coalesce(${clients.email}, '') <> ''`,
+          milestoneCount,
+          daysSinceUpdate:
+            sql<number>`(current_date - ${proposals.updatedAt}::date)`.mapWith(
+              Number,
+            ),
+          daysSinceViewed: sql<
+            number | null
+          >`(current_date - ${proposals.viewedAt}::date)`,
+          expiresInDays: sql<
+            number | null
+          >`(${proposals.expiresAt}::date - current_date)`,
+          // Sends are only recorded in the activity log.
+          sentAt: sql<string | null>`(
+            select max(a.created_at) from ${activityLog} a
+            where a.entity_id = ${proposals.id}
+              and a.user_id = ${user.id}
+              and a.action = 'proposal.sent'
+          )`,
+          projectId: sql<string | null>`(
+            select p.id from ${projects} p
+            where p.proposal_id = ${proposals.id}
+              and p.user_id = ${user.id}
+              and p.deleted_at is null
+            limit 1
+          )`,
+        })
+        .from(proposals)
+        .innerJoin(clients, eq(proposals.clientId, clients.id))
+        .where(and(...base, ...(view ? [views[view]] : [])))
+        .orderBy(groupRank, desc(proposals.createdAt))
+        .limit(pageSize)
+        .offset((page - 1) * pageSize),
+      db
+        .select({
+          all: count(),
+          draft: countWhere(views.draft),
+          awaiting: countWhere(views.awaiting),
+          awaitingSum: sumWhere(views.awaiting),
+          accepted: countWhere(views.accepted),
+          closed: countWhere(views.closed),
+          declined: countWhere(declined),
+          quarter: countWhere(acceptedThisQuarter),
+          quarterSum: sumWhere(acceptedThisQuarter),
+          allSum: sql<string>`coalesce(sum(${proposals.total}), 0)::text`,
+          acceptedSum: sumWhere(views.accepted),
+          draftSum: sumWhere(views.draft),
+          closedSum: sumWhere(views.closed),
+        })
+        .from(proposals)
+        .innerJoin(clients, eq(proposals.clientId, clients.id))
+        .where(and(...base)),
+    ]);
+
+    const counts = {
+      all: totals?.all ?? 0,
+      draft: totals?.draft ?? 0,
+      awaiting: totals?.awaiting ?? 0,
+      accepted: totals?.accepted ?? 0,
+      closed: totals?.closed ?? 0,
+    };
+    const total = view ? counts[view] : counts.all;
+
+    return {
+      proposals: rows.map((row) => {
+        const shaped = {
+          ...row,
+          status: getProposalDisplayStatus(row),
+          sentAt: row.sentAt ? new Date(row.sentAt) : null,
+          daysSinceViewed: toNumber(row.daysSinceViewed),
+          expiresInDays: toNumber(row.expiresInDays),
+        };
+        return { ...shaped, state: proposalState(shaped) };
+      }),
+      counts,
+      groups: [
+        {
+          key: "awaiting",
+          label: "Awaiting reply",
+          count: counts.awaiting,
+          sum: totals?.awaitingSum ?? "0",
+        },
+        {
+          key: "draft",
+          label: "Drafts",
+          count: counts.draft,
+          sum: totals?.draftSum ?? "0",
+        },
+        {
+          key: "accepted",
+          label: "Accepted",
+          count: counts.accepted,
+          sum: totals?.acceptedSum ?? "0",
+        },
+        {
+          key: "closed",
+          label: "Closed",
+          count: counts.closed,
+          sum: totals?.closedSum ?? "0",
+        },
+      ],
+      strip: {
+        awaiting: { count: counts.awaiting, sum: totals?.awaitingSum ?? "0" },
+        quarter: {
+          count: totals?.quarter ?? 0,
+          sum: totals?.quarterSum ?? "0",
+        },
+        proposed: totals?.allSum ?? "0",
+        accepted: totals?.acceptedSum ?? "0",
+        win: {
+          won: counts.accepted,
+          decided: counts.accepted + (totals?.declined ?? 0),
+        },
+      },
+      view: view ?? null,
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    };
   } catch (error) {
     unstable_rethrow(error);
-    logError("countProposalsByClientId", error);
-    return 0;
+    logError("getProposalList", error);
+    if (error instanceof AppError) throw error;
+    throw new AppError("FETCH_FAILED", "Could not load proposals.");
   }
 }
+
+export type ProposalListRow = Awaited<
+  ReturnType<typeof getProposalList>
+>["proposals"][number];

@@ -20,6 +20,8 @@ export const proposalMilestones = pgTable(
     name: text("name").notNull(),
     description: text("description"),
     sortOrder: integer("sort_order").notNull().default(0),
+    // When the stage happens, as the freelancer writes it ("Weeks 1-2").
+    timeframe: text("timeframe"),
   },
   (table) => [
     index("idx_proposal_milestones_proposal_id").on(table.proposalId),

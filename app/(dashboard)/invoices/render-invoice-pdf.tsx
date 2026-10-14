@@ -1,15 +1,16 @@
 import { renderToBuffer } from "@react-pdf/renderer";
 import { fetchLogoForPdf } from "@/lib/logo-for-pdf";
+import type { PlanFeatures } from "@/lib/billing/resolve-plan";
 import { InvoicePdfDocument } from "./invoice-pdf-document";
 import { ModernInvoicePdfDocument } from "./invoice-pdf-modern";
 import type { InvoicePdfData } from "./queries";
 
-
 export async function renderInvoicePdf(
   data: InvoicePdfData,
-  showBranding: boolean,
+  features: Pick<PlanFeatures, "clentricBranding" | "customBranding">,
 ): Promise<Buffer> {
-  const logo = await fetchLogoForPdf(data.logoUrl);
+  const logo = features.customBranding ? await fetchLogoForPdf(data.logoUrl) : null;
+  const showBranding = features.clentricBranding;
 
   return renderToBuffer(
     data.template === "modern" ? (

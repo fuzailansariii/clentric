@@ -14,7 +14,6 @@ import {
   Tick,
   type Tone,
 } from "./parts";
-import { useOpenWaitlist } from "./waitlist-context";
 
 const USD = (n: number) =>
   "$" +
@@ -195,7 +194,6 @@ const STAGES: ((inv: string) => Stage)[] = [
 ];
 
 export function Hero() {
-  const openWaitlist = useOpenWaitlist();
   const reduce = useReducedMotion();
   const [state, setState] = useState({ stage: 0, job: 0, banked: 0 });
   const [playing, setPlaying] = useState(true);
@@ -241,8 +239,8 @@ export function Hero() {
           data-rv="0"
           className="flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-sm text-(--lp-muted)"
         >
-          <LaunchPill>Early access</LaunchPill>
-          Opening mid-October 2026
+          <LaunchPill>Now open</LaunchPill>
+          Free to start, upgrade when you grow
         </div>
         <h1
           data-rv="80"
@@ -320,14 +318,10 @@ export function Hero() {
           data-rv="260"
           className="mt-8 flex flex-wrap justify-center gap-3 max-[560px]:flex-col max-[560px]:self-stretch"
         >
-          <button
-            type="button"
-            onClick={() => openWaitlist()}
-            className={cn(BTN_PRIMARY, "justify-center")}
-          >
-            Join the waitlist
+          <Link href="/register" className={cn(BTN_PRIMARY, "justify-center")}>
+            Get started free
             <ArrowRightIcon className="size-4" aria-hidden="true" />
-          </button>
+          </Link>
           <Link href="#how" className={cn(BTN_OUTLINE, "justify-center")}>
             See how it works
           </Link>

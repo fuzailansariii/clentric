@@ -1,133 +1,71 @@
 "use client";
-import React, { SubmitEvent, type ReactNode } from "react";
-import {
-  Controller,
-  type Control,
-  type FieldErrors,
-  type UseFormRegister,
-} from "react-hook-form";
-import {
-  ProjectCombobox,
-  type ProjectOption,
-} from "@/components/project-combobox";
-import { DatePickerField } from "@/components/date-picker-field";
+
+import type { FieldErrors, UseFormRegister } from "react-hook-form";
+import { DetailCard } from "@/components/dashboard/detail-parts";
 import { Field } from "@/components/ui/input";
-import FormSection from "@/components/dashboard/form-section";
 import type { InvoiceFormInput } from "../schema";
 
 type QuickInvoiceFormProps = {
-  control: Control<InvoiceFormInput>;
   register: UseFormRegister<InvoiceFormInput>;
   errors: FieldErrors<InvoiceFormInput>;
-  /** Saved-client picker or typed "Bill to" (BillToField). */
-  clientField: ReactNode;
-  onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
-  filteredProjects: ProjectOption[];
 };
 
+/** Quick mode: one description and one amount, then the optional extras. */
 export default function QuickInvoiceForm({
-  control,
   register,
   errors,
-  clientField,
-  onSubmit,
-  filteredProjects,
 }: QuickInvoiceFormProps) {
   return (
-    <form onSubmit={onSubmit} className="pb-12">
-      <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
-        <FormSection
-          title="Create your invoice"
-          step="01 Invoice details"
-          description="Add the essentials and we'll take care of the rest."
-        >
-          <div className="grid gap-5 sm:grid-cols-2">
-            {/* Client */}
-            {clientField}
-
-            {/* Description */}
-            <Field
-              {...register("lineItems.0.description")}
-              label="What are you billing for?"
-              placeholder="e.g. Website design"
-              error={errors.lineItems?.[0]?.description?.message}
-            />
-
-            {/* Amount */}
-            <Field
-              {...register("lineItems.0.rate")}
-              label="Amount"
-              placeholder="0"
-              prefix="$"
-              type="number"
-              min={0}
-              step="0.01"
-              error={errors.lineItems?.[0]?.rate?.message}
-            />
-
-            {/* Due date */}
-            <Controller
-              control={control}
-              name="dueDate"
-              render={({ field }) => (
-                <DatePickerField
-                  label="Due Date"
-                  value={field.value}
-                  onChange={field.onChange}
-                  error={errors.dueDate?.message}
-                  disablePast
-                />
-              )}
-            />
-          </div>
-        </FormSection>
-
-        <FormSection
-          title="Optional details"
-          step="02 Optional"
-          description="Add a project or tax if they apply to this invoice."
-        >
-          <div className="grid gap-5 sm:grid-cols-2">
-            {/* Project */}
-            <Controller
-              control={control}
-              name="projectId"
-              render={({ field }) => (
-                <ProjectCombobox
-                  projects={filteredProjects}
-                  value={field.value ?? ""}
-                  onChange={field.onChange}
-                  error={errors.projectId?.message}
-                />
-              )}
-            />
-
-            {/* Tax */}
-            <Field
-              {...register("taxRate")}
-              label="Tax Rate"
-              placeholder="0"
-              suffix="%"
-              type="number"
-              min={0}
-              step="0.01"
-              error={errors.taxRate?.message}
-            />
-
-            {/* Notes, printed at the bottom of the invoice */}
-            <div className="sm:col-span-2">
-              <Field
-                {...register("notes")}
-                multiline
-                rows={3}
-                label="Notes"
-                placeholder="e.g. Thanks for your business!"
-                error={errors.notes?.message}
-              />
-            </div>
-          </div>
-        </FormSection>
+    <DetailCard title="What you're billing" className="@container">
+      <div className="grid gap-4 @[560px]:grid-cols-2">
+        <div className="@[560px]:col-span-2">
+          <Field
+            {...register("lineItems.0.description")}
+            label="Description"
+            placeholder="e.g. Stage 3 · Visual design"
+            error={errors.lineItems?.[0]?.description?.message}
+          />
+        </div>
+        <Field
+          {...register("lineItems.0.rate")}
+          label="Amount"
+          placeholder="0.00"
+          prefix="$"
+          inputMode="decimal"
+          error={errors.lineItems?.[0]?.rate?.message}
+        />
       </div>
-    </form>
+
+      <p className="text-muted-foreground mt-5 mb-2.5 text-[11px] font-semibold tracking-[0.12em] uppercase">
+        Optional
+      </p>
+      <InvoiceExtras register={register} errors={errors} />
+    </DetailCard>
+  );
+}
+
+/** Tax rate and the note printed at the bottom; shared by both modes. */
+export function InvoiceExtras({ register, errors }: QuickInvoiceFormProps) {
+  return (
+    <div className="grid gap-4 @[560px]:grid-cols-2">
+      <Field
+        {...register("taxRate")}
+        label="Tax rate"
+        placeholder="0"
+        suffix="%"
+        inputMode="decimal"
+        error={errors.taxRate?.message}
+      />
+      <div className="@[560px]:col-span-2">
+        <Field
+          {...register("notes")}
+          multiline
+          rows={3}
+          label="Note to client"
+          placeholder="Thanks for the work together this month"
+          error={errors.notes?.message}
+        />
+      </div>
+    </div>
   );
 }

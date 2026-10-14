@@ -8,6 +8,7 @@ import {
   index,
 } from "drizzle-orm/pg-core";
 import { invoices } from "./invoices";
+import { milestones } from "./milestones";
 
 // What a line's quantity counts. Applied by
 // supabase/migrations/0004_hourly_billing.sql.
@@ -34,6 +35,13 @@ export const invoiceItems = pgTable(
     amount: decimal("amount", { precision: 12, scale: 2 }).notNull(),
     unit: invoiceItemUnitEnum("unit").notNull().default("item"),
     sortOrder: integer("sort_order").notNull().default(0),
+    // The project milestone this line bills, so the project knows which stages are invoiced.
+    milestoneId: uuid("milestone_id").references(() => milestones.id, {
+      onDelete: "set null",
+    }),
   },
-  (table) => [index("idx_invoice_items_invoice_id").on(table.invoiceId)],
+  (table) => [
+    index("idx_invoice_items_invoice_id").on(table.invoiceId),
+    index("idx_invoice_items_milestone_id").on(table.milestoneId),
+  ],
 );

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { editableProjectsSchema, projectSchema } from "./schema";
+import {
+  editableProjectsSchema,
+  milestoneSchema,
+  projectSchema,
+} from "./schema";
 
 const base = {
   title: "Website",
@@ -60,5 +64,22 @@ describe("fixed price needs an amount", () => {
       editableProjectsSchema.safeParse({ pricing: "hourly", budget: "" })
         .success,
     ).toBe(true);
+  });
+});
+
+describe("milestone amount", () => {
+  const parse = (amount: string) =>
+    milestoneSchema.safeParse({ title: "Design", amount }).success;
+
+  it("takes whole and two-decimal amounts, or none", () => {
+    expect(parse("600")).toBe(true);
+    expect(parse("1500.50")).toBe(true);
+    expect(parse("")).toBe(true);
+  });
+
+  it("rejects anything else", () => {
+    expect(parse("dd")).toBe(false);
+    expect(parse("12.345")).toBe(false);
+    expect(parse("-5")).toBe(false);
   });
 });

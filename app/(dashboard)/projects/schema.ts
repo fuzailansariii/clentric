@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  projectBillingEnum as projectBillingPgEnum,
   projectPricingEnum as projectPricingPgEnum,
   projectStatusEnum as projectStatusPgEnum,
 } from "@/src/db/schema/projects";
@@ -31,6 +32,40 @@ function isNotPast(value: string) {
   return value >= yesterday;
 }
 
+/** "" or a stage price with up to two decimals. */
+const milestoneAmountSchema = z
+  .string()
+  .trim()
+  .refine(
+    (value) => value === "" || /^\d{1,10}(\.\d{1,2})?$/.test(value),
+    "Enter an amount like 1500 or 1500.50",
+  );
+
+/** A milestone row on the project form; id is set for ones already saved. */
+export const milestoneRowSchema = z.object({
+  id: z.uuid().optional(),
+  title: z.string().trim().max(200, "Keep the title under 200 characters"),
+  dueDate: z.union([z.iso.date("Invalid due date"), z.literal("")]),
+  amount: milestoneAmountSchema,
+});
+
+/** Blank rows are dropped; a row with a date or amount needs a title. */
+const milestoneRowsSchema = z
+  .array(milestoneRowSchema)
+  .max(50, "Keep it to 50 milestones")
+  .superRefine((rows, ctx) => {
+    rows.forEach((row, index) => {
+      if (!row.title && (row.dueDate || row.amount)) {
+        ctx.addIssue({
+          code: "custom",
+          message: "Give the milestone a title",
+          path: [index, "title"],
+        });
+      }
+    });
+  })
+  .transform((rows) => rows.filter((row) => row.title));
+
 /**
  * Plain object schema (no .refine on the object) so the edit schema can
  * .omit()/.partial() it. The deadline accepts any date here; only creating
@@ -57,9 +92,16 @@ export const projectObjectSchema = z.object({
         }, "Amount is too large"),
     ),
   deadline: deadlineSchema.optional(),
+  /** "" = not set. */
+  startDate: z
+    .union([z.iso.date("Invalid start date"), z.literal("")])
+    .optional(),
+  billing: z.enum(projectBillingPgEnum.enumValues).optional(),
   status: projectStatusEnum,
   // Overrides the client's rate when prefilling hour lines on invoices.
   hourlyRate: hourlyRateSchema,
+  /** Left out = milestones untouched; on edit the list replaces the saved one. */
+  milestones: milestoneRowsSchema.optional(),
 });
 
 /** A fixed price needs an amount; an hourly estimate may stay empty (stored as 0). */
@@ -72,21 +114,31 @@ const fixedPriceNeedsAmount = (data: {
   Number(data.budget) > 0;
 const fixedPriceError = { error: "Enter the agreed price", path: ["budget"] };
 
+const projectFormObjectSchema = projectObjectSchema.extend({
+  pricing: projectObjectSchema.shape.pricing.default("fixed"),
+});
+
+/** The edit page's form: same shape as creating, any deadline allowed. */
+export const projectEditFormSchema = projectFormObjectSchema.refine(
+  fixedPriceNeedsAmount,
+  fixedPriceError,
+);
+
 /** Creating a project: a new deadline can't already have passed. */
-export const projectSchema = projectObjectSchema
+export const projectSchema = projectFormObjectSchema
   .extend({
-    pricing: projectObjectSchema.shape.pricing.default("fixed"),
     deadline: deadlineSchema
       .refine(isNotPast, "Deadline can't be in the past")
       .optional(),
   })
   .refine(fixedPriceNeedsAmount, fixedPriceError);
 
-export const projectSearchParamsSchema = z.object({
+/** The projects board: Active / Completed tabs (none = all), search and paging. */
+export const projectBoardParamsSchema = z.object({
   search: z.string().trim().max(200).optional(),
-  status: projectStatusEnum.optional().catch(undefined),
+  view: z.enum(["active", "completed"]).optional().catch(undefined),
   page: z.coerce.number().int().min(1).catch(1),
-  pageSize: z.coerce.number().int().max(100).catch(20),
+  pageSize: z.coerce.number().int().min(1).max(60).catch(24),
 });
 
 export const projectIdSchema = z.uuid();
@@ -104,6 +156,8 @@ export const milestoneSchema = z.object({
     .max(200, "Keep the title under 200 characters"),
   // "" = no due date (the picker was cleared).
   dueDate: z.union([z.iso.date("Invalid due date"), z.literal("")]).optional(),
+  /** What the stage is worth; "" = not priced. */
+  amount: milestoneAmountSchema.optional(),
 });
 
 export const updateMilestoneSchema = milestoneSchema.partial();

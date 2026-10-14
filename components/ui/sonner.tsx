@@ -24,6 +24,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
       // than competing with the bottom of a long form. Applies to action
       // toasts too, which keeps every toast in one predictable place.
       position="top-right"
+      // Below the page header, so a toast never covers its buttons or sits
+      // under the pointer that just clicked one (hover pauses the timer).
+      offset={{ top: 100 }}
+      mobileOffset={{ top: 148 }}
       className="toaster group"
       // Same tinted tiles as the list rows, so a toast reads like the app.
       icons={{

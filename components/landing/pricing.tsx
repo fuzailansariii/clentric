@@ -80,9 +80,9 @@ export function Pricing({ today }: { today: string }) {
           per={free.price.sublabel}
           bill="No card needed"
           cta={
-            <button type="button" onClick={() => openWaitlist()} className={cn(CTA, CTA_PLAIN)}>
+            <Link href={free.cta.href} className={cn(CTA, CTA_PLAIN)}>
               {free.cta.label}
-            </button>
+            </Link>
           }
         >
           {free.features.map((f) => (
@@ -101,9 +101,9 @@ export function Pricing({ today }: { today: string }) {
           bill={yearly ? `$${proPrice * 12} billed yearly` : "Billed monthly"}
           inc={pro.featuresHeading}
           cta={
-            <button type="button" onClick={() => openWaitlist()} className={cn(CTA, CTA_HOT)}>
+            <Link href={pro.cta.href} className={cn(CTA, CTA_HOT)}>
               {pro.cta.label}
-            </button>
+            </Link>
           }
         >
           {pro.features.map((f) => (
@@ -144,7 +144,7 @@ export function Pricing({ today }: { today: string }) {
                 {agency.cta.live.label}
               </Link>
             ) : (
-              <button type="button" onClick={() => openWaitlist("agency")} className={cn(CTA, CTA_PLAIN)}>
+              <button type="button" onClick={() => openWaitlist()} className={cn(CTA, CTA_PLAIN)}>
                 {agency.cta.coming_soon.label}
               </button>
             )

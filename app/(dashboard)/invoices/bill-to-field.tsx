@@ -6,9 +6,12 @@ import {
   type FieldErrors,
   type UseFormRegister,
 } from "react-hook-form";
-import { Plus, Users } from "lucide-react";
-import { ClientCombobox, type ClientOption } from "@/components/client-combobox";
+import {
+  ClientCombobox,
+  type ClientOption,
+} from "@/components/client-combobox";
 import { Field } from "@/components/ui/input";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import type { InvoiceFormInput } from "./schema";
 
 type BillToFieldProps = {
@@ -21,10 +24,14 @@ type BillToFieldProps = {
   isNew: boolean;
   /** Null while editing: an existing invoice keeps a saved client. */
   onToggleNew: ((isNew: boolean) => void) | null;
+  /** Why a new client can't be added (plan limit); hides the switch. */
+  newBlocked?: string | null;
 };
 
-const SWITCH =
-  "text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-1.5 self-start rounded-sm text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none";
+const WHO = [
+  { value: "saved", label: "Saved client" },
+  { value: "new", label: "Bill someone new" },
+] as const;
 
 /** Bill a saved client, or just type who you're billing (saved as a client with the invoice). */
 export function BillToField({
@@ -35,63 +42,65 @@ export function BillToField({
   onClientChange,
   isNew,
   onToggleNew,
+  newBlocked,
 }: BillToFieldProps) {
-  if (isNew) {
-    return (
-      <div className="grid gap-5 sm:col-span-2 sm:grid-cols-2">
-        <Field
-          {...register("newClient.name")}
-          label="Bill to"
-          placeholder="Client or company name"
-          error={errors.newClient?.name?.message ?? errors.clientId?.message}
-        />
-        <div className="flex flex-col gap-2">
-          <Field
-            {...register("newClient.email")}
-            label="Their email (optional)"
-            type="email"
-            placeholder="So you can email the invoice"
-            error={errors.newClient?.email?.message}
-          />
-          {onToggleNew && clients.length > 0 && (
-            <button
-              type="button"
-              onClick={() => onToggleNew(false)}
-              className={SWITCH}
-            >
-              <Users aria-hidden="true" className="size-3.5" />
-              Choose a saved client
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-2">
-      <Controller
-        control={control}
-        name="clientId"
-        render={({ field }) => (
-          <ClientCombobox
-            clients={clients}
-            value={field.value ?? ""}
-            onChange={(value) => onClientChange(field.onChange, value)}
-            error={errors.clientId?.message}
-          />
-        )}
-      />
-      {onToggleNew && (
-        <button
-          type="button"
-          onClick={() => onToggleNew(true)}
-          className={SWITCH}
-        >
-          <Plus aria-hidden="true" className="size-3.5" />
-          Bill someone new
-        </button>
+    <>
+      {onToggleNew && newBlocked && (
+        <p className="text-muted-foreground text-xs @[560px]:col-span-2">
+          Billing someone new adds a client. {newBlocked}
+        </p>
       )}
-    </div>
+      {onToggleNew && !newBlocked && (
+        <div className="@[560px]:col-span-2">
+          <SegmentedControl
+            label="Client"
+            options={WHO}
+            value={isNew ? "new" : "saved"}
+            onChange={(value) => onToggleNew(value === "new")}
+          />
+        </div>
+      )}
+
+      {isNew ? (
+        <>
+          <Field
+            {...register("newClient.name")}
+            label="Name"
+            placeholder="Person or business"
+            error={errors.newClient?.name?.message ?? errors.clientId?.message}
+          />
+          <div className="flex flex-col gap-1">
+            <Field
+              {...register("newClient.email")}
+              label={
+                <>
+                  Email <span className="font-normal opacity-70">optional</span>
+                </>
+              }
+              type="email"
+              placeholder="name@company.com"
+              error={errors.newClient?.email?.message}
+            />
+            <span className="text-muted-foreground text-xs">
+              Saved as a new client. Needed to email the invoice.
+            </span>
+          </div>
+        </>
+      ) : (
+        <Controller
+          control={control}
+          name="clientId"
+          render={({ field }) => (
+            <ClientCombobox
+              clients={clients}
+              value={field.value ?? ""}
+              onChange={(value) => onClientChange(field.onChange, value)}
+              error={errors.clientId?.message}
+            />
+          )}
+        />
+      )}
+    </>
   );
 }

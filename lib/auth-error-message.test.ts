@@ -29,13 +29,13 @@ describe("authErrorMessage", () => {
     ).toMatch(/No account found/);
   });
 
-  it("explains the beta invite list", () => {
+  it("explains when sign-ups are paused", () => {
     expect(
       authErrorMessage({
         message: "Clentric is invite-only during the beta.",
         code: "unexpected_failure",
       }),
-    ).toMatch(/Join the waitlist/);
+    ).toMatch(/sign-ups are paused/);
   });
 
   it("never shows a bare {} from a server error", () => {

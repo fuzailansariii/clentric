@@ -1,19 +1,13 @@
-import {
-  formatCurrency,
-  formatNumber,
-  formatPercent,
-} from "@/lib/format-currency";
+import { formatCurrency, formatPercent } from "@/lib/format-currency";
 
 type ProposalPreviewProps = {
   title?: string;
   clientName?: string;
-  clientCompany?: string | null;
-  content?: string;
-  milestones: {
+  stages: {
     name?: string;
+    timeframe?: string;
     items?: { description?: string; quantity?: unknown; rate?: unknown }[];
   }[];
-  subtotal: number;
   taxRate: number;
   taxAmount: number;
   total: number;
@@ -21,200 +15,119 @@ type ProposalPreviewProps = {
   expiresInDays: number;
   /** 0 means no deposit is asked for. */
   depositPercent: number;
+  depositAmount: number;
   /** 0 when not given. */
   deliveryDays: number;
-  depositAmount: number;
   currency: string;
+  /** The freelancer's brand colour, already resolved. */
+  brand: string;
 };
 
-/**
- * A paper-style rendering of what the client will open.
- *
- * Deliberately not the invoice preview: an invoice is a figure to be paid, so
- * its preview is a compact summary card. A proposal is a document someone
- * reads end to end before deciding, so this shows the whole sheet - title,
- * who it is for, the scope prose and every line.
- */
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
+/** A small live copy of what the client will open. */
 export default function ProposalPreview({
   title,
   clientName,
-  clientCompany,
-  content,
-  milestones,
-  subtotal,
+  stages,
   taxRate,
   taxAmount,
   total,
   expiresInDays,
   depositPercent,
-  deliveryDays,
   depositAmount,
+  deliveryDays,
   currency,
+  brand,
 }: ProposalPreviewProps) {
-  // A milestone earns a place in the preview once it has a name or a line
-  // worth showing - an untouched empty card should not render as a heading.
-  const filledMilestones = milestones
-    .map((milestone) => ({
-      ...milestone,
-      items: (milestone.items ?? []).filter(
-        (item) => item.description?.trim() || Number(item.rate ?? 0) > 0,
-      ),
-    }))
-    .filter(
-      (milestone) => milestone.name?.trim() || milestone.items.length > 0,
-    );
+  const money = (n: number) => formatCurrency(String(n), currency);
+  const named = stages.some((stage) => stage.name?.trim());
+
+  const footnote = [
+    expiresInDays ? `Link open ${plural(expiresInDays, "day")}` : "Link never expires",
+    deliveryDays ? `delivery in ${plural(deliveryDays, "day")}` : null,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
-    <div className="border-border bg-card overflow-hidden rounded-xl border shadow-sm">
-      {/* Masthead */}
-      <div className="border-border bg-muted/40 border-b px-6 py-5">
-        <p className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.2em] uppercase">
+    <section
+      aria-label="Proposal preview"
+      className="bg-card min-w-0 overflow-hidden rounded-lg border shadow-xs"
+    >
+      <div className="h-1" style={{ background: brand }} />
+      <div className="p-4 sm:p-4.5">
+        <p
+          className="text-[10.5px] font-semibold tracking-[0.12em] uppercase"
+          style={{ color: brand }}
+        >
           Proposal
         </p>
-        <h2 className="font-space mt-2 text-lg leading-snug font-semibold tracking-tight text-balance">
-          {title?.trim() || (
-            <span className="text-muted-foreground/60">Untitled proposal</span>
-          )}
-        </h2>
-      </div>
+        <p className="font-space mt-1 text-lg leading-snug font-semibold wrap-anywhere">
+          {title?.trim() || "Untitled proposal"}
+        </p>
+        <p className="text-muted-foreground mb-3 text-[12.5px]">
+          Prepared for {clientName || "your client"}
+        </p>
 
-      <div className="flex flex-col gap-5 px-6 py-5">
-        <div>
-          <p className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.18em] uppercase">
-            Prepared for
-          </p>
-          <p className="mt-1.5 text-sm font-medium">
-            {clientCompany?.trim() || clientName?.trim() || (
-              <span className="text-muted-foreground/60">
-                No client selected
+        {stages.map((stage, index) => {
+          const price = (stage.items ?? []).reduce(
+            (sum, item) =>
+              sum + (Number(item?.quantity) || 0) * (Number(item?.rate) || 0),
+            0,
+          );
+          const label =
+            stage.name?.trim() || (named ? `Stage ${index + 1}` : "Line items");
+          return (
+            <div
+              key={index}
+              className="flex justify-between gap-3 border-t py-2 text-[13px]"
+            >
+              <span className="min-w-0">
+                <span className="block wrap-anywhere">{label}</span>
+                {stage.timeframe?.trim() && (
+                  <span className="text-muted-foreground block text-xs">
+                    {stage.timeframe}
+                  </span>
+                )}
               </span>
-            )}
-          </p>
-          {clientCompany?.trim() && clientName?.trim() && (
-            <p className="text-muted-foreground text-xs">{clientName}</p>
+              <span className="font-space tabular-nums">{money(price)}</span>
+            </div>
+          );
+        })}
+
+        <div className="border-t pt-2.5 text-[13px]">
+          {taxAmount > 0 && (
+            <div className="flex justify-between gap-3 py-0.5">
+              <span className="text-muted-foreground">
+                Tax ({formatPercent(taxRate)}%)
+              </span>
+              <span className="font-space tabular-nums">{money(taxAmount)}</span>
+            </div>
           )}
-        </div>
-
-        {content?.trim() && (
-          <div className="border-border border-t pt-4">
-            <p className="text-muted-foreground text-[13px] leading-relaxed whitespace-pre-line">
-              {/* Long scope notes would push the totals out of sight in a
-                  sticky panel, so the preview shows the opening only. */}
-              {content.length > 320 ? `${content.slice(0, 320)}…` : content}
-            </p>
+          <div className="flex items-baseline justify-between gap-3 pt-1 font-semibold">
+            <span>Total</span>
+            <span className="font-space text-lg font-medium tabular-nums">
+              {money(total)}
+            </span>
           </div>
-        )}
-
-        <div className="border-border flex flex-col gap-4 border-t pt-4">
-          {filledMilestones.length === 0 ? (
-            <p className="text-muted-foreground/60 text-[13px]">
-              Milestones and line items will appear here.
-            </p>
-          ) : (
-            filledMilestones.map((milestone, milestoneIndex) => {
-              const milestoneSubtotal = milestone.items.reduce(
-                (sum, item) =>
-                  sum + Number(item.quantity ?? 0) * Number(item.rate ?? 0),
-                0,
-              );
-
-              return (
-                <section key={milestoneIndex}>
-                  <h3 className="text-[13px] font-semibold">
-                    {milestone.name?.trim() ||
-                      `Milestone ${milestoneIndex + 1}`}
-                  </h3>
-
-                  <ul className="mt-2 flex flex-col gap-2">
-                    {milestone.items.map((item, itemIndex) => {
-                      const quantity = Number(item.quantity ?? 0);
-                      const rate = Number(item.rate ?? 0);
-                      return (
-                        <li
-                          key={itemIndex}
-                          className="flex items-baseline justify-between gap-4 text-[13px]"
-                        >
-                          <span className="min-w-0">
-                            <span className="block truncate">
-                              {item.description?.trim() || "Untitled item"}
-                            </span>
-                            <span className="text-muted-foreground text-xs tabular-nums">
-                              {formatNumber(quantity)} ×{" "}
-                              {formatCurrency(String(rate), currency)}
-                            </span>
-                          </span>
-                          <span className="shrink-0 font-medium tabular-nums">
-                            {formatCurrency(String(quantity * rate), currency)}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-
-                  {milestone.items.length > 0 && (
-                    <p className="text-muted-foreground mt-2 text-right text-xs tabular-nums">
-                      Stage subtotal{" "}
-                      {formatCurrency(String(milestoneSubtotal), currency)}
-                    </p>
-                  )}
-                </section>
-              );
-            })
+          {depositPercent > 0 && (
+            <div
+              className="flex justify-between gap-3 pt-1 font-medium"
+              style={{ color: brand }}
+            >
+              <span>Deposit to begin ({formatPercent(depositPercent)}%)</span>
+              <span className="font-space tabular-nums">
+                {money(depositAmount)}
+              </span>
+            </div>
           )}
         </div>
 
-        <dl className="border-border flex flex-col gap-1.5 border-t pt-4 text-[13px]">
-          <div className="text-muted-foreground flex justify-between">
-            <dt>Subtotal</dt>
-            <dd className="tabular-nums">
-              {formatCurrency(String(subtotal), currency)}
-            </dd>
-          </div>
-          <div className="text-muted-foreground flex justify-between">
-            <dt>Tax{taxRate > 0 ? ` (${formatPercent(taxRate)}%)` : ""}</dt>
-            <dd className="tabular-nums">
-              {formatCurrency(String(taxAmount), currency)}
-            </dd>
-          </div>
-          <div className="border-border mt-1.5 flex items-baseline justify-between border-t pt-2.5">
-            <dt className="font-space text-sm font-semibold">Total</dt>
-            <dd className="font-space text-base font-semibold tabular-nums">
-              {formatCurrency(String(total), currency)}
-            </dd>
-          </div>
-        </dl>
-
-        {/* The window, not a date. Sending re-bases expiry off the send
-            time, so an absolute date shown while drafting would be wrong for
-            any proposal not sent the same day. */}
-        {deliveryDays > 0 && (
-          <p className="text-muted-foreground text-[13px]">
-            Delivery: {deliveryDays} {deliveryDays === 1 ? "day" : "days"} after
-            work starts
-          </p>
-        )}
-        {depositPercent > 0 && (
-          <div className="border-border bg-muted/40 rounded-lg border px-3 py-2.5">
-            <p className="flex items-baseline justify-between gap-3 text-[13px]">
-              <span className="font-medium">
-                Deposit to begin ({formatPercent(depositPercent)}%)
-              </span>
-              <span className="font-semibold tabular-nums">
-                {formatCurrency(String(depositAmount), currency)}
-              </span>
-            </p>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Invoiced to your own payment details. Clentric never handles it.
-            </p>
-          </div>
-        )}
-
-        <p className="text-muted-foreground border-border border-t pt-4 text-xs">
-          {expiresInDays > 0
-            ? `Link expires ${expiresInDays} days after sending`
-            : "Link does not expire"}
+        <p className="text-muted-foreground mt-2.5 text-xs">
+          {footnote}. Accepting creates the project.
         </p>
       </div>
-    </div>
+    </section>
   );
 }

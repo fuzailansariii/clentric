@@ -37,8 +37,8 @@ export const LEGAL = {
     "A client-centric workspace for freelancers to manage clients, projects, invoices and proposals in one place.",
 
   /** Shown as "Last updated" on the policy pages; also the accepted terms version. */
-  lastUpdated: "7 October 2026",
-  termsVersion: "2026-10-07",
+  lastUpdated: "14 October 2026",
+  termsVersion: "2026-10-14",
 
   /** The business behind the product. */
   operatorLegalName: "Clentric",

@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck && npm run lint && vitest run",
     "test:e2e": "playwright test",
-    "grant": "node --env-file=.env --disable-warning=ExperimentalWarning scripts/grant.mts",
+    "grant": "tsx --env-file=.env scripts/grant.mts",
     "invite": "node --env-file=.env --disable-warning=ExperimentalWarning scripts/invite.mts",
     "db:check": "node --env-file=.env --disable-warning=ExperimentalWarning scripts/check-db.mts"
   },

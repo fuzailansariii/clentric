@@ -84,6 +84,9 @@ export async function createProjectFromProposal(
     .select({
       name: proposalMilestones.name,
       sortOrder: proposalMilestones.sortOrder,
+      // What the stage is worth: the sum of its line items. Explicit aliases:
+      // Drizzle leaves columns unqualified in a single-table select.
+      amount: sql<string>`(select coalesce(sum(pi.amount), 0)::text from proposal_items pi where pi.milestone_id = "proposal_milestones"."id")`,
     })
     .from(proposalMilestones)
     .where(eq(proposalMilestones.proposalId, proposal.id))
@@ -101,6 +104,7 @@ export async function createProjectFromProposal(
         // Re-indexed from the stage order rather than copying sortOrder,
         // so gaps left by deleted stages do not carry across.
         sortOrder: index,
+        amount: stage.amount,
       })),
     );
   }

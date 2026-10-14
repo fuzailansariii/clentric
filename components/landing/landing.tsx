@@ -9,12 +9,12 @@ import { HowItWorks } from "./how-it-works";
 import { NAV_LINKS, Navbar } from "./navbar";
 import { FRAME, FrameLine, FrameRails } from "./parts";
 import { Pricing } from "./pricing";
-import { WaitlistContext, type WaitlistKind } from "./waitlist-context";
-import { WaitlistCta } from "./waitlist-cta";
+import { StartCta } from "./start-cta";
+import { WaitlistContext } from "./waitlist-context";
 import { WaitlistDialog } from "./waitlist-dialog";
 
 export function Landing({ today, signedIn }: { today: string; signedIn: boolean }) {
-  const [dialog, setDialog] = useState<WaitlistKind | null>(null);
+  const [agencyOpen, setAgencyOpen] = useState(false);
   const [active, setActive] = useState("");
   const root = useRef<HTMLDivElement>(null);
 
@@ -63,7 +63,7 @@ export function Landing({ today, signedIn }: { today: string; signedIn: boolean 
   }, []);
 
   return (
-    <WaitlistContext.Provider value={(kind = "beta") => setDialog(kind)}>
+    <WaitlistContext.Provider value={() => setAgencyOpen(true)}>
       <div ref={root} id="top" className="lp bg-background text-foreground relative min-h-screen overflow-x-clip">
         <FrameRails />
         <header className="sticky top-0 z-50">
@@ -80,14 +80,14 @@ export function Landing({ today, signedIn }: { today: string; signedIn: boolean 
           <FrameLine />
           <Faq />
           <FrameLine />
-          <WaitlistCta />
+          <StartCta />
         </main>
         <FrameLine />
         <div className="relative [&>footer]:border-t-0">
           <LegalFooter containerClassName={FRAME} />
         </div>
       </div>
-      <WaitlistDialog kind={dialog} onClose={() => setDialog(null)} />
+      <WaitlistDialog open={agencyOpen} onClose={() => setAgencyOpen(false)} />
     </WaitlistContext.Provider>
   );
 }

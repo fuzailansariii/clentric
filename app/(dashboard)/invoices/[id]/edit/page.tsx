@@ -38,6 +38,7 @@ export default async function EditInvoicePage({
       projects={projects}
       invoice={{
         id: invoice.id,
+        status: invoice.status,
         invoiceNumber: invoice.invoiceNumber,
         numberPrefix: invoice.numberPrefix,
         notes: invoice.notes ?? "",
@@ -53,6 +54,7 @@ export default async function EditInvoicePage({
           quantity: Number(item.quantity),
           rate: Number(item.rate),
           unit: item.unit,
+          milestoneId: item.milestoneId ?? undefined,
         })),
       }}
     />

@@ -7,7 +7,7 @@ import { subscriptions } from "@/src/db/schema/subscriptions";
 import { planGrants } from "@/src/db/schema/plan-grants";
 import { AppError, logError } from "@/lib/errors";
 import { billingEnforced } from "./env";
-import { resolvePlan, type EffectivePlan } from "./resolve-plan";
+import { planFeatures, resolvePlan, type EffectivePlan, type PlanFeatures } from "./resolve-plan";
 import type { BillingInterval, SubscriptionStatus } from "./types";
 
 export type BillingState = EffectivePlan & {
@@ -76,3 +76,13 @@ export const getEffectivePlan = cache(async (userId: string): Promise<BillingSta
     throw new AppError("FETCH_FAILED", "Could not load your plan.");
   }
 });
+
+/** What the user's plan unlocks; Free's features if the plan can't be read. */
+export async function getPlanFeatures(userId: string): Promise<PlanFeatures> {
+  try {
+    return planFeatures(await getEffectivePlan(userId));
+  } catch {
+    // getEffectivePlan already logged it.
+    return planFeatures({ plan: "free", source: "free" });
+  }
+}

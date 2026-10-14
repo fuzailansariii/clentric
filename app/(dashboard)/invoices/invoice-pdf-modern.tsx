@@ -515,19 +515,25 @@ export function ModernInvoicePdfDocument({
                 <Text style={[s.label, { marginBottom: 2 }]}>
                   Project balance
                 </Text>
-                {balanceRows(invoice.projectBalance).map(([label, value], i, all) => {
-                  const last = i === all.length - 1;
-                  return (
-                    <View key={label} style={s.totalsRow}>
-                      <Text style={last ? { fontWeight: 600 } : { color: c.muted }}>
-                        {label}
-                      </Text>
-                      <Text style={[s.num, last ? { fontWeight: 600 } : {}]}>
-                        {money(String(value))}
-                      </Text>
-                    </View>
-                  );
-                })}
+                {balanceRows(invoice.projectBalance).map(
+                  ([label, value], i, all) => {
+                    const last = i === all.length - 1;
+                    return (
+                      <View key={label} style={s.totalsRow}>
+                        <Text
+                          style={
+                            last ? { fontWeight: 600 } : { color: c.muted }
+                          }
+                        >
+                          {label}
+                        </Text>
+                        <Text style={[s.num, last ? { fontWeight: 600 } : {}]}>
+                          {money(String(value))}
+                        </Text>
+                      </View>
+                    );
+                  },
+                )}
               </View>
             ) : null}
           </View>
