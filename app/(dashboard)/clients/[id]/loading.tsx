@@ -1,5 +1,13 @@
-import React from "react";
+import {
+  DetailHeaderSkeleton,
+  PageSkeleton,
+  RecordDetailSkeleton,
+} from "@/components/dashboard/page-skeletons";
 
-export default function Loading() {
-  return <div>Loading</div>;
+export default function ClientLoading() {
+  return (
+    <PageSkeleton header={<DetailHeaderSkeleton />}>
+      <RecordDetailSkeleton />
+    </PageSkeleton>
+  );
 }

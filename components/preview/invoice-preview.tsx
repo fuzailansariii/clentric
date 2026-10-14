@@ -1,138 +1,148 @@
-import React from "react";
 import { AvatarInitials } from "@/components/ui/avatar-initials";
-import { Eye, Plus } from "lucide-react";
 import { formatCurrency, formatNumber } from "@/lib/format-currency";
-import PreviewRow from "./preview-row";
-import PreviewActions from "./preview-actions";
+
+const qty = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+import { formatDayValue } from "@/lib/format-due";
+import { lineItemUnits } from "@/lib/format-line-item";
+import type { InvoiceItemUnit } from "@/src/db/schema/invoice-items";
+
+type PreviewLine = {
+  description?: string;
+  quantity?: unknown;
+  rate?: unknown;
+  unit?: InvoiceItemUnit;
+};
 
 type InvoicePreviewProps = {
   /** Who the invoice is from: business name, else person, else email. */
   issuerName: string;
+  /** "INV-015", or the number this invoice will most likely get. */
+  numberLabel: string;
   clientName?: string;
   projectName?: string;
   dueDate?: string;
+  lines: PreviewLine[];
   subTotal: number;
   taxRate: number;
   taxAmount: number;
   total: number;
-  /** Save: creates a draft (new invoice) or saves changes (editing). */
-  onSubmit: () => void;
-  /** Create & Send: creates the invoice, then marks it sent. */
-  onSubmitAndSend?: () => void;
-  onCancel: () => void;
-  isSubmitting: boolean;
-  /** Set when editing an existing invoice: shows its real number and a
-   * single "Save changes" action instead of the create actions. */
-  editing?: { invoiceNumber: string };
 };
 
+const labelClass =
+  "text-muted-foreground text-[10.5px] font-semibold tracking-[0.12em] uppercase";
+
+/** A small live copy of the invoice beside the form. */
 export default function InvoicePreview({
   issuerName,
+  numberLabel,
   clientName,
   projectName,
   dueDate,
+  lines,
   subTotal,
   taxRate,
   taxAmount,
   total,
-  onSubmit,
-  onSubmitAndSend,
-  onCancel,
-  isSubmitting,
-  editing,
 }: InvoicePreviewProps) {
+  const money = (n: number) => formatCurrency(String(n));
+  const filled = lines.filter(
+    (line) => line.description?.trim() || Number(line.rate) > 0,
+  );
+
   return (
-    <div className="w-full min-w-0">
-      <div className="border-border items-center rounded-lg border">
-        <h2 className="mb flex w-full items-center gap-3 border-b p-4">
-          <Eye className="h-4 w-4" />
-          <span className="font-space text-sm font-medium">Live Preview</span>
-        </h2>
-        <div className="flex flex-col p-4">
-          <h2 className="flex items-center gap-3 border-b pb-4 text-[15px] font-medium">
-            {/* TODO(logo-upload): show the business logo here once
-                uploads exist; initials are the fallback. */}
-            <AvatarInitials
-              name={issuerName}
-              shape="square"
-              size="md"
-              variant="neutral"
-              className="font-space rounded-lg font-medium"
-            />
-            <span className="min-w-0 truncate">{issuerName}</span>
-          </h2>
-
-          <PreviewRow
-            label="Invoice #"
-            value={
-              editing?.invoiceNumber ?? "Assigned automatically when you save"
-            }
+    <section
+      aria-label="Invoice preview"
+      className="bg-card min-w-0 rounded-lg border p-4 shadow-xs sm:p-4.5"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <AvatarInitials
+            name={issuerName}
+            shape="square"
+            size="sm"
+            variant="accent"
+            className="shrink-0"
           />
-          <PreviewRow label="Client" value={clientName ?? "Select a client"} />
-          <PreviewRow label="Project" value={projectName ?? "No project"} />
-          <PreviewRow label="Due Date" value={dueDate ?? "-"} />
-          <PreviewRow
-            label="Subtotal"
-            value={formatCurrency(String(subTotal))}
-          />
-          <PreviewRow
-            label={`Tax (${formatNumber(taxRate)}%)`}
-            value={formatCurrency(String(taxAmount))}
-          />
-          <PreviewRow
-            label="Total"
-            value={formatCurrency(String(total))}
-            emphasize
-          />
-
-          {!editing && (
-            <div className="mt-4">
-              <span className="bg-muted-foreground/20 font-space rounded px-2.5 py-1 text-xs font-bold">
-                draft
-              </span>
-            </div>
-          )}
+          <span className="truncate text-[13px] font-semibold">
+            {issuerName}
+          </span>
+        </div>
+        <div className="text-right">
+          <p className={labelClass}>Invoice</p>
+          <p className="text-muted-foreground font-space text-[12.5px] tabular-nums">
+            {numberLabel}
+          </p>
         </div>
       </div>
 
-      <PreviewActions
-        actions={
-          editing
-            ? [
-                {
-                  label: isSubmitting ? "Saving..." : "Save changes",
-                  variant: "primary",
-                  onClick: onSubmit,
-                  disabled: isSubmitting,
-                },
-                {
-                  label: "Cancel",
-                  variant: "ghost",
-                  onClick: onCancel,
-                },
-              ]
-            : [
-                {
-                  label: "Create & Send",
-                  variant: "primary",
-                  onClick: onSubmitAndSend ?? onSubmit,
-                  disabled: isSubmitting,
-                  icon: <Plus className="h-4 w-4" />,
-                },
-                {
-                  label: "Save as Draft",
-                  variant: "secondary",
-                  onClick: onSubmit,
-                  disabled: isSubmitting,
-                },
-                {
-                  label: "Cancel",
-                  variant: "ghost",
-                  onClick: onCancel,
-                },
-              ]
-        }
-      />
-    </div>
+      <p className={`${labelClass} mt-3.5`}>Bill to</p>
+      <p className="text-sm font-medium wrap-anywhere">
+        {clientName || "Choose a client"}
+      </p>
+      <p className="text-muted-foreground mb-2.5 text-[12.5px]">
+        {projectName ?? "No project"} ·{" "}
+        {dueDate ? `Due ${formatDayValue(dueDate)}` : "No due date"}
+      </p>
+
+      {filled.length === 0 ? (
+        <p className="text-muted-foreground border-t py-2.5 text-[13px]">
+          Lines show up here as you type.
+        </p>
+      ) : (
+        filled.map((line, index) => {
+          const quantity = Number(line.quantity) || 0;
+          const rate = Number(line.rate) || 0;
+          const unit = lineItemUnits[line.unit ?? "item"];
+          return (
+            <div
+              key={index}
+              className="flex justify-between gap-3 border-t py-2 text-[13px]"
+            >
+              <span className="min-w-0">
+                <span className="block wrap-anywhere">
+                  {line.description || "Untitled line"}
+                </span>
+                <span className="text-muted-foreground block text-xs">
+                  {qty.format(quantity)} × {money(rate)}
+                  {unit.rateSuffix}
+                </span>
+              </span>
+              <span className="font-space tabular-nums">
+                {money(quantity * rate)}
+              </span>
+            </div>
+          );
+        })
+      )}
+
+      <div className="border-t pt-2.5 text-[13px]">
+        {taxAmount > 0 && (
+          <>
+            <div className="flex justify-between gap-3 py-0.5">
+              <span className="text-muted-foreground">Subtotal</span>
+              <span className="font-space tabular-nums">{money(subTotal)}</span>
+            </div>
+            <div className="flex justify-between gap-3 py-0.5">
+              <span className="text-muted-foreground">
+                Tax ({formatNumber(taxRate)}%)
+              </span>
+              <span className="font-space tabular-nums">
+                {money(taxAmount)}
+              </span>
+            </div>
+          </>
+        )}
+        <div className="flex items-baseline justify-between gap-3 pt-1 font-semibold">
+          <span>Total due</span>
+          <span className="font-space text-lg font-medium tabular-nums">
+            {money(total)}
+          </span>
+        </div>
+      </div>
+
+      <p className="text-muted-foreground mt-2.5 text-xs">
+        Emailed to your client with a PDF attached.
+      </p>
+    </section>
   );
 }

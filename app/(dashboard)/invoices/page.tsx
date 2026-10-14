@@ -1,124 +1,127 @@
 import DashboardContainer from "@/components/dashboard/container";
-import PageHeader from "@/components/dashboard/page-header";
-import { CustomButton } from "@/components/ui/custom-button";
-import { StatsSummary } from "@/components/ui/stats-summary";
-import { Plus, Receipt } from "lucide-react";
-import Link from "next/link";
-import { getInvoicesByUserId } from "./queries";
-import { formatCurrency } from "@/lib/format-currency";
-import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
-import {
-  invoiceStatusConfig,
-  type InvoiceStatus,
-} from "./invoice-status-config";
+import { ListEmpty, ListNoResults } from "@/components/dashboard/list-states";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import { InvoicesTable } from "./invoices-table";
+import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
+import { MetricStrip } from "@/components/ui/metric-strip";
+import { formatCurrency } from "@/lib/format-currency";
+import { InvoiceList } from "./invoice-list";
+import { InvoicesHeader } from "./invoices-header";
+import { getInvoiceList } from "./queries";
+import { getPlanFeatures } from "@/lib/billing";
+import { requireUser } from "@/lib/current-user";
 
 type InvoicesPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+
 export default async function InvoicesPage({
   searchParams,
 }: InvoicesPageProps) {
   const params = await searchParams;
-  const {
-    invoices,
-    total,
-    page,
-    pageSize,
-    totalPages,
-    statusCounts,
-    allCount,
-    summary,
-  } = await getInvoicesByUserId(params);
+  const user = await requireUser();
+  const [list, features] = await Promise.all([
+    getInvoiceList(params),
+    getPlanFeatures(user.id),
+  ]);
+  const search = typeof params.search === "string" ? params.search : "";
+  const { strip, counts } = list;
+  const isEmpty = counts.all === 0 && !search;
 
   return (
     <>
-      <PageHeader
-        title="Invoices"
-        subtitle="Track billing status and payments across all clients"
-        icon={<Receipt className="h-5 w-5" />}
-        badge={
-          <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px] font-medium">
-            {total}
-          </span>
-        }
-        breadcrumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Invoices" },
-        ]}
-        mobileActions="inline"
-        actions={
-          <Link href={"/invoices/new"}>
-            <CustomButton className="mx-auto flex items-center gap-1 text-xs">
-              <Plus className="h-4 w-4" />
-              <span>Create Invoice</span>
-            </CustomButton>
-          </Link>
+      <InvoicesHeader
+        subtitle={
+          isEmpty
+            ? "Nothing here yet"
+            : `${plural(counts.all, "invoice")} · USD`
         }
       />
 
       <DashboardContainer>
-        <div className="flex flex-col gap-4">
-          {/* Totals come from the database across every matching invoice
-              (search applied, status tab not) - not just the current page.
-              Per-status counts are left to the filter chips below. */}
-          <StatsSummary
-            items={[
-              {
-                label: "Total Billed",
-                value: formatCurrency(summary.total),
-              },
-              {
-                label: "Paid",
-                value: formatCurrency(summary.paid),
-                valueColor: "text-emerald-600",
-              },
-              {
-                label: "Outstanding",
-                value: formatCurrency(summary.outstanding),
-                valueColor: "text-blue-600",
-              },
-              {
-                label: "Overdue",
-                value: formatCurrency(summary.overdue),
-                valueColor: "text-rose-500",
-              },
-            ]}
+        {isEmpty ? (
+          <ListEmpty
+            title="No invoices yet"
+            body="Send your first invoice in USD. It's emailed with a PDF, and you'll see when it's paid or overdue."
+            href="/invoices/new"
+            label="New invoice"
           />
+        ) : (
+          <div className="flex flex-col gap-4">
+            <MetricStrip
+              items={[
+                {
+                  label: "Outstanding",
+                  value: formatCurrency(strip.open.sum),
+                  sub: plural(strip.open.count, "invoice"),
+                },
+                {
+                  label: "Overdue",
+                  value: formatCurrency(strip.overdue.sum),
+                  sub: strip.overdue.count
+                    ? plural(strip.overdue.count, "invoice")
+                    : "Nothing late",
+                  tone: strip.overdue.count ? "danger" : "default",
+                },
+                {
+                  label: "Paid this month",
+                  value: formatCurrency(strip.paidMonth.sum),
+                  sub: plural(strip.paidMonth.count, "invoice"),
+                },
+                {
+                  label: "Drafts",
+                  value: formatCurrency(strip.draft.sum),
+                  sub: strip.draft.count
+                    ? `${strip.draft.count} not sent`
+                    : "None",
+                },
+              ]}
+            />
 
-          <InvoicesTable
-            data={invoices}
-            toolbar={
-              <DataTableToolbar
-                searchPlaceholder="Search invoices..."
-                filters={[
-                  {
-                    key: "status",
-                    label: "Filter invoices by status",
-                    allCount,
-                    options: (
-                      Object.keys(invoiceStatusConfig) as InvoiceStatus[]
-                    ).map((status) => ({
-                      value: status,
-                      label: invoiceStatusConfig[status].label,
-                      count: statusCounts[status],
-                    })),
-                  },
-                ]}
+            <DataTableToolbar
+              searchPlaceholder="Search invoices..."
+              filters={[
+                {
+                  key: "view",
+                  label: "Filter invoices",
+                  allCount: counts.all,
+                  options: [
+                    { value: "draft", label: "Drafts", count: counts.draft },
+                    { value: "open", label: "Outstanding", count: counts.open },
+                    {
+                      value: "overdue",
+                      label: "Overdue",
+                      count: counts.overdue,
+                    },
+                    { value: "paid", label: "Paid", count: counts.paid },
+                  ],
+                },
+              ]}
+            />
+
+            {list.invoices.length === 0 ? (
+              <ListNoResults
+                noun="invoices"
+                search={search}
+                clearHref="/invoices"
               />
-            }
-            footer={
-              <DataTablePagination
-                page={page}
-                pageSize={pageSize}
-                total={total}
-                totalPages={totalPages}
+            ) : (
+              <InvoiceList
+                invoices={list.invoices}
+                groups={list.groups}
+                canDownloadPdf={features.pdfDownload}
               />
-            }
-          />
-        </div>
+            )}
+
+            <DataTablePagination
+              page={list.page}
+              pageSize={list.pageSize}
+              total={list.total}
+              totalPages={list.totalPages}
+            />
+          </div>
+        )}
       </DashboardContainer>
     </>
   );

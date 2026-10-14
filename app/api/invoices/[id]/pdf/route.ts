@@ -4,6 +4,7 @@ import { renderInvoicePdf } from "@/app/(dashboard)/invoices/render-invoice-pdf"
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
+import { getPlanFeatures } from "@/lib/billing";
 
 // @react-pdf/renderer renders with real Node APIs — not supported on the
 // Edge runtime.
@@ -13,9 +14,6 @@ export const runtime = "nodejs";
 // evaluate the route at build time and fails the same way /projects/new
 // used to before unstable_rethrow was added there (see DEV_NOTES.md).
 export const dynamic = "force-dynamic";
-
-// TODO(billing): gate PDF export and branding with getEffectivePlan()
-// (lib/billing), never users.plan. Part of the plan-limits task.
 
 export async function GET(
   request: Request,
@@ -32,9 +30,12 @@ export async function GET(
     // Fails fast with 401 before touching the database. getInvoiceForPdf()
     // re-checks this itself too — the same defense-in-depth every query in
     // this app already applies, not redundant by accident.
-    await requireUser();
+    const user = await requireUser();
 
-    const data = await getInvoiceForPdf(parsedId.data);
+    const [data, features] = await Promise.all([
+      getInvoiceForPdf(parsedId.data),
+      getPlanFeatures(user.id),
+    ]);
 
     if (!data) {
       // Identical response whether the invoice doesn't exist, was deleted,
@@ -43,10 +44,15 @@ export async function GET(
       return new Response("Invoice not found.", { status: 404 });
     }
 
-    // Always true until the TODO(billing) above lands.
-    const showBranding = true;
+    // After the 404, so a Free user can't probe which invoice ids exist.
+    if (!features.pdfDownload) {
+      return new Response(
+        "Downloading PDFs is part of Pro. Upgrade in Settings > Plan & billing.",
+        { status: 403 },
+      );
+    }
 
-    const pdf = await renderInvoicePdf(data, showBranding);
+    const pdf = await renderInvoicePdf(data, features);
 
     // Built from a DB integer (invoices.invoiceNumber), so it's already
     // just "INV-1042" — stripped anyway, on principle, so nothing about

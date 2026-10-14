@@ -3,8 +3,8 @@
 import { headers } from "next/headers";
 import { db } from "@/src/db";
 import { waitlistEmails } from "@/src/db/schema/waitlist";
-import { and, count, eq, isNull } from "drizzle-orm";
-import { isUniqueViolation, logError } from "@/lib/errors";
+import { and, eq, isNull } from "drizzle-orm";
+import { logError } from "@/lib/errors";
 import { isRateLimited } from "@/lib/rate-limit";
 import type { ActionResult } from "@/lib/action-result";
 import { z } from "zod";
@@ -13,13 +13,6 @@ import { z } from "zod";
 // form (and its unsubscribe counterpart) are the one place in this app
 // meant to work for a signed-out visitor; gating them behind auth would
 // make them unusable for the people they're for.
-
-const sourceEnum = z.enum(["x", "reddit", "direct", "other"]);
-
-const waitlistSchema = z.object({
-  email: z.email("Please enter a valid email address.").trim().toLowerCase(),
-  source: sourceEnum.default("direct"),
-});
 
 const emailSchema = z.object({
   email: z.email("Please enter a valid email address.").trim().toLowerCase(),
@@ -34,81 +27,16 @@ async function clientIp(): Promise<string> {
   return forwarded?.split(",")[0]?.trim() || h.get("x-real-ip") || "unknown";
 }
 
-export async function joinWaitlist(input: {
-  email: string;
-  source?: string;
-  /** Honeypot — a hidden field real visitors never see or fill. A filled
-   * value means something crawled and submitted every field it could find. */
-  website?: string;
-}): Promise<ActionResult> {
-  // Report success to a bot exactly like a real signup — telling it "no"
-  // only teaches it to retry with a different shape.
-  if (input.website) {
-    return { success: true };
-  }
-
-  const ip = await clientIp();
-  if (isRateLimited(`waitlist:${ip}`, { max: 5, windowMs: 10 * 60 * 1000 })) {
-    return {
-      success: false,
-      error: "Too many attempts. Please try again in a few minutes.",
-    };
-  }
-
-  // An unrecognized source (e.g. a stray ?ref= value) falls back to
-  // "direct" instead of failing the whole submission over a marketing tag.
-  const source = sourceEnum.safeParse(input.source).data ?? "direct";
-  const parsed = waitlistSchema.safeParse({ email: input.email, source });
-
-  if (!parsed.success) {
-    return {
-      success: false,
-      error: parsed.error.issues[0]?.message ?? "Invalid input.",
-    };
-  }
-
-  try {
-    await db.insert(waitlistEmails).values(parsed.data);
-    return { success: true };
-  } catch (error) {
-    if (!isUniqueViolation(error)) {
-      logError("joinWaitlist", error);
-      return {
-        success: false,
-        error: "Something went wrong. Please try again.",
-      };
-    }
-
-    // A row for this email already exists. If they'd previously
-    // unsubscribed, signing up again should welcome them back rather than
-    // report a confusing "already on the list" for someone who isn't.
-    const [existing] = await db
-      .select({ unsubscribedAt: waitlistEmails.unsubscribedAt })
-      .from(waitlistEmails)
-      .where(eq(waitlistEmails.email, parsed.data.email))
-      .limit(1);
-
-    if (existing?.unsubscribedAt) {
-      await db
-        .update(waitlistEmails)
-        .set({ unsubscribedAt: null, source: parsed.data.source })
-        .where(eq(waitlistEmails.email, parsed.data.email));
-      return { success: true };
-    }
-
-    return { success: false, error: "You're already on the waitlist!" };
-  }
-}
-
 /** Agency waitlist from the pricing card. Upserts on email: a new visitor
  * gets a row, an existing signup keeps its source and is flagged as
  * interested. Rejoining here also clears a past unsubscribe, since they've
  * just asked to hear from us again. */
 export async function joinAgencyWaitlist(input: {
   email: string;
-  /** Honeypot, as in joinWaitlist. */
+  /** Honeypot: a hidden field only bots fill. */
   website?: string;
 }): Promise<ActionResult> {
+  // Same answer as a real signup, so a bot learns nothing.
   if (input.website) {
     return { success: true };
   }
@@ -178,23 +106,5 @@ export async function unsubscribeFromWaitlist(input: {
       success: false,
       error: "Something went wrong. Please try again.",
     };
-  }
-}
-
-/** Real, currently-subscribed signup count for the landing page's
- * social-proof line — never a made-up number, and never counts someone who
- * unsubscribed. Returns null when the read fails: the page must still render,
- * but a failed read must not show up as "0 people" (that's what had the page
- * saying "Be one of the first" while signups existed). */
-export async function getWaitlistCount(): Promise<number | null> {
-  try {
-    const [row] = await db
-      .select({ value: count() })
-      .from(waitlistEmails)
-      .where(isNull(waitlistEmails.unsubscribedAt));
-    return row?.value ?? 0;
-  } catch (error) {
-    logError("getWaitlistCount", error);
-    return null;
   }
 }

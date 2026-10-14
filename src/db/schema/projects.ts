@@ -20,6 +20,18 @@ export const projectStatusEnum = pgEnum("project_status_enum", [
   "completed",
 ]);
 
+/** fixed: budget is the agreed price. hourly: budget is an optional estimate (0 = none). */
+export const projectPricingEnum = pgEnum("project_pricing", [
+  "fixed",
+  "hourly",
+]);
+
+/** per_milestone: invoice each stage when done. end: one invoice when the work is finished. */
+export const projectBillingEnum = pgEnum("project_billing", [
+  "per_milestone",
+  "end",
+]);
+
 export const projects = pgTable(
   "projects",
   {
@@ -62,6 +74,12 @@ export const projects = pgTable(
       .notNull()
       .defaultNow(),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    // Last, matching where ALTER TABLE added it (project create inserts in this order).
+    pricing: projectPricingEnum("pricing").notNull().default("fixed"),
+    startDate: date("start_date"),
+    billing: projectBillingEnum("billing").notNull().default("per_milestone"),
+    // Set when the project is marked Completed ("Delivered Jun 12").
+    completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (table) => [
     index("idx_projects_user_id").on(table.userId),

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   escapeHtml,
+  grantInviteEmail,
   invoiceEmail,
   proposalEmail,
   reminderEmail,
@@ -60,6 +61,17 @@ describe("email templates", () => {
     });
     expect(unsafe.html).not.toContain("<img");
     expect(invoiceEmail(base).html).not.toContain("<img");
+  });
+
+  it("tells a granted user which email to sign up with", () => {
+    const url = "https://clentric.app/register?email=sam%40x.com";
+    const forever = grantInviteEmail({ email: "sam@x.com", registerUrl: url, until: null });
+    expect(forever.html).toContain(`href="${url}"`);
+    expect(forever.text).toContain("Sign up with sam@x.com");
+    expect(forever.text).toContain("Until: No end date");
+
+    const dated = grantInviteEmail({ email: "sam@x.com", registerUrl: url, until: "Jan 14, 2027" });
+    expect(dated.text).toContain("for free until Jan 14, 2027");
   });
 
   it("escapes quotes for attributes", () => {

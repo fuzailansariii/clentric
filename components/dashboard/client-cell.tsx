@@ -16,7 +16,7 @@ export function ClientCell({
         className,
       )}
     >
-      <AvatarInitials name={name} size="xs" shape="circle" />
+      <AvatarInitials name={name} size="xs" shape="square" />
       <span className="line-clamp-2 break-words">{name}</span>
     </span>
   );

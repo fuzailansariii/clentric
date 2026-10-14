@@ -29,12 +29,21 @@ const sizeStyles: Record<Size, string> = {
   lg: "h-12 px-6 text-base",
 };
 
+/** The button look, for a Link that should read as a button. */
+export function customButtonClasses(
+  variant: Variant = "primary",
+  size: Size = "md",
+  className = "",
+) {
+  return `inline-flex cursor-pointer items-center justify-center rounded-lg font-medium transition-colors focus-visible:ring-ring focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+}
+
 export const CustomButton = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ variant = "primary", size = "md", className = "", ...props }, ref) => {
     return (
       <button
         ref={ref}
-        className={`inline-flex cursor-pointer items-center justify-center rounded-lg font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
+        className={customButtonClasses(variant, size, className)}
         {...props}
       />
     );

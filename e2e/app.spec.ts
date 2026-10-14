@@ -53,7 +53,7 @@ test.describe.serial("freelancer workflow", () => {
     await page.goto("/clients/new");
     await page.getByLabel("Name").fill(clientName);
     await page.getByLabel("Email").fill(`client-${run}@example.com`);
-    await page.getByRole("button", { name: "Create client" }).click();
+    await page.getByRole("button", { name: "Save client" }).click();
 
     await expect(page).toHaveURL(/\/clients\/[0-9a-f-]{36}$/);
     clientId = idFrom(page, "clients");
@@ -63,15 +63,18 @@ test.describe.serial("freelancer workflow", () => {
   test("create and send a proposal", async ({ page }) => {
     await page.goto(`/proposals/new?clientId=${clientId}`);
     await page.getByLabel("Title").fill(proposalTitle);
-    await page.getByLabel("Description").first().fill("Design work");
-    await page.getByLabel("Rate").first().fill("500");
-    await page.getByRole("button", { name: "Create proposal" }).click();
+    await page.getByLabel("Line 1 description").fill("Design work");
+    await page.getByLabel("Line 1 rate").fill("500");
+    await page.getByRole("button", { name: "Save draft" }).first().click();
 
     await expect(page).toHaveURL(/\/proposals\/[0-9a-f-]{36}$/);
     proposalId = idFrom(page, "proposals");
 
-    await page.getByRole("button", { name: "Send proposal" }).click();
-    await expect(page.getByText("Sent").first()).toBeVisible();
+    await page.getByRole("button", { name: "Send proposal" }).first().click();
+    // Only a live proposal offers its link.
+    await expect(
+      page.getByRole("button", { name: "Copy client link" }).first(),
+    ).toBeVisible();
   });
 
   test("the client opens and accepts the proposal", async ({ browser }) => {
@@ -89,20 +92,20 @@ test.describe.serial("freelancer workflow", () => {
     await page
       .getByRole("button", { name: /Accept proposal|deposit to begin/ })
       .click();
-    await expect(page.getByText("Proposal accepted")).toBeVisible();
+    await expect(page.getByText("You accepted this proposal")).toBeVisible();
 
     await context.close();
   });
 
   test("create, send and get paid for an invoice", async ({ page }) => {
     await page.goto(`/invoices/new?clientId=${clientId}`);
-    await page.getByLabel("What are you billing for?").fill(invoiceItem);
+    await page.getByLabel("Description").fill(invoiceItem);
     await page.getByLabel("Amount").fill("1200");
     await page.getByRole("button", { name: "Create & Send" }).click();
 
     await expect(page).toHaveURL(/\/invoices\/[0-9a-f-]{36}$/);
     await page.getByRole("button", { name: "Mark as paid" }).first().click();
-    await expect(page.getByText(/Paid in full/i).first()).toBeVisible();
+    await expect(page.getByText("Total paid").first()).toBeVisible();
   });
 
   test("the dashboard reflects all of it", async ({ page }) => {

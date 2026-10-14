@@ -1,19 +1,47 @@
+"use client";
+
 import Link from "next/link";
-import { FileSignature } from "lucide-react";
-import DashboardContainer from "@/components/dashboard/container";
+import { useRouter } from "next/navigation";
+import { useState, useTransition, type ReactNode } from "react";
+import { CopyIcon, ExternalLinkIcon } from "lucide-react";
+import { toast } from "sonner";
+
 import PageHeader from "@/components/dashboard/page-header";
-import { StatusBadge } from "@/components/ui/status-badge";
 import {
-  formatCurrency,
-  formatNumber,
-  formatPercent,
-} from "@/lib/format-currency";
-import { formatDate } from "@/lib/format-date";
-import { cn } from "@/lib/utils";
-import { proposalStatusConfig } from "../proposal-status-config";
-import type { ProposalDetail } from "../queries";
-import { ProposalActions } from "./proposal-actions";
+  DetailCard,
+  Timeline,
+  type TimelineItem,
+} from "@/components/dashboard/detail-parts";
+import { BrandLogo } from "@/components/brand-logo";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { DeleteDialog } from "@/components/delete-dialog";
+import { AvatarInitials } from "@/components/ui/avatar-initials";
+import {
+  CustomButton,
+  customButtonClasses,
+} from "@/components/ui/custom-button";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { useWithinWindow } from "@/hooks/use-within-window";
+import { resolveBrandColor } from "@/lib/brand-color";
 import type { EmailStatus } from "@/lib/email/quota";
+import { EMAIL_LIMITS } from "@/lib/email/quota-rules";
+import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
+import { formatCurrency, formatPercent } from "@/lib/format-currency";
+import { formatDate } from "@/lib/format-date";
+import { formatShortDate } from "@/lib/format-due";
+import { formatIssuer } from "@/lib/format-issuer";
+import { runActionWithToast } from "@/lib/run-action-with-toast";
+import { cn } from "@/lib/utils";
+import {
+  createProjectFromProposalAction,
+  deleteProposalAction,
+  duplicateProposalAction,
+  emailProposalAction,
+  revokeProposalAction,
+  sendProposalAction,
+} from "../actions";
+import { proposalActivity, proposalStateConfig } from "../proposal-state";
+import type { ProposalDetail } from "../queries";
 
 type ProposalDetailViewProps = {
   proposal: ProposalDetail;
@@ -23,290 +51,672 @@ type ProposalDetailViewProps = {
   emailStatus: EmailStatus | null;
 };
 
-/** One label/value row in the side panel. */
-function MetaRow({ label, value }: { label: string; value: React.ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-4 text-[13px]">
-      <dt className="text-muted-foreground shrink-0">{label}</dt>
-      <dd className="min-w-0 text-right font-medium">{value}</dd>
-    </div>
-  );
-}
+const labelClass =
+  "text-muted-foreground text-[11px] font-semibold tracking-[0.12em] uppercase";
+
+const qty = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export function ProposalDetailView({
   proposal,
   project,
   emailStatus,
 }: ProposalDetailViewProps) {
-  const config = proposalStatusConfig[proposal.status];
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [confirmRevoke, setConfirmRevoke] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
+  const state = proposal.state;
+  const config = proposalStateConfig[state];
+  const live = state === "sent" || state === "viewed" || state === "expiring";
+  const closed =
+    state === "declined" || state === "revoked" || state === "expired";
+  const proposalId = proposal.id;
   const currency = proposal.currency;
+  const money = (value: string | number) =>
+    formatCurrency(String(value), currency);
+  const brand = resolveBrandColor(proposal.brandColor);
+
   const taxRate = Number(proposal.taxRate);
   const depositPercent = Number(proposal.depositPercent);
   const depositAmount =
     Math.round(Number(proposal.total) * (depositPercent / 100) * 100) / 100;
+  const clientPath = `/p/${proposal.token}`;
+  const hasEmail = Boolean(proposal.client.email?.trim());
+  // True until the daily limit lifts; re-enables the button without a refresh.
+  const emailBlocked = useWithinWindow(emailStatus?.blocked?.until ?? null, 0);
+  const emailReason = !hasEmail
+    ? "Add an email address to this client first"
+    : emailBlocked && emailStatus?.blocked
+      ? emailStatus.blocked.reason
+      : null;
 
-  // Items carry their milestone id, so grouping happens here rather than in
-  // a second query. Anything without a milestone (written before stages
-  // existed) falls into a trailing unnamed group instead of vanishing.
-  const grouped = proposal.milestones.map((milestone) => ({
-    id: milestone.id,
-    name: milestone.name,
-    items: proposal.items.filter((item) => item.milestoneId === milestone.id),
-  }));
-
-  const ungrouped = proposal.items.filter((item) => !item.milestoneId);
-  const sections =
-    ungrouped.length > 0
+  // Stages carry their lines; lines without a stage (older proposals) come last, unnamed.
+  const stages = [
+    ...proposal.milestones.map((stage) => ({
+      ...stage,
+      items: proposal.items.filter((item) => item.milestoneId === stage.id),
+    })),
+    ...(proposal.items.some((item) => !item.milestoneId)
       ? [
-          ...grouped,
           {
             id: "ungrouped",
             name: null,
-            items: ungrouped,
+            description: null,
+            timeframe: null,
+            items: proposal.items.filter((item) => !item.milestoneId),
           },
         ]
-      : grouped;
+      : []),
+  ].filter((stage) => stage.items.length > 0 || stage.name);
+
+  // ── Actions ──────────────────────────────────────────────────────────
+  const send = () =>
+    startTransition(async () => {
+      await runActionWithToast(sendProposalAction({ proposalId }), {
+        loading: "Sending proposal...",
+        success: ({ emailError }) =>
+          emailError
+            ? "Proposal sent - the link is live"
+            : `Proposal emailed to ${proposal.client.email}`,
+        onSuccess: ({ emailError }) => {
+          warnNotEmailed(emailError, "proposal");
+          router.refresh();
+        },
+      });
+    });
+
+  const emailAgain = () =>
+    startTransition(async () => {
+      await runActionWithToast(emailProposalAction({ proposalId }), {
+        loading: "Emailing the link...",
+        success: `Link emailed again to ${proposal.client.email}`,
+        onSuccess: () => router.refresh(),
+      });
+    });
+
+  const copyLink = async () => {
+    const url = `${window.location.origin}${clientPath}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success("Client link copied");
+    } catch {
+      // Clipboard needs a secure context and permission; show the URL instead.
+      toast.error("Could not copy automatically", { description: url });
+    }
+  };
+
+  const duplicate = () =>
+    startTransition(async () => {
+      await runActionWithToast(duplicateProposalAction({ proposalId }), {
+        loading: "Duplicating...",
+        success: "Draft copy created",
+        onSuccess: ({ proposalId: copyId }) =>
+          router.push(`/proposals/${copyId}`),
+      });
+    });
+
+  const startProject = () =>
+    startTransition(async () => {
+      await runActionWithToast(
+        createProjectFromProposalAction({ proposalId }),
+        {
+          loading: "Starting project...",
+          success: "Project started from the proposal",
+          onSuccess: ({ projectId }) => router.push(`/projects/${projectId}`),
+        },
+      );
+    });
+
+  const button = (
+    key: string,
+    label: string,
+    onClick: () => void,
+    variant: "primary" | "secondary" | "ghost" = "secondary",
+    disabledReason?: string | null,
+  ) => (
+    <CustomButton
+      key={key}
+      type="button"
+      variant={variant}
+      size="sm"
+      onClick={onClick}
+      disabled={isPending || Boolean(disabledReason)}
+      title={disabledReason ?? undefined}
+      className={cn(
+        key === "delete" && "text-danger-600 hover:text-danger-600",
+      )}
+    >
+      {label}
+    </CustomButton>
+  );
+  const deleteButton = button(
+    "delete",
+    "Delete",
+    () => setConfirmDelete(true),
+    "ghost",
+  );
+  const projectButton = project ? (
+    <Link
+      key="project"
+      href={`/projects/${project.id}`}
+      className={customButtonClasses("primary", "sm")}
+    >
+      View project
+    </Link>
+  ) : (
+    button("start", "Start project", startProject, "primary")
+  );
+
+  let actions: ReactNode[];
+  if (state === "draft") {
+    actions = [
+      <Link
+        key="edit"
+        href={`/proposals/${proposalId}/edit`}
+        className={customButtonClasses("secondary", "sm")}
+      >
+        Edit
+      </Link>,
+      button("dup", "Duplicate", duplicate),
+      deleteButton,
+      button(
+        "send",
+        "Send proposal",
+        send,
+        "primary",
+        hasEmail ? null : emailReason,
+      ),
+    ];
+  } else if (live) {
+    actions = [
+      button("copy", "Copy client link", copyLink),
+      button("revoke", "Revoke link", () => setConfirmRevoke(true)),
+      button("dup", "Duplicate", duplicate),
+      deleteButton,
+      button("email", "Email link again", emailAgain, "primary", emailReason),
+    ];
+  } else if (state === "accepted") {
+    actions = [
+      button("dup", "Duplicate", duplicate),
+      deleteButton,
+      projectButton,
+    ];
+  } else {
+    actions = [deleteButton, button("dup", "Duplicate", duplicate, "primary")];
+  }
+
+  // ── Rail content ─────────────────────────────────────────────────────
+  const timeline: TimelineItem[] = [
+    { title: "Created", detail: formatDate(proposal.createdAt) },
+  ];
+  if (proposal.sentAt) {
+    timeline.push({
+      title: `Link emailed to ${proposal.client.email || "your client"}`,
+      detail: formatDate(proposal.sentAt),
+      tone: "info",
+    });
+  }
+  if (proposal.viewedAt) {
+    timeline.push({
+      title: `First viewed by ${proposal.client.name}`,
+      detail: formatDate(proposal.viewedAt),
+      tone: "warning",
+    });
+  }
+  if (proposal.acceptedAt) {
+    timeline.push({
+      title: "Accepted",
+      detail: formatDate(proposal.acceptedAt),
+      tone: "success",
+    });
+  }
+  if (project) {
+    timeline.push({
+      title: "Project created",
+      detail: "From this proposal",
+      tone: "info",
+    });
+  }
+  if (proposal.rejectedAt) {
+    timeline.push({
+      title: "Declined",
+      detail: formatDate(proposal.rejectedAt),
+      tone: "danger",
+    });
+  }
+  if (proposal.revokedAt) {
+    timeline.push({
+      title: "You revoked the link",
+      detail: formatDate(proposal.revokedAt),
+    });
+  }
+  if (state === "expired" && proposal.expiresAt) {
+    timeline.push({
+      title: "Link expired",
+      detail: formatDate(proposal.expiresAt),
+    });
+  }
+  if (state === "draft") {
+    timeline.push({
+      title: "Not sent yet",
+      detail: "A client link is created when you send",
+      upcoming: true,
+    });
+  }
+  if (live) {
+    timeline.push({
+      title: "Waiting on a reply",
+      detail: proposal.expiresAt
+        ? `Link open until ${formatShortDate(proposal.expiresAt)}`
+        : "Link never expires",
+      upcoming: true,
+    });
+  }
+
+  const issuer = proposal.issuer
+    ? formatIssuer(proposal.issuer)
+    : { title: "You", lines: [] };
+
+  const linkBox = (
+    <div className="bg-muted/40 flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 font-mono text-xs">
+      <span className="min-w-0 flex-1 truncate">clentric.app{clientPath}</span>
+    </div>
+  );
 
   return (
     <>
       <PageHeader
         title={proposal.title}
-        backHref="/proposals"
-        icon={<FileSignature className="h-5 w-5" />}
         badge={
-          <StatusBadge
-            status={config.variant}
-            variant="soft"
-            className={config.dim ? "opacity-60" : undefined}
-          >
+          <StatusBadge status={config.tone} variant="soft">
             {config.label}
           </StatusBadge>
         }
+        subtitle={`${proposal.client.name} · ${proposal.sentAt ? `Sent ${formatShortDate(proposal.sentAt)}` : state === "draft" ? "Not sent" : "Sent"}`}
+        backHref="/proposals"
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Proposals", href: "/proposals" },
           { label: proposal.title },
         ]}
+        actions={<>{actions}</>}
       />
 
-      <DashboardContainer>
-        {/* Container queries rather than viewport ones - the sidebar takes
-            real width, so the viewport is not what decides whether two
-            columns fit here. */}
-        <div className="@container pb-12">
-          <div className="grid items-start gap-8 @[900px]:grid-cols-[minmax(0,1fr)_320px]">
-            {/* The document, as the client would read it. */}
-            <article className="bg-card overflow-hidden rounded-xl border shadow-sm">
-              <div className="border-border bg-muted/40 border-b px-6 py-6 sm:px-8">
-                <p className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.2em] uppercase">
-                  Proposal
-                </p>
-                <h2 className="font-space mt-2 text-xl leading-snug font-semibold tracking-tight text-balance sm:text-2xl">
-                  {proposal.title}
-                </h2>
-                <p className="text-muted-foreground mt-3 text-sm">
-                  Prepared for{" "}
-                  <Link
-                    href={`/clients/${proposal.client.id}`}
-                    className="text-foreground font-medium underline-offset-4 hover:underline"
-                  >
-                    {proposal.client.company ?? proposal.client.name}
-                  </Link>
-                </p>
-              </div>
+      <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
+        <div className="flex flex-col gap-4">
+          {state === "accepted" && (
+            <div className="bg-success-600/12 text-success-600 flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3.5 text-[13.5px]">
+              <span>
+                Accepted by {proposal.client.name}
+                {proposal.acceptedAt &&
+                  ` on ${formatShortDate(proposal.acceptedAt)}`}
+                .{project ? " The project is set up." : " No project yet."}
+              </span>
+              {project ? (
+                <Link
+                  href={`/projects/${project.id}`}
+                  className={customButtonClasses("secondary", "sm")}
+                >
+                  View project
+                </Link>
+              ) : (
+                button("start-banner", "Start project", startProject)
+              )}
+            </div>
+          )}
+          {state === "declined" && (
+            <div className="bg-danger-600/12 text-danger-600 rounded-lg px-4 py-3.5 text-[13.5px]">
+              <p className="font-semibold">
+                Declined
+                {proposal.rejectedAt &&
+                  ` ${formatShortDate(proposal.rejectedAt)}`}
+                .
+              </p>
+              <p className="mt-1">
+                &ldquo;{proposal.declineReason || "No reason given"}&rdquo;
+              </p>
+            </div>
+          )}
 
-              {proposal.content?.trim() && (
-                <div className="border-border border-b px-6 py-6 sm:px-8">
-                  <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">
-                    {proposal.content}
+          <div className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]">
+            {/* ── The document, as the client sees it ───────────────── */}
+            <article
+              aria-label="Proposal"
+              className="bg-card order-2 min-w-0 overflow-hidden rounded-lg border shadow-xs @[1000px]:order-none"
+            >
+              <div className="h-1" style={{ background: brand }} />
+              <div className="flex flex-col gap-6 p-5 @[560px]:p-8">
+                <div className="flex min-w-0 items-center gap-3">
+                  {proposal.logoSrc ? (
+                    <BrandLogo
+                      src={proposal.logoSrc}
+                      name={issuer.title}
+                      className="h-10"
+                    />
+                  ) : (
+                    <AvatarInitials
+                      name={issuer.title}
+                      shape="square"
+                      variant="accent"
+                      className="shrink-0"
+                    />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-[15px] font-semibold wrap-anywhere">
+                      {issuer.title}
+                    </p>
+                    {issuer.lines.length > 0 && (
+                      <p className="text-muted-foreground text-[12.5px] wrap-anywhere">
+                        {issuer.lines.slice(0, 2).join(" · ")}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <p
+                    className="text-[11px] font-semibold tracking-[0.12em] uppercase"
+                    style={{ color: brand }}
+                  >
+                    Proposal
+                  </p>
+                  <h2 className="font-space mt-1.5 text-[22px] leading-tight font-semibold tracking-tight text-balance @[560px]:text-[30px]">
+                    {proposal.title}
+                  </h2>
+                  <p className="text-muted-foreground mt-2 text-sm">
+                    Prepared for{" "}
+                    {proposal.client.company || proposal.client.name} ·{" "}
+                    {formatDate(proposal.createdAt)}
                   </p>
                 </div>
-              )}
 
-              <div className="px-6 py-6 sm:px-8">
-                <div className="flex flex-col gap-7">
-                  {sections.map((section) => {
-                    const stageSubtotal = section.items.reduce(
-                      (sum, item) => sum + Number(item.amount),
-                      0,
-                    );
+                {proposal.content?.trim() && (
+                  <div>
+                    <p className={labelClass}>Summary</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-pretty whitespace-pre-line">
+                      {proposal.content}
+                    </p>
+                  </div>
+                )}
 
-                    return (
-                      <section key={section.id}>
-                        {section.name && (
+                {stages.map((stage) => {
+                  const subtotal = stage.items.reduce(
+                    (sum, item) => sum + Number(item.amount),
+                    0,
+                  );
+                  return (
+                    <section key={stage.id}>
+                      {stage.name && (
+                        <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
                           <h3 className="font-space text-base font-semibold">
-                            {section.name}
+                            {stage.name}
                           </h3>
-                        )}
-
-                        {/* No table here on purpose: at phone width a
-                            four-column table either scrolls sideways or
-                            crushes the description. Each line is its own row
-                            that wraps naturally, amount always right. */}
-                        <ul
-                          className={cn(
-                            "flex flex-col",
-                            section.name && "mt-3",
+                          {stage.timeframe && (
+                            <span className="text-muted-foreground text-[13px]">
+                              {stage.timeframe}
+                            </span>
                           )}
-                        >
-                          {section.items.map((item) => (
-                            <li
-                              key={item.id}
-                              className="border-border flex items-baseline justify-between gap-4 border-b py-3 text-sm last:border-b-0"
+                        </div>
+                      )}
+                      {stage.description && (
+                        <p className="text-muted-foreground mb-2 text-[13.5px] text-pretty whitespace-pre-line">
+                          {stage.description}
+                        </p>
+                      )}
+                      <table className="w-full table-fixed border-collapse text-sm">
+                        <thead>
+                          <tr className="border-b">
+                            <th className={cn(labelClass, "py-2 text-left")}>
+                              Description
+                            </th>
+                            <th
+                              className={cn(
+                                labelClass,
+                                "hidden w-16 py-2 text-right @[560px]:table-cell",
+                              )}
                             >
-                              <span className="min-w-0">
-                                <span className="block">
-                                  {item.description}
+                              Qty
+                            </th>
+                            <th
+                              className={cn(
+                                labelClass,
+                                "hidden w-26 py-2 text-right @[560px]:table-cell",
+                              )}
+                            >
+                              Rate
+                            </th>
+                            <th
+                              className={cn(labelClass, "w-26 py-2 text-right")}
+                            >
+                              Amount
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stage.items.map((item) => (
+                            <tr key={item.id} className="border-b">
+                              <td className="py-2.5 pr-3 align-top wrap-anywhere">
+                                {item.description}
+                                <span className="text-muted-foreground block text-xs @[560px]:hidden">
+                                  {qty.format(Number(item.quantity))} ×{" "}
+                                  {money(item.rate)}
                                 </span>
-                                <span className="text-muted-foreground text-xs tabular-nums">
-                                  {formatNumber(Number(item.quantity))} ×{" "}
-                                  {formatCurrency(item.rate, currency)}
-                                </span>
-                              </span>
-                              <span className="shrink-0 font-medium tabular-nums">
-                                {formatCurrency(item.amount, currency)}
-                              </span>
-                            </li>
+                              </td>
+                              <td className="font-space hidden py-2.5 text-right align-top tabular-nums @[560px]:table-cell">
+                                {qty.format(Number(item.quantity))}
+                              </td>
+                              <td className="font-space hidden py-2.5 text-right align-top tabular-nums @[560px]:table-cell">
+                                {money(item.rate)}
+                              </td>
+                              <td className="font-space py-2.5 text-right align-top font-medium tabular-nums">
+                                {money(item.amount)}
+                              </td>
+                            </tr>
                           ))}
-                        </ul>
+                          {stage.name && (
+                            <tr>
+                              <td
+                                colSpan={4}
+                                className="text-muted-foreground pt-2 text-right text-[13px]"
+                              >
+                                Stage subtotal{" "}
+                                <span className="font-space text-foreground font-medium tabular-nums">
+                                  {money(subtotal)}
+                                </span>
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </section>
+                  );
+                })}
 
-                        {section.items.length > 0 && (
-                          <p className="text-muted-foreground mt-2 text-right text-xs tabular-nums">
-                            Stage subtotal{" "}
-                            {formatCurrency(String(stageSubtotal), currency)}
-                          </p>
-                        )}
-                      </section>
-                    );
-                  })}
-                </div>
-
-                <dl className="mt-5 ml-auto flex max-w-xs flex-col gap-1.5 text-sm">
-                  <div className="text-muted-foreground flex justify-between">
-                    <dt>Subtotal</dt>
-                    <dd className="tabular-nums">
-                      {formatCurrency(proposal.subtotal, currency)}
+                <dl className="ml-auto w-full max-w-80 text-[13.5px]">
+                  <div className="flex justify-between gap-6 py-1">
+                    <dt className="text-muted-foreground">Subtotal</dt>
+                    <dd className="font-space tabular-nums">
+                      {money(proposal.subtotal)}
                     </dd>
                   </div>
-                  <div className="text-muted-foreground flex justify-between">
-                    <dt>
-                      Tax{taxRate > 0 ? ` (${formatPercent(taxRate)}%)` : ""}
-                    </dt>
-                    <dd className="tabular-nums">
-                      {formatCurrency(proposal.tax, currency)}
-                    </dd>
-                  </div>
-                  <div className="border-border mt-1.5 flex items-baseline justify-between border-t pt-2.5">
-                    <dt className="font-space font-semibold">Total</dt>
-                    <dd className="font-space text-lg font-semibold tabular-nums">
-                      {formatCurrency(proposal.total, currency)}
+                  {taxRate > 0 && (
+                    <div className="flex justify-between gap-6 py-1">
+                      <dt className="text-muted-foreground">
+                        Tax ({formatPercent(taxRate)}%)
+                      </dt>
+                      <dd className="font-space tabular-nums">
+                        {money(proposal.tax)}
+                      </dd>
+                    </div>
+                  )}
+                  <div className="mt-1.5 flex items-baseline justify-between gap-6 border-t pt-2.5 font-semibold">
+                    <dt>Total</dt>
+                    <dd className="font-space text-xl font-medium tabular-nums">
+                      {money(proposal.total)}
                     </dd>
                   </div>
                   {depositPercent > 0 && (
-                    <div className="text-muted-foreground mt-2 flex justify-between text-[13px]">
+                    <div
+                      className="flex justify-between gap-6 pt-2 font-medium"
+                      style={{ color: brand }}
+                    >
                       <dt>
                         Deposit to begin ({formatPercent(depositPercent)}%)
                       </dt>
-                      <dd className="tabular-nums">
-                        {formatCurrency(String(depositAmount), currency)}
+                      <dd className="font-space tabular-nums">
+                        {money(depositAmount)}
                       </dd>
                     </div>
                   )}
                   {proposal.deliveryDays ? (
-                    <div className="text-muted-foreground mt-2 flex justify-between text-[13px]">
-                      <dt>Delivery</dt>
-                      <dd>
-                        {proposal.deliveryDays}{" "}
-                        {proposal.deliveryDays === 1 ? "day" : "days"} after
-                        work starts
-                      </dd>
+                    <div className="text-muted-foreground flex justify-between gap-6 pt-1">
+                      <dt>Delivery time</dt>
+                      <dd>{plural(proposal.deliveryDays, "day")}</dd>
                     </div>
                   ) : null}
                 </dl>
               </div>
             </article>
 
-            <aside className="flex flex-col gap-4 self-start @[900px]:sticky @[900px]:top-6">
-              <div className="bg-card flex flex-col gap-4 rounded-xl border p-5 shadow-sm">
-                <ProposalActions
-                  proposalId={proposal.id}
-                  token={proposal.token}
-                  status={proposal.status}
-                  project={project}
-                  clientHasEmail={Boolean(proposal.client.email?.trim())}
-                  emailStatus={emailStatus}
-                />
-
-                <dl className="border-border flex flex-col gap-2.5 border-t pt-4">
-                  <MetaRow label="Client" value={proposal.client.name} />
-                  <MetaRow
-                    label="Created"
-                    value={formatDate(proposal.createdAt)}
-                  />
-                  <MetaRow
-                    label="Expires"
-                    value={
-                      !proposal.expiresAt
-                        ? "Never"
-                        : proposal.status === "draft"
-                          ? // A draft's date isn't real yet: sending re-bases
-                            // the window from the moment it goes out.
-                            `${Math.round(
-                              (proposal.expiresAt.getTime() -
-                                proposal.createdAt.getTime()) /
-                                86_400_000,
-                            )} days after sending`
-                          : formatDate(proposal.expiresAt)
-                    }
-                  />
-                  {proposal.viewedAt && (
-                    <MetaRow
-                      label="First viewed"
-                      value={formatDate(proposal.viewedAt)}
-                    />
-                  )}
-                  {proposal.acceptedAt && (
-                    <MetaRow
-                      label="Accepted"
-                      value={formatDate(proposal.acceptedAt)}
-                    />
-                  )}
-                  {proposal.rejectedAt && (
-                    <MetaRow
-                      label="Declined"
-                      value={formatDate(proposal.rejectedAt)}
-                    />
-                  )}
-                  {proposal.declineReason && (
-                    <div className="border-border mt-1 border-t pt-2.5">
-                      <p className="text-muted-foreground text-xs">
-                        Reason given
-                      </p>
-                      <p className="mt-1 text-[13px] whitespace-pre-line">
-                        {proposal.declineReason}
-                      </p>
-                    </div>
-                  )}
-                  {proposal.revokedAt && (
-                    <MetaRow
-                      label="Revoked"
-                      value={formatDate(proposal.revokedAt)}
-                    />
-                  )}
-                </dl>
-              </div>
-
-              {proposal.status === "draft" && (
-                <p className="text-muted-foreground px-1 text-xs leading-relaxed">
-                  This proposal is a draft. Its link stays closed until you send
-                  it.
+            {/* ── The rail (first on narrow screens) ─────────────────── */}
+            <aside className="order-1 flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4 @[1000px]:order-none">
+              <DetailCard>
+                <p className="text-muted-foreground text-[12.5px]">Value</p>
+                <p className="font-space mt-0.5 text-[32px] leading-tight font-medium tracking-tight tabular-nums">
+                  {money(proposal.total)}
                 </p>
-              )}
+                <p className="text-muted-foreground mt-1 text-[13px]">
+                  {/* No day counts here (they'd read the clock in render): dates only. */}
+                  {proposalActivity(state, {
+                    ...proposal,
+                    daysSinceUpdate: Number.POSITIVE_INFINITY,
+                    daysSinceViewed: Number.POSITIVE_INFINITY,
+                  })}
+                </p>
+              </DetailCard>
+
+              <DetailCard title="Client link">
+                {state === "draft" ? (
+                  <p className="text-muted-foreground text-[13.5px]">
+                    A private link is created when you send this proposal.
+                  </p>
+                ) : closed ? (
+                  <p className="text-muted-foreground text-[13.5px]">
+                    {state === "declined"
+                      ? "Declined, so the link is closed. Duplicate it to send a new version."
+                      : state === "revoked"
+                        ? "You revoked this link, so it no longer opens."
+                        : "This link expired before your client replied."}
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    {linkBox}
+                    <div className="flex flex-wrap gap-2">
+                      <CustomButton
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={copyLink}
+                        className="gap-1.5"
+                      >
+                        <CopyIcon className="size-3.5" />
+                        Copy client link
+                      </CustomButton>
+                      <a
+                        href={clientPath}
+                        target="_blank"
+                        rel="noreferrer"
+                        className={customButtonClasses(
+                          "ghost",
+                          "sm",
+                          "gap-1.5",
+                        )}
+                      >
+                        <ExternalLinkIcon className="size-3.5" />
+                        Open client page
+                      </a>
+                    </div>
+                    {live && (
+                      <>
+                        <CustomButton
+                          type="button"
+                          onClick={emailAgain}
+                          disabled={isPending || Boolean(emailReason)}
+                          className="mt-1 w-full"
+                        >
+                          Email link again
+                        </CustomButton>
+                        <p className="text-muted-foreground text-center text-xs">
+                          {emailReason ??
+                            `${emailStatus?.remaining ?? 0} of ${EMAIL_LIMITS.perDocumentPerDay} emails left today`}
+                        </p>
+                      </>
+                    )}
+                    <p
+                      className={cn(
+                        "text-[12.5px]",
+                        state === "expiring"
+                          ? "text-warning-600"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {state === "accepted"
+                        ? "Your client can still open it to see what they agreed."
+                        : proposal.expiresAt
+                          ? `Link expires ${formatDate(proposal.expiresAt)}. Extending a link is coming later.`
+                          : "This link never expires."}
+                    </p>
+                  </div>
+                )}
+              </DetailCard>
+
+              <DetailCard title="Activity">
+                <Timeline items={timeline} />
+              </DetailCard>
             </aside>
           </div>
         </div>
-      </DashboardContainer>
+      </div>
+
+      <ConfirmDialog
+        open={confirmRevoke}
+        onOpenChange={setConfirmRevoke}
+        title="Revoke the client link?"
+        description="Your client won't be able to open or accept this proposal any more."
+        confirmLabel="Revoke link"
+        pendingLabel="Revoking..."
+        variant="destructive"
+        onConfirm={async () => {
+          await runActionWithToast(revokeProposalAction({ proposalId }), {
+            loading: "Revoking link...",
+            success: "Link revoked",
+            onSuccess: () => router.refresh(),
+          });
+        }}
+      />
+
+      <DeleteDialog
+        open={confirmDelete}
+        onOpenChange={setConfirmDelete}
+        title={`Delete "${proposal.title}"?`}
+        description={
+          state === "accepted"
+            ? "This removes your record of what was agreed. A project created from it is kept."
+            : "The proposal and its client link are removed for good."
+        }
+        onDelete={async () => {
+          await runActionWithToast(deleteProposalAction({ proposalId }), {
+            loading: "Deleting proposal...",
+            success: "Proposal deleted",
+            onSuccess: () => router.push("/proposals"),
+            onError: (error) => {
+              throw error;
+            },
+          });
+        }}
+      />
     </>
   );
 }

@@ -2,12 +2,11 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, FileSignature, Plus } from "lucide-react";
-import DashboardContainer from "@/components/dashboard/container";
+import { PlusIcon } from "lucide-react";
 import PageHeader from "@/components/dashboard/page-header";
-import FormSection from "@/components/dashboard/form-section";
+import { DetailCard } from "@/components/dashboard/detail-parts";
 import {
   ClientCombobox,
   type ClientOption,
@@ -15,13 +14,18 @@ import {
 import ProposalPreview from "@/components/preview/proposal-preview";
 import { Field } from "@/components/ui/input";
 import { CustomButton } from "@/components/ui/custom-button";
-import { FieldSelect } from "@/components/ui/field-select";
-import { cn } from "@/lib/utils";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { resolveBrandColor } from "@/lib/brand-color";
 import { calculateTotals } from "@/lib/calculate-totals";
-import { formatCurrency } from "@/lib/format-currency";
+import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
+import type { ActionResult } from "@/lib/action-result";
 import type { ReturnTo } from "@/lib/return-to";
-import { createProposalAction, updateProposalAction } from "./actions";
+import {
+  createProposalAction,
+  sendProposalAction,
+  updateProposalAction,
+} from "./actions";
 import ProposalMilestoneCard from "./proposal-milestone-card";
 import {
   createProposalSchema,
@@ -43,6 +47,8 @@ export type EditableProposal = {
   expiresInDays: number;
   milestones: {
     name: string;
+    timeframe?: string;
+    description?: string;
     items: { description: string; quantity: number; rate: number }[];
   }[];
 };
@@ -62,15 +68,27 @@ type ProposalBuilderProps = {
   defaults?: NewProposalDefaults;
   /** Set when opened from the dashboard's setup steps. */
   returnTo?: ReturnTo | null;
+  /** The freelancer's brand colour, for the preview. */
+  brandColor: string | null;
 };
 
-/**
- * The fixed expiry choices, plus the current value when it isn't one of
- * them - a default of 21 days from Settings still shows as selected.
- */
+const DEPOSITS = [
+  { value: "0", label: "None" },
+  { value: "30", label: "30%" },
+  { value: "50", label: "50%" },
+] as const;
+
+const BLANK_STAGE = {
+  name: "",
+  timeframe: "",
+  description: "",
+  items: [{ description: "", quantity: 1, rate: "" }],
+};
+
+/** The fixed expiry choices, plus a non-standard default from Settings. */
 function expiryOptionsWith(days: number) {
   return EXPIRY_OPTIONS.some((option) => option.value === String(days))
-    ? EXPIRY_OPTIONS
+    ? [...EXPIRY_OPTIONS]
     : [...EXPIRY_OPTIONS, { value: String(days), label: `${days} days` }].sort(
         (a, b) => Number(a.value) - Number(b.value),
       );
@@ -82,16 +100,17 @@ export default function ProposalBuilder({
   proposal,
   defaults,
   returnTo = null,
+  brandColor,
 }: ProposalBuilderProps) {
   const router = useRouter();
   const isEditing = Boolean(proposal);
-  // Tax, deposit and expiry have sensible defaults, so they start out of the
-  // way when creating. Opened by default when editing, where someone is
-  // likely to be there precisely to change one of them.
-  const [showOptions, setShowOptions] = useState(isEditing);
+  const startDeposit =
+    proposal?.depositPercent ?? defaults?.depositPercent ?? 0;
+  // A deposit other than None / 30 / 50 starts in the custom box.
+  const [customDeposit, setCustomDeposit] = useState(
+    ![0, 30, 50].includes(startDeposit),
+  );
 
-  // `any` for the context generic is the project convention for z.coerce
-  // schemas (CLAUDE.md: type useForm as useForm<Input, any, Output>()).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<ProposalFormInput, any, ProposalFormOutput>({
     resolver: zodResolver(createProposalSchema),
@@ -101,7 +120,7 @@ export default function ProposalBuilder({
           title: proposal.title,
           content: proposal.content,
           currency: "USD",
-          taxRate: proposal.taxRate,
+          taxRate: proposal.taxRate || "",
           depositPercent: proposal.depositPercent,
           // Blank, not "0", when no delivery time was given.
           deliveryDays: proposal.deliveryDays || "",
@@ -113,16 +132,11 @@ export default function ProposalBuilder({
           title: "",
           content: "",
           currency: "USD",
-          taxRate: 0,
-          depositPercent: defaults?.depositPercent ?? 0,
+          taxRate: "",
+          depositPercent: startDeposit,
           deliveryDays: "",
           expiresInDays: defaults?.expiresInDays ?? EXPIRY_DEFAULT_DAYS,
-          milestones: [
-            {
-              name: "",
-              items: [{ description: "", quantity: 1, rate: 0 }],
-            },
-          ],
+          milestones: [BLANK_STAGE],
         },
   });
 
@@ -130,55 +144,48 @@ export default function ProposalBuilder({
     control,
     register,
     handleSubmit,
+    setValue,
+    setError,
     formState: { errors, isSubmitting },
   } = form;
 
   const {
-    fields: milestoneFields,
-    append: appendMilestone,
-    remove: removeMilestone,
+    fields: stageFields,
+    append: appendStage,
+    remove: removeStage,
   } = useFieldArray({ control, name: "milestones" });
 
-  // Watched per field rather than useWatch({ control }): the whole-form form
-  // returns a deep partial, which loses the field types the preview and the
-  // line-item editor are typed against.
-  const watchedMilestones = useWatch({ control, name: "milestones" }) ?? [];
+  const watchedStages = useWatch({ control, name: "milestones" }) ?? [];
   const watchedTaxRate = useWatch({ control, name: "taxRate" });
   const watchedDeposit = useWatch({ control, name: "depositPercent" });
   const watchedDelivery = useWatch({ control, name: "deliveryDays" });
   const watchedTitle = useWatch({ control, name: "title" });
-  const watchedContent = useWatch({ control, name: "content" });
   const watchedClientId = useWatch({ control, name: "clientId" });
   const watchedExpiry = useWatch({ control, name: "expiresInDays" });
-  // Everything is USD for now; the column stays so adding a picker later
-  // is a UI change rather than a migration.
-  const watchedCurrency = "USD";
+  // Everything is USD for now.
+  const currency = "USD";
 
-  // Preview only. The figures that get stored are recomputed by the server
-  // action, which never trusts anything sent from here.
-  // Flattened across milestones: the totals are a property of the proposal,
-  // not of any one stage.
-  const flatItems = watchedMilestones.flatMap(
-    (milestone) => milestone?.items ?? [],
-  );
-  const { subtotal, taxRate, taxAmount, total } = calculateTotals(
-    flatItems,
+  // Preview only; the server action recomputes everything it stores.
+  const { taxRate, taxAmount, total } = calculateTotals(
+    watchedStages.flatMap((stage) => stage?.items ?? []),
     watchedTaxRate,
   );
   const depositPercent = Number(watchedDeposit ?? 0);
   const depositAmount = Math.round(total * (depositPercent / 100) * 100) / 100;
-
   const selectedClient = clients.find(
     (client) => client.id === watchedClientId,
   );
+  const cancelHref = proposal
+    ? `/proposals/${proposal.id}`
+    : (returnTo ?? "/proposals");
 
-  const onSubmit = handleSubmit(async (data) => {
+  const save = handleSubmit(async (data) => {
     if (proposal) {
       await runActionWithToast(
         updateProposalAction({ ...data, proposalId: proposal.id }),
         {
           loading: "Saving changes...",
-          success: "Proposal updated",
+          success: "Changes saved",
           onSuccess: () => router.push(`/proposals/${proposal.id}`),
         },
       );
@@ -186,272 +193,316 @@ export default function ProposalBuilder({
     }
 
     await runActionWithToast(createProposalAction(data), {
-      loading: "Creating proposal...",
-      success: "Proposal created",
+      loading: "Saving draft...",
+      success: "Draft saved",
       onSuccess: ({ proposalId }) =>
         router.push(returnTo ?? `/proposals/${proposalId}`),
+    });
+  });
+
+  const saveAndSend = handleSubmit(async (data) => {
+    // Checked only when sending: a draft may still be half-written.
+    const priced = data.milestones.some((stage) =>
+      stage.items.some((item) => item.rate > 0),
+    );
+    if (!priced) {
+      setError("milestones", { message: "Add at least one line with a rate" });
+      return;
+    }
+    if (selectedClient && selectedClient.hasEmail === false) {
+      setError("clientId", {
+        message: "This client has no email. Save as draft, or add one",
+      });
+      return;
+    }
+
+    const createAndSend = async (): Promise<
+      ActionResult<{ proposalId: string; emailError: string | null }>
+    > => {
+      const created = await createProposalAction(data);
+      if (!created.success) return created;
+      const sent = await sendProposalAction({
+        proposalId: created.data.proposalId,
+      });
+      if (!sent.success) return sent;
+      return {
+        success: true,
+        data: {
+          proposalId: created.data.proposalId,
+          emailError: sent.data.emailError,
+        },
+      };
+    };
+
+    await runActionWithToast(createAndSend(), {
+      loading: "Sending proposal...",
+      success: ({ emailError }) =>
+        emailError
+          ? "Proposal sent - the link is live"
+          : "Proposal emailed to your client",
+      onSuccess: ({ proposalId, emailError }) => {
+        warnNotEmailed(emailError, "proposal");
+        router.push(returnTo ?? `/proposals/${proposalId}`);
+      },
     });
   });
 
   return (
     <>
       <PageHeader
-        title={isEditing ? "Edit proposal" : "New proposal"}
+        title={proposal ? `Edit ${proposal.title}` : "New proposal"}
         subtitle={
-          isEditing
+          proposal
             ? "Changes apply to the draft only"
-            : "Build a quote to send to your client"
+            : "Scope, price and terms, sent to your client as a link"
         }
-        icon={<FileSignature className="h-5 w-5" />}
+        backHref={cancelHref}
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Proposals", href: "/proposals" },
-          { label: isEditing ? "Edit" : "New" },
+          ...(proposal
+            ? [
+                { label: proposal.title, href: `/proposals/${proposal.id}` },
+                { label: "Edit" },
+              ]
+            : [{ label: "New" }]),
         ]}
-      />
-
-      <DashboardContainer>
-        {/* Container queries, not viewport ones: the sidebar takes real width
-            when expanded, so a viewport breakpoint would split this column
-            while it is still too narrow for two. */}
-        <div className="@container pb-12">
-          <div className="grid items-start gap-8 @[900px]:grid-cols-[minmax(0,1fr)_380px]">
-            <form onSubmit={onSubmit} id="proposal-form">
-              <div className="bg-card overflow-hidden rounded-xl border shadow-sm">
-                <FormSection
-                  step="01 Proposal details"
-                  title="Who is this for?"
-                  description="Pick the client and give the proposal a title they will recognise."
-                >
-                  <div className="grid gap-5 @[560px]:grid-cols-2">
-                    <Controller
-                      control={control}
-                      name="clientId"
-                      render={({ field }) => (
-                        <ClientCombobox
-                          clients={clients}
-                          value={field.value}
-                          onChange={field.onChange}
-                          error={errors.clientId?.message}
-                        />
-                      )}
-                    />
-
-                    <Field
-                      {...register("title")}
-                      label="Title"
-                      placeholder="e.g. Website redesign - Phase 1"
-                      error={errors.title?.message}
-                    />
-
-                    <div className="@[560px]:col-span-2">
-                      <Field
-                        {...register("content")}
-                        multiline
-                        rows={6}
-                        label="Scope and notes (optional)"
-                        placeholder="What the work covers, timelines, assumptions..."
-                        error={errors.content?.message}
-                      />
-                    </div>
-                  </div>
-                </FormSection>
-
-                <div className="border-border border-t" />
-
-                <FormSection
-                  step="02 Pricing"
-                  title="What are you quoting?"
-                  description="Group the work into stages. Each milestone has its own line items."
-                >
-                  <div className="flex flex-col gap-3">
-                    {milestoneFields.map((field, index) => (
-                      <ProposalMilestoneCard
-                        key={field.id}
-                        index={index}
-                        control={control}
-                        register={register}
-                        errors={errors}
-                        currency={watchedCurrency}
-                        canRemove={milestoneFields.length > 1}
-                        onRemove={() => removeMilestone(index)}
-                      />
-                    ))}
-                  </div>
-
-                  {errors.milestones?.message && (
-                    <p className="text-danger-600 mt-2 text-xs">
-                      {errors.milestones.message}
-                    </p>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      appendMilestone({
-                        name: "",
-                        items: [{ description: "", quantity: 1, rate: 0 }],
-                      })
-                    }
-                    className="border-border text-foreground hover:bg-muted focus-visible:ring-ring mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed px-3 py-2.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none @[560px]:w-auto"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add milestone
-                  </button>
-
-                  <div className="border-border mt-8 border-t pt-5">
-                    <button
-                      type="button"
-                      onClick={() => setShowOptions((value) => !value)}
-                      aria-expanded={showOptions}
-                      className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-1.5 rounded-sm text-sm font-medium focus-visible:ring-2 focus-visible:outline-none"
-                    >
-                      <ChevronDown
-                        className={cn(
-                          "h-4 w-4 transition-transform",
-                          !showOptions && "-rotate-90",
-                        )}
-                      />
-                      Tax, deposit and expiry
-                    </button>
-
-                    {showOptions && (
-                      <div className="mt-5 grid gap-5 @[560px]:grid-cols-2">
-                        <Controller
-                          control={control}
-                          name="expiresInDays"
-                          render={({ field }) => (
-                            <FieldSelect
-                              id="expiresInDays"
-                              label="Link expires after"
-                              value={String(field.value ?? EXPIRY_DEFAULT_DAYS)}
-                              onChange={(value) =>
-                                field.onChange(Number(value))
-                              }
-                              options={expiryOptionsWith(
-                                Number(field.value ?? EXPIRY_DEFAULT_DAYS),
-                              )}
-                              error={errors.expiresInDays?.message}
-                            />
-                          )}
-                        />
-
-                        <Field
-                          {...register("taxRate")}
-                          label="Tax rate"
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="0.01"
-                          placeholder="0"
-                          suffix="%"
-                          error={errors.taxRate?.message}
-                        />
-
-                        <Field
-                          {...register("depositPercent")}
-                          label="Deposit"
-                          type="number"
-                          min="0"
-                          max="100"
-                          step="1"
-                          placeholder="0"
-                          suffix="%"
-                          error={errors.depositPercent?.message}
-                        />
-
-                        <Field
-                          {...register("deliveryDays")}
-                          label="Delivery time (optional)"
-                          type="number"
-                          min="0"
-                          max="365"
-                          step="1"
-                          placeholder="e.g. 30"
-                          suffix="days"
-                          error={errors.deliveryDays?.message}
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {/* The totals live in the preview panel on wide screens.
-                      Below that split they would be off-screen, so they are
-                      repeated here and hidden once the panel is visible. */}
-                  <dl className="border-border mt-6 flex flex-col gap-2 border-t pt-4 text-sm @[900px]:hidden">
-                    <div className="text-muted-foreground flex justify-between">
-                      <dt>Subtotal</dt>
-                      <dd className="tabular-nums">
-                        {formatCurrency(String(subtotal), watchedCurrency)}
-                      </dd>
-                    </div>
-                    <div className="text-muted-foreground flex justify-between">
-                      <dt>Tax</dt>
-                      <dd className="tabular-nums">
-                        {formatCurrency(String(taxAmount), watchedCurrency)}
-                      </dd>
-                    </div>
-                    <div className="border-border flex justify-between border-t pt-2 text-base font-semibold">
-                      <dt>Total</dt>
-                      <dd className="tabular-nums">
-                        {formatCurrency(String(total), watchedCurrency)}
-                      </dd>
-                    </div>
-                  </dl>
-                </FormSection>
-              </div>
-            </form>
-
-            <aside className="flex flex-col gap-4 self-start @[900px]:sticky @[900px]:top-6">
-              <ProposalPreview
-                title={watchedTitle}
-                clientName={selectedClient?.name}
-                deliveryDays={Number(watchedDelivery) || 0}
-                clientCompany={selectedClient?.company}
-                content={watchedContent}
-                milestones={watchedMilestones}
-                currency={watchedCurrency}
-                subtotal={subtotal}
-                taxRate={taxRate}
-                taxAmount={taxAmount}
-                total={total}
-                expiresInDays={Number(watchedExpiry ?? EXPIRY_DEFAULT_DAYS)}
-                depositPercent={depositPercent}
-                depositAmount={depositAmount}
-              />
-
-              <div className="flex flex-col-reverse gap-3 @[560px]:flex-row @[560px]:justify-end @[900px]:flex-col-reverse">
+        actions={
+          <>
+            <CustomButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push(cancelHref)}
+            >
+              Cancel
+            </CustomButton>
+            {isEditing ? (
+              <CustomButton
+                type="button"
+                size="sm"
+                onClick={save}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Saving..." : "Save changes"}
+              </CustomButton>
+            ) : (
+              <>
                 <CustomButton
                   type="button"
                   variant="secondary"
-                  onClick={() =>
-                    router.push(
-                      proposal
-                        ? `/proposals/${proposal.id}`
-                        : (returnTo ?? "/proposals"),
-                    )
-                  }
-                >
-                  Cancel
-                </CustomButton>
-                <CustomButton
-                  type="submit"
-                  form="proposal-form"
+                  size="sm"
+                  onClick={save}
                   disabled={isSubmitting}
                 >
-                  {isSubmitting
-                    ? isEditing
-                      ? "Saving..."
-                      : "Creating..."
-                    : isEditing
-                      ? "Save changes"
-                      : "Create proposal"}
+                  Save draft
                 </CustomButton>
+                <CustomButton
+                  type="button"
+                  size="sm"
+                  onClick={saveAndSend}
+                  disabled={isSubmitting}
+                >
+                  Send proposal
+                </CustomButton>
+              </>
+            )}
+          </>
+        }
+      />
+
+      <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
+        <form
+          onSubmit={save}
+          noValidate
+          className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]"
+        >
+          <div className="flex min-w-0 flex-col gap-4">
+            <DetailCard title="Proposal" className="@container">
+              <div className="grid gap-4 @[560px]:grid-cols-2">
+                <Field
+                  {...register("title")}
+                  label="Title"
+                  placeholder="e.g. Website redesign"
+                  error={errors.title?.message}
+                />
+                <Controller
+                  control={control}
+                  name="clientId"
+                  render={({ field }) => (
+                    <ClientCombobox
+                      clients={clients}
+                      value={field.value}
+                      onChange={field.onChange}
+                      error={errors.clientId?.message}
+                    />
+                  )}
+                />
+                <div className="@[560px]:col-span-2">
+                  <Field
+                    {...register("content")}
+                    multiline
+                    rows={4}
+                    label={
+                      <>
+                        Summary{" "}
+                        <span className="font-normal opacity-70">optional</span>
+                      </>
+                    }
+                    placeholder="What the work covers and what you need from them"
+                    error={errors.content?.message}
+                  />
+                </div>
               </div>
-            </aside>
+            </DetailCard>
+
+            <DetailCard title="Scope and price">
+              <div className="flex flex-col gap-3">
+                {stageFields.map((field, index) => (
+                  <ProposalMilestoneCard
+                    key={field.id}
+                    index={index}
+                    control={control}
+                    register={register}
+                    errors={errors}
+                    currency={currency}
+                    canRemove={stageFields.length > 1}
+                    onRemove={() => removeStage(index)}
+                  />
+                ))}
+              </div>
+              {(errors.milestones?.message ||
+                errors.milestones?.root?.message) && (
+                <p className="text-danger-600 mt-2 text-xs">
+                  {errors.milestones?.message ??
+                    errors.milestones?.root?.message}
+                </p>
+              )}
+              <CustomButton
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => appendStage(BLANK_STAGE)}
+                className="mt-3 gap-1.5"
+              >
+                <PlusIcon className="size-4" />
+                Add stage
+              </CustomButton>
+            </DetailCard>
+
+            <DetailCard title="Terms" className="@container">
+              <div className="grid gap-4 @[560px]:grid-cols-2">
+                <Field
+                  {...register("taxRate")}
+                  label="Tax rate"
+                  inputMode="decimal"
+                  placeholder="0"
+                  suffix="%"
+                  error={errors.taxRate?.message}
+                />
+                <div className="flex flex-col gap-1">
+                  <Field
+                    {...register("deliveryDays")}
+                    label="Delivery time"
+                    inputMode="numeric"
+                    placeholder="e.g. 30"
+                    suffix="days"
+                    error={errors.deliveryDays?.message}
+                  />
+                  <span className="text-muted-foreground text-xs">
+                    Sets the project deadline when it starts
+                  </span>
+                </div>
+
+                <div className="@[560px]:col-span-2">
+                  <span className="text-muted-foreground mb-1.5 block text-[13px] font-medium">
+                    Deposit
+                  </span>
+                  <div className="flex flex-wrap items-start gap-2">
+                    <SegmentedControl
+                      label="Deposit"
+                      options={DEPOSITS}
+                      value={
+                        customDeposit
+                          ? ("" as "0")
+                          : (String(depositPercent) as "0")
+                      }
+                      onChange={(value) => {
+                        setCustomDeposit(false);
+                        setValue("depositPercent", Number(value), {
+                          shouldDirty: true,
+                          shouldValidate: true,
+                        });
+                      }}
+                      itemClassName="h-9 px-3 text-[13px]"
+                    />
+                    <div className="w-32">
+                      <Field
+                        aria-label="Custom deposit"
+                        inputMode="decimal"
+                        placeholder="Custom"
+                        suffix="%"
+                        value={
+                          customDeposit ? String(watchedDeposit ?? "") : ""
+                        }
+                        onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                          // Typing switches to a custom deposit.
+                          setCustomDeposit(true);
+                          setValue("depositPercent", event.target.value, {
+                            shouldDirty: true,
+                            shouldValidate: true,
+                          });
+                        }}
+                        error={errors.depositPercent?.message}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="@[560px]:col-span-2">
+                  <span className="text-muted-foreground mb-1.5 block text-[13px] font-medium">
+                    Link expires
+                  </span>
+                  <Controller
+                    control={control}
+                    name="expiresInDays"
+                    render={({ field }) => {
+                      const days = Number(field.value ?? EXPIRY_DEFAULT_DAYS);
+                      return (
+                        <SegmentedControl
+                          label="Link expires"
+                          options={expiryOptionsWith(days)}
+                          value={String(days)}
+                          onChange={(value) => field.onChange(Number(value))}
+                          className="flex w-full flex-wrap @[560px]:inline-flex @[560px]:w-auto"
+                          itemClassName="h-9 px-3 text-[13px]"
+                        />
+                      );
+                    }}
+                  />
+                </div>
+              </div>
+            </DetailCard>
           </div>
-        </div>
-      </DashboardContainer>
+
+          <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4">
+            <ProposalPreview
+              title={watchedTitle}
+              clientName={selectedClient?.company || selectedClient?.name}
+              stages={watchedStages}
+              taxRate={taxRate}
+              taxAmount={taxAmount}
+              total={total}
+              expiresInDays={Number(watchedExpiry ?? EXPIRY_DEFAULT_DAYS)}
+              depositPercent={depositPercent}
+              depositAmount={depositAmount}
+              deliveryDays={Number(watchedDelivery) || 0}
+              currency={currency}
+              brand={resolveBrandColor(brandColor)}
+            />
+          </aside>
+        </form>
+      </div>
     </>
   );
 }

@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { and, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import type { ActionResult } from "@/lib/action-result";
 import { requireUser } from "@/lib/current-user";
+import { getPlanFeatures } from "@/lib/billing";
 import { logError } from "@/lib/errors";
 import { db } from "@/src/db";
 import { users } from "@/src/db/schema/users";
@@ -127,13 +128,14 @@ export async function updateBrandingAction(
     }
 
     const user = await requireUser();
-    // TODO(billing): brand colour is Pro once paid plans exist, like the logo.
+    const { customBranding } = await getPlanFeatures(user.id);
     const { brandColor, testimonialQuote, testimonialAuthor } = parsed.data;
 
     const [row] = await db
       .update(users)
       .set({
-        brandColor: brandColor || null,
+        // Brand colour is Pro; on Free the stored one is left as it is.
+        ...(customBranding ? { brandColor: brandColor || null } : {}),
         testimonialQuote: testimonialQuote || null,
         testimonialAuthor: testimonialAuthor || null,
         updatedAt: new Date(),
@@ -153,6 +155,8 @@ export async function updateBrandingAction(
   }
 }
 
+const LOGO_NEEDS_PRO =
+  "Your logo on documents is part of Pro. Upgrade in Settings > Plan & billing.";
 const LOGO_UNAVAILABLE =
   "Couldn't upload your logo right now. Try again in a minute.";
 
@@ -168,7 +172,9 @@ export async function uploadLogoAction(
     if (sizeError) return { success: false, error: sizeError };
 
     const user = await requireUser();
-    // TODO(billing): Pro only once paid plans exist; free for everyone in the beta.
+    if (!(await getPlanFeatures(user.id)).customBranding) {
+      return { success: false, error: LOGO_NEEDS_PRO };
+    }
 
     if (!isImageKitConfigured()) {
       logError("uploadLogoAction", "IMAGEKIT_* env vars are not set.");

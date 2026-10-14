@@ -23,6 +23,7 @@ import {
 import { normalize } from "@/lib/normalizeOptionalFields";
 import { ActionResult } from "@/lib/action-result";
 import { logActivity } from "@/lib/activity";
+import { assertWithinPlan, planLimitsFor } from "@/lib/plan-limits";
 
 function revalidateClientEverywhere() {
   revalidatePath("/clients", "layout");
@@ -43,10 +44,14 @@ export async function createClientAction(
 
   try {
     const user = await requireUser();
-    const [created] = await db
-      .insert(clients)
-      .values({ ...normalize(parsed.data), userId: user.id })
-      .returning({ id: clients.id });
+    const limits = await planLimitsFor(user.id);
+    const [created] = await db.transaction(async (tx) => {
+      await assertWithinPlan(tx, user.id, limits, ["clients"]);
+      return tx
+        .insert(clients)
+        .values({ ...normalize(parsed.data), userId: user.id })
+        .returning({ id: clients.id });
+    });
 
     if (!created) {
       throw new AppError("INSERT_FAILED", "Client was not created.");
@@ -65,7 +70,10 @@ export async function createClientAction(
     logError("createClientAction", err);
     return {
       success: false,
-      error: "Could not create client. Please try again.",
+      error:
+        err instanceof AppError && err.code === "PLAN_LIMIT"
+          ? err.message
+          : "Could not create client. Please try again.",
     };
   }
 }
@@ -182,13 +190,22 @@ export async function deleteClientAction(
           eq(clients.userId, user.id),
           isNull(clients.deletedAt),
           notExists(
-            db.select({ one: sql`1` }).from(projects).where(openProjects),
+            db
+              .select({ one: sql`1` })
+              .from(projects)
+              .where(openProjects),
           ),
           notExists(
-            db.select({ one: sql`1` }).from(invoices).where(openInvoices),
+            db
+              .select({ one: sql`1` })
+              .from(invoices)
+              .where(openInvoices),
           ),
           notExists(
-            db.select({ one: sql`1` }).from(proposals).where(openProposals),
+            db
+              .select({ one: sql`1` })
+              .from(proposals)
+              .where(openProposals),
           ),
         ),
       )

@@ -1,0 +1,1 @@
+ALTER TABLE "invoices" ADD COLUMN "show_project_balance" boolean DEFAULT false NOT NULL;

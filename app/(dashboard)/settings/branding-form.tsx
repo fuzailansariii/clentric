@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { CheckIcon } from "lucide-react";
@@ -13,6 +14,7 @@ import {
 } from "@/lib/brand-color";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { cn } from "@/lib/utils";
+import { UPGRADE_HREF } from "@/components/dashboard/plan-limit-page";
 import { updateBrandingAction } from "./actions";
 import {
   brandingSchema,
@@ -21,7 +23,14 @@ import {
 } from "./schema";
 import type { BrandingSettings } from "./queries";
 
-export function BrandingForm({ branding }: { branding: BrandingSettings }) {
+export function BrandingForm({
+  branding,
+  colorLocked = false,
+}: {
+  branding: BrandingSettings;
+  /** Free plan: the colour can't be changed and isn't used on documents. */
+  colorLocked?: boolean;
+}) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const form = useForm<BrandingFormInput, any, BrandingFormOutput>({
     resolver: zodResolver(brandingSchema),
@@ -61,74 +70,94 @@ export function BrandingForm({ branding }: { branding: BrandingSettings }) {
           <div>
             <p className="text-sm font-medium">Brand colour</p>
             <p className="text-muted-foreground mt-0.5 text-sm">
-              Used for buttons and accents on your proposal pages.
+              {colorLocked ? (
+                <>
+                  Part of Pro.{" "}
+                  <Link
+                    href={UPGRADE_HREF}
+                    className="text-foreground underline underline-offset-2"
+                  >
+                    Upgrade
+                  </Link>{" "}
+                  to use your colour on proposal pages.
+                </>
+              ) : (
+                "Used for buttons and accents on your proposal pages."
+              )}
             </p>
           </div>
-          <Controller
-            control={control}
-            name="brandColor"
-            render={({ field }) => (
-              <div className="flex flex-wrap items-center gap-2">
+          <fieldset disabled={colorLocked} className="contents">
+            <Controller
+              control={control}
+              name="brandColor"
+              render={({ field }) => (
                 <div
-                  role="radiogroup"
-                  aria-label="Brand colour"
-                  className="flex flex-wrap gap-2"
+                  className={cn(
+                    "flex flex-wrap items-center gap-2",
+                    colorLocked && "opacity-50",
+                  )}
                 >
-                  {BRAND_COLOR_PRESETS.map((preset) => {
-                    const selected = color === preset;
-                    return (
-                      <button
-                        key={preset}
-                        type="button"
-                        role="radio"
-                        aria-checked={selected}
-                        aria-label={preset}
-                        onClick={() =>
-                          field.onChange(
-                            preset === BRAND_COLOR_PRESETS[0] ? "" : preset,
-                          )
-                        }
-                        className={cn(
-                          "focus-visible:ring-ring grid size-8 cursor-pointer place-items-center rounded-full border border-foreground/20 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
-                          selected && "ring-foreground ring-2 ring-offset-2",
-                        )}
-                        style={{ backgroundColor: preset }}
-                      >
-                        {selected && (
-                          <CheckIcon
-                            aria-hidden="true"
-                            className="size-4"
-                            style={{ color: textOnBrandColor(preset) }}
-                          />
-                        )}
-                      </button>
-                    );
-                  })}
+                  <div
+                    role="radiogroup"
+                    aria-label="Brand colour"
+                    className="flex flex-wrap gap-2"
+                  >
+                    {BRAND_COLOR_PRESETS.map((preset) => {
+                      const selected = color === preset;
+                      return (
+                        <button
+                          key={preset}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          aria-label={preset}
+                          onClick={() =>
+                            field.onChange(
+                              preset === BRAND_COLOR_PRESETS[0] ? "" : preset,
+                            )
+                          }
+                          className={cn(
+                            "focus-visible:ring-ring border-foreground/20 grid size-8 cursor-pointer place-items-center rounded-full border focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+                            selected && "ring-foreground ring-2 ring-offset-2",
+                          )}
+                          style={{ backgroundColor: preset }}
+                        >
+                          {selected && (
+                            <CheckIcon
+                              aria-hidden="true"
+                              className="size-4"
+                              style={{ color: textOnBrandColor(preset) }}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <label className="border-border bg-background flex h-8 items-center gap-2 rounded-md border pr-2 pl-1">
+                    <input
+                      type="color"
+                      value={color}
+                      onChange={(event) => field.onChange(event.target.value)}
+                      aria-label="Custom colour"
+                      className="size-6 cursor-pointer rounded border-0 bg-transparent p-0"
+                    />
+                    <input
+                      type="text"
+                      value={field.value}
+                      onChange={(event) => field.onChange(event.target.value)}
+                      onBlur={field.onBlur}
+                      placeholder={BRAND_COLOR_PRESETS[0]}
+                      maxLength={7}
+                      spellCheck={false}
+                      aria-label="Hex colour"
+                      aria-invalid={Boolean(errors.brandColor) || undefined}
+                      className="w-20 bg-transparent font-mono text-sm outline-none"
+                    />
+                  </label>
                 </div>
-                <label className="border-border bg-background flex h-8 items-center gap-2 rounded-md border pr-2 pl-1">
-                  <input
-                    type="color"
-                    value={color}
-                    onChange={(event) => field.onChange(event.target.value)}
-                    aria-label="Custom colour"
-                    className="size-6 cursor-pointer rounded border-0 bg-transparent p-0"
-                  />
-                  <input
-                    type="text"
-                    value={field.value}
-                    onChange={(event) => field.onChange(event.target.value)}
-                    onBlur={field.onBlur}
-                    placeholder={BRAND_COLOR_PRESETS[0]}
-                    maxLength={7}
-                    spellCheck={false}
-                    aria-label="Hex colour"
-                    aria-invalid={Boolean(errors.brandColor) || undefined}
-                    className="w-20 bg-transparent font-mono text-sm outline-none"
-                  />
-                </label>
-              </div>
-            )}
-          />
+              )}
+            />
+          </fieldset>
           {errors.brandColor && (
             <p className="text-destructive text-sm">
               {errors.brandColor.message}

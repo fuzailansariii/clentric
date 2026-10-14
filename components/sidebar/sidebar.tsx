@@ -63,7 +63,7 @@ export default function Sidebar({ footer, counts }: SidebarProps) {
       <aside
         className={cn(
           "bg-sidebar hidden h-screen transition-all duration-200 md:flex md:flex-col",
-          isCollapsed ? "w-16" : "w-64",
+          isCollapsed ? "w-16" : "lg:w-52 xl:w-64",
         )}
       >
         <div

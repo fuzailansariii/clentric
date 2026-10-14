@@ -16,10 +16,13 @@ import { proposals } from "@/src/db/schema/proposals";
 import { invoices } from "@/src/db/schema/invoices";
 import { emailSends } from "@/src/db/schema/email-sends";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
+import { formatIssuer } from "@/lib/format-issuer";
 import { logoSrc } from "@/lib/logo-url";
+import { getPlanFeatures } from "@/lib/billing";
 import { createProjectFromProposal } from "@/lib/create-project-from-proposal";
 import { logActivity } from "@/lib/activity";
 import { emailProposal } from "@/lib/email/document-emails";
+import { assertWithinPlan, planLimitsFor } from "@/lib/plan-limits";
 import {
   issuerSnapshotSql,
   liveIssuer,
@@ -61,6 +64,7 @@ export type PublicProposal = {
   status: "sent" | "viewed" | "accepted" | "rejected";
   expiresAt: Date | null;
   viewedAt: Date | null;
+  acceptedAt: Date | null;
   createdAt: Date;
   clientName: string;
   clientCompany: string | null;
@@ -72,6 +76,8 @@ export type PublicProposal = {
     avatar: string | null;
     logoSrc: string | null;
     brandColor: string | null;
+    /** "Made with Clentric" under the proposal; off for paid Pro. */
+    clentricBranding: boolean;
     testimonialQuote: string | null;
     testimonialAuthor: string | null;
   };
@@ -79,6 +85,7 @@ export type PublicProposal = {
     id: string;
     name: string;
     description: string | null;
+    timeframe: string | null;
   }[];
   items: PublicProposalItem[];
   /**
@@ -89,6 +96,8 @@ export type PublicProposal = {
   deposit: RespondResult["deposit"];
   /** The client already pressed "I've sent payment", or it's been paid. */
   paymentClaimed: boolean;
+  /** The freelancer marked the deposit as received. */
+  depositPaid: boolean;
 };
 
 const viewableStatuses = ["sent", "viewed", "accepted", "rejected"] as const;
@@ -99,9 +108,15 @@ function isViewable(
   return (viewableStatuses as readonly string[]).includes(status);
 }
 
+/** Why a real link no longer opens, and whose it is. */
+export type ClosedProposal = {
+  reason: "draft" | "revoked" | "expired";
+  ownerName: string;
+};
+
 export async function getProposalByToken(
   token: string,
-): Promise<ActionResult<PublicProposal>> {
+): Promise<ActionResult<PublicProposal> & { closed?: ClosedProposal }> {
   if (isRateLimited(`proposal:read:${token}`, { max: 30, windowMs: 60_000 })) {
     return {
       success: false as const,
@@ -130,6 +145,7 @@ export async function getProposalByToken(
         status: true,
         expiresAt: true,
         viewedAt: true,
+        acceptedAt: true,
         createdAt: true,
         issuerSnapshot: true,
         userId: true,
@@ -165,7 +181,7 @@ export async function getProposalByToken(
           },
         },
         milestones: {
-          columns: { id: true, name: true, description: true },
+          columns: { id: true, name: true, description: true, timeframe: true },
           orderBy: [
             asc(proposalMilestones.sortOrder),
             asc(proposalMilestones.id),
@@ -185,21 +201,47 @@ export async function getProposalByToken(
       },
     });
 
-    // One message for "gone", "never shared", and "revoked" — a public endpoint
-    // shouldn't let a guesser tell those apart.
+    // Expiry only closes a proposal still awaiting an answer; one the
+    // client already accepted or declined stays readable.
+    const lapsed =
+      proposal &&
+      (proposal.status === "sent" || proposal.status === "viewed") &&
+      proposal.expiresAt &&
+      proposal.expiresAt.getTime() <= Date.now();
+
     if (
       !proposal ||
       !isViewable(proposal.status) ||
       proposal.user.deletionRequestedAt ||
-      // Expiry only closes a proposal still awaiting an answer; one the
-      // client already accepted or declined stays readable.
-      ((proposal.status === "sent" || proposal.status === "viewed") &&
-        proposal.expiresAt &&
-        proposal.expiresAt.getTime() <= Date.now())
+      lapsed
     ) {
+      // Tokens are 32 random bytes, so only someone who was given this link
+      // reaches a real row: they may learn why it closed. Unknown tokens and
+      // deleted accounts keep the one generic message.
+      const reason =
+        !proposal || proposal.user.deletionRequestedAt
+          ? null
+          : lapsed || proposal.status === "expired"
+            ? "expired"
+            : proposal.status === "draft" || proposal.status === "revoked"
+              ? proposal.status
+              : null;
       return {
         success: false as const,
         error: "This proposal is no longer available.",
+        ...(proposal && reason
+          ? {
+              closed: {
+                reason,
+                ownerName: formatIssuer(
+                  resolveIssuer(
+                    proposal.issuerSnapshot,
+                    liveIssuer(proposal.user),
+                  ),
+                ).title,
+              },
+            }
+          : {}),
       };
     }
 
@@ -211,6 +253,7 @@ export async function getProposalByToken(
     // if the freelancer has since deleted that invoice.
     let deposit: PublicProposal["deposit"] = null;
     let paymentClaimed = false;
+    let depositPaid = false;
     if (proposal.status === "accepted" && depositInvoiceId) {
       const [[invoice], [sent]] = await Promise.all([
         db
@@ -267,8 +310,11 @@ export async function getProposalByToken(
         };
         paymentClaimed =
           invoice.paymentClaimedAt !== null || invoice.status === "paid";
+        depositPaid = invoice.status === "paid";
       }
     }
+
+    const features = await getPlanFeatures(proposal.userId);
 
     return {
       success: true as const,
@@ -280,13 +326,16 @@ export async function getProposalByToken(
         owner: {
           ...resolveIssuer(issuerSnapshot, liveIssuer(user)),
           avatar: user.avatar,
-          logoSrc: user.logoUrl ? logoSrc(user.logoUrl) : null,
-          brandColor: user.brandColor,
+          logoSrc:
+            user.logoUrl && features.customBranding ? logoSrc(user.logoUrl) : null,
+          brandColor: features.customBranding ? user.brandColor : null,
+          clentricBranding: features.clentricBranding,
           testimonialQuote: user.testimonialQuote,
           testimonialAuthor: user.testimonialAuthor,
         },
         deposit,
         paymentClaimed,
+        depositPaid,
       },
     };
   } catch (error) {
@@ -358,9 +407,11 @@ export async function createProposalAction(
         ? new Date(Date.now() + parsed.data.expiresInDays * 86_400_000)
         : null;
 
+    const limits = await planLimitsFor(user.id);
     // Proposal, milestones and items have to land together — a proposal with
     // no items would show an empty quote at a public URL.
     const created = await db.transaction(async (tx) => {
+      await assertWithinPlan(tx, user.id, limits, ["proposals"]);
       const [client] = await tx
         .select({ id: clients.id })
         .from(clients)
@@ -417,6 +468,8 @@ export async function createProposalAction(
             named.map(({ milestone, index }) => ({
               proposalId: row.proposalId,
               name: milestone.name!.trim(),
+              description: milestone.description || null,
+              timeframe: milestone.timeframe || null,
               sortOrder: index,
             })),
           )
@@ -641,8 +694,10 @@ export async function duplicateProposalAction(
     }
 
     const user = await requireUser();
+    const limits = await planLimitsFor(user.id);
 
     const created = await db.transaction(async (tx) => {
+      await assertWithinPlan(tx, user.id, limits, ["proposals"]);
       const source = await tx.query.proposals.findFirst({
         where: and(
           eq(proposals.id, parsed.data.proposalId),
@@ -700,6 +755,8 @@ export async function duplicateProposalAction(
             source.milestones.map((milestone) => ({
               proposalId: row.proposalId,
               name: milestone.name,
+              description: milestone.description,
+              timeframe: milestone.timeframe,
               sortOrder: milestone.sortOrder,
             })),
           )
@@ -784,8 +841,10 @@ export async function createProjectFromProposalAction(
     }
 
     const user = await requireUser();
+    const limits = await planLimitsFor(user.id);
 
     const projectId = await db.transaction(async (tx) => {
+      await assertWithinPlan(tx, user.id, limits, ["projects"]);
       const [proposal] = await tx
         .select({
           id: proposals.id,
@@ -986,6 +1045,8 @@ export async function updateProposalAction(
             named.map(({ milestone, index }) => ({
               proposalId: row.id,
               name: milestone.name!.trim(),
+              description: milestone.description || null,
+              timeframe: milestone.timeframe || null,
               sortOrder: index,
             })),
           )

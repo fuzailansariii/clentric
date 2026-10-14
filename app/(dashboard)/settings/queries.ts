@@ -1,18 +1,15 @@
 import { cache } from "react";
 import { unstable_rethrow } from "next/navigation";
-import { and, asc, count, eq, gte, isNull, lt, sql } from "drizzle-orm";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
 import { db } from "@/src/db";
 import { users } from "@/src/db/schema/users";
 import { userPaymentMethods } from "@/src/db/schema/payment-methods";
 import { invoiceCounters } from "@/src/db/schema/invoice-counters";
-import { clients } from "@/src/db/schema/clients";
-import { proposals } from "@/src/db/schema/proposals";
-import { projects } from "@/src/db/schema/projects";
-import { invoices } from "@/src/db/schema/invoices";
 import { logoSrc } from "@/lib/logo-url";
-import { getEffectivePlan } from "@/lib/billing";
+import { getEffectivePlan, getPlanFeatures } from "@/lib/billing";
+import { countPlanUsage } from "@/lib/plan-limits";
 
 // Every settings section reads the user row through this: one query per request.
 const getSettingsRow = cache(async (userId: string) => {
@@ -216,7 +213,7 @@ export async function getDocumentDefaults() {
   try {
     const user = await requireUser();
 
-    const [[owner], [counter]] = await Promise.all([
+    const [[owner], [counter], features] = await Promise.all([
       db
         .select({
           invoicePrefix: users.invoicePrefix,
@@ -225,6 +222,8 @@ export async function getDocumentDefaults() {
           defaultInvoiceNotes: users.defaultInvoiceNotes,
           defaultProposalExpiryDays: users.defaultProposalExpiryDays,
           defaultDepositPercent: users.defaultDepositPercent,
+          // The proposal preview's brand bar.
+          brandColor: users.brandColor,
         })
         .from(users)
         .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
@@ -234,11 +233,17 @@ export async function getDocumentDefaults() {
         .from(invoiceCounters)
         .where(eq(invoiceCounters.userId, user.id))
         .limit(1),
+      getPlanFeatures(user.id),
     ]);
 
     if (!owner) return null;
 
-    return { ...owner, lastInvoiceNumber: counter?.lastNumber ?? 0 };
+    return {
+      ...owner,
+      // Brand colour is Pro; Free previews in the default colour.
+      brandColor: features.customBranding ? owner.brandColor : null,
+      lastInvoiceNumber: counter?.lastNumber ?? 0,
+    };
   } catch (error) {
     unstable_rethrow(error);
     logError("getDocumentDefaults", error);
@@ -251,58 +256,20 @@ export type DocumentDefaults = NonNullable<
   Awaited<ReturnType<typeof getDocumentDefaults>>
 >;
 
-/**
- * Live usage for the Plan section: four counts, each scoped to the user and
- * skipping soft-deleted rows. "Invoices this month" counts invoices created
- * since the start of the current calendar month in UTC — Clentric has no
- * per-user timezone setting.
- */
+/** Live usage for the Plan section, counted exactly as the limits count it. */
 export async function getPlanUsage() {
   try {
     const user = await requireUser();
-
-    const monthStartUtc = sql`date_trunc('month', now(), 'UTC')`;
-
-    const [clientRows, proposalRows, projectRows, invoiceRows, billingState] =
-      await Promise.all([
-        db
-          .select({ count: count() })
-          .from(clients)
-          .where(and(eq(clients.userId, user.id), isNull(clients.deletedAt))),
-        db
-          .select({ count: count() })
-          .from(proposals)
-          .where(
-            and(eq(proposals.userId, user.id), isNull(proposals.deletedAt)),
-          ),
-        db
-          .select({ count: count() })
-          .from(projects)
-          .where(and(eq(projects.userId, user.id), isNull(projects.deletedAt))),
-        db
-          .select({ count: count() })
-          .from(invoices)
-          .where(
-            and(
-              eq(invoices.userId, user.id),
-              isNull(invoices.deletedAt),
-              gte(invoices.createdAt, monthStartUtc),
-              lt(
-                invoices.createdAt,
-                sql`${monthStartUtc} + interval '1 month'`,
-              ),
-            ),
-          ),
-        getEffectivePlan(user.id),
-      ]);
-
+    const [usage, billingState] = await Promise.all([
+      countPlanUsage(db, user.id),
+      getEffectivePlan(user.id),
+    ]);
     return {
       billing: billingState,
-      // Drizzle returns an array even for COUNT(*): unwrap the one row.
-      clients: clientRows[0]?.count ?? 0,
-      proposals: proposalRows[0]?.count ?? 0,
-      projects: projectRows[0]?.count ?? 0,
-      invoicesThisMonth: invoiceRows[0]?.count ?? 0,
+      clients: usage.clients,
+      proposals: usage.proposals,
+      projects: usage.projects,
+      invoicesThisMonth: usage.invoicesPerMonth,
     };
   } catch (error) {
     unstable_rethrow(error);

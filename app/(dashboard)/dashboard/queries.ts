@@ -1,9 +1,9 @@
 import "server-only";
+import { cache } from "react";
 import { unstable_rethrow } from "next/navigation";
 import {
   and,
   asc,
-  count,
   desc,
   eq,
   gt,
@@ -28,31 +28,27 @@ import { milestones } from "@/src/db/schema/milestones";
 import { projects } from "@/src/db/schema/projects";
 import { proposals } from "@/src/db/schema/proposals";
 
-export async function getDashboardOverview() {
+export const getDashboardOverview = cache(async () => {
   try {
     const user = await requireUser();
 
-    const [clientRows, proposalRows, invoiceRows] = await Promise.all([
-      db
-        .select({ count: count() })
-        .from(clients)
-        .where(and(eq(clients.userId, user.id), isNull(clients.deletedAt))),
-      db
-        .select({ count: count() })
-        .from(proposals)
-        .where(and(eq(proposals.userId, user.id), isNull(proposals.deletedAt))),
-      db
-        .select({ count: count() })
-        .from(invoices)
-        .where(and(eq(invoices.userId, user.id), isNull(invoices.deletedAt))),
-    ]);
-
-    const [invoiceRow] = invoiceRows;
+    // One query, not three: the dashboard fires many at once and the pool holds 10.
+    const rows = await db.execute<{
+      client_count: number;
+      proposal_count: number;
+      invoice_count: number;
+    }>(sql`
+      select
+        (select count(*) from ${clients} where ${clients.userId} = ${user.id} and ${clients.deletedAt} is null)::int as client_count,
+        (select count(*) from ${proposals} where ${proposals.userId} = ${user.id} and ${proposals.deletedAt} is null)::int as proposal_count,
+        (select count(*) from ${invoices} where ${invoices.userId} = ${user.id} and ${invoices.deletedAt} is null)::int as invoice_count
+    `);
+    const [row] = rows;
 
     return {
-      clientCount: clientRows[0]?.count ?? 0,
-      proposalCount: proposalRows[0]?.count ?? 0,
-      invoiceCount: invoiceRow?.count ?? 0,
+      clientCount: row?.client_count ?? 0,
+      proposalCount: row?.proposal_count ?? 0,
+      invoiceCount: row?.invoice_count ?? 0,
     };
   } catch (error) {
     unstable_rethrow(error);
@@ -62,7 +58,7 @@ export async function getDashboardOverview() {
     }
     throw new AppError("FETCH_FAILED", "Could not load the dashboard.");
   }
-}
+});
 
 export type ActivityItem = {
   id: string;

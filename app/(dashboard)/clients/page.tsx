@@ -1,13 +1,12 @@
 import DashboardContainer from "@/components/dashboard/container";
-import PageHeader from "@/components/dashboard/page-header";
-import { CustomButton } from "@/components/ui/custom-button";
-import { PlusIcon, UsersIcon } from "lucide-react";
-import Link from "next/link";
-import { getClients } from "./queries";
-import { ClientsTable } from "./clients-table";
-import { clientStatusConfig, type ClientStatus } from "./client-status-config";
-import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
+import { ListEmpty, ListNoResults } from "@/components/dashboard/list-states";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
+import { formatCurrency } from "@/lib/format-currency";
+import { ClientList } from "./client-list";
+import { ClientStatusFilter } from "./client-status-filter";
+import { ClientsHeader } from "./clients-header";
+import { getClientList } from "./queries";
 
 type ClientsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -15,69 +14,75 @@ type ClientsPageProps = {
 
 export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const params = await searchParams;
-  const { clients, total, page, pageSize, totalPages, statusCounts, allCount } =
-    await getClients(params);
+  const list = await getClientList(params);
+  const search = typeof params.search === "string" ? params.search : "";
+  const { counts } = list;
+  const filtered = Boolean(search || list.status);
+  const isEmpty = counts.all === 0 && !filtered;
 
   return (
     <>
-      <PageHeader
-        title="Clients"
-        subtitle="Manage your clients"
-        icon={<UsersIcon className="h-5 w-5" />}
-        badge={
-          <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-[11px] font-medium">
-            {total}
-          </span>
-        }
-        breadcrumbs={[
-          { label: "Dashboard", href: "/dashboard" },
-          { label: "Clients" },
-        ]}
-        mobileActions="inline"
-        actions={
-          <CustomButton variant="primary">
-            <Link
-              href="/clients/new"
-              className="mx-auto flex items-center gap-1 text-xs"
-            >
-              <PlusIcon className="h-4 w-4" />
-              <span>Add Client</span>
-            </Link>
-          </CustomButton>
+      <ClientsHeader
+        subtitle={
+          isEmpty
+            ? "Nothing here yet"
+            : `${counts.all} client${counts.all === 1 ? "" : "s"} · ${formatCurrency(list.owesSum)} outstanding`
         }
       />
 
       <DashboardContainer>
-        <ClientsTable
-          data={clients}
-          toolbar={
+        {isEmpty ? (
+          <ListEmpty
+            title="No clients yet"
+            body="Add a client once and reuse them on every proposal and invoice."
+            href="/clients/new"
+            label="New client"
+          />
+        ) : (
+          <div className="flex flex-col gap-4">
             <DataTableToolbar
               searchPlaceholder="Search clients..."
+              actions={<ClientStatusFilter value={list.status} />}
               filters={[
                 {
-                  key: "status",
-                  label: "Filter clients by status",
-                  allCount,
-                  options: (Object.keys(clientStatusConfig) as ClientStatus[]).map(
-                    (status) => ({
-                      value: status,
-                      label: clientStatusConfig[status].label,
-                      count: statusCounts[status],
-                    }),
-                  ),
+                  key: "view",
+                  label: "Filter clients",
+                  allCount: counts.all,
+                  options: [
+                    { value: "owes", label: "Owes you", count: counts.owes },
+                    {
+                      value: "active",
+                      label: "Active work",
+                      count: counts.active,
+                    },
+                    {
+                      value: "idle",
+                      label: "No active work",
+                      count: counts.idle,
+                    },
+                  ],
                 },
               ]}
             />
-          }
-          footer={
+
+            {list.clients.length === 0 ? (
+              <ListNoResults
+                noun="clients"
+                search={search}
+                clearHref="/clients"
+              />
+            ) : (
+              <ClientList clients={list.clients} groups={list.groups} />
+            )}
+
             <DataTablePagination
-              page={page}
-              pageSize={pageSize}
-              total={total}
-              totalPages={totalPages}
+              page={list.page}
+              pageSize={list.pageSize}
+              total={list.total}
+              totalPages={list.totalPages}
             />
-          }
-        />
+          </div>
+        )}
       </DashboardContainer>
     </>
   );

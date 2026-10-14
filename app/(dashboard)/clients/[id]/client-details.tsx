@@ -1,13 +1,7 @@
 "use client";
-import { AvatarInitials } from "@/components/ui/avatar-initials";
-import { StatusBadge } from "@/components/ui/status-badge";
-import { CustomButton } from "@/components/ui/custom-button";
-import { formatPhone } from "@/lib/format-phone";
-import { formatDate, formatRelativeDate } from "@/lib/format-date";
-import { formatCurrency } from "@/lib/format-currency";
-import { cn } from "@/lib/utils";
-import { clientStatusConfig } from "../client-status-config";
-import { Check, PencilIcon, Trash2Icon, X } from "lucide-react";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   useEffect,
   useOptimistic,
@@ -15,162 +9,123 @@ import {
   useState,
   useTransition,
 } from "react";
-import { TabButton } from "@/components/ui/tab-button";
-import { ProjectsPanel } from "./projects-panel";
-import { InvoicesPanel } from "./invoices-panel";
-import { ProposalsPanel } from "./proposals-panel";
-import type { ProposalListResult } from "../../proposals/queries";
-import { DeleteDialog } from "@/components/delete-dialog";
-import { deleteClientAction, updateClientAction } from "../actions";
-import { useRouter } from "next/navigation";
-import { runActionWithToast } from "@/lib/run-action-with-toast";
-import { Controller, useForm, useWatch } from "react-hook-form";
-import { ClientInput, clientSchema } from "../schema";
-import { zodResolver } from "@hookform/resolvers/zod";
-import type { ClientRow } from "@/src/db/schema/clients";
-import { toClientFormsDefault } from "@/lib/client-form-defaults";
-import { DataField } from "@/components/field";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { PhoneField, PhoneFieldHandle } from "@/components/ui/phone-field";
-import { CountryCombobox } from "@/components/ui/country-combobox";
-import type { ProjectListResult } from "../../projects/queries";
-import type { InvoiceListResult } from "../../invoices/queries";
+import { toast } from "sonner";
+
 import PageHeader from "@/components/dashboard/page-header";
-import DashboardContainer from "@/components/dashboard/container";
+import { DetailCard, DetailList } from "@/components/dashboard/detail-parts";
+import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
+import { DeleteDialog } from "@/components/delete-dialog";
 
-type ClientDetailSection = "projects" | "invoices" | "proposals";
+import {
+  CustomButton,
+  customButtonClasses,
+} from "@/components/ui/custom-button";
+import { MetricStrip } from "@/components/ui/metric-strip";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
+import { countryName } from "@/lib/countries";
+import { formatCurrency } from "@/lib/format-currency";
+import { formatDate } from "@/lib/format-date";
+import { runActionWithToast } from "@/lib/run-action-with-toast";
+import { cn } from "@/lib/utils";
+import type { ClientRow } from "@/src/db/schema/clients";
+import { deleteClientAction, updateClientAction } from "../actions";
+import { clientStatusConfig, type ClientStatus } from "../client-status-config";
 
-// Params that belong to the open tab's list, dropped when switching tabs.
-const LIST_PARAMS = ["search", "status", "page"];
+export type ClientTab = {
+  key: "projects" | "proposals" | "invoices";
+  mini: { label: string; value: string; danger?: boolean }[];
+  chips: { value: string; label: string; count: number }[];
+  allCount: number;
+  rows: {
+    id: string;
+    href: string;
+    title: string;
+    sub: string;
+    amount: string;
+    tone: StatusTone;
+    label: string;
+  }[];
+  page: { page: number; pageSize: number; total: number; totalPages: number };
+  empty: { title: string; body: string; label: string; href: string };
+};
+
+type Summary = {
+  owes: string;
+  late: boolean;
+  lifetime: string;
+  sentInvoices: number;
+  activeProjects: number;
+  projects: number;
+  proposals: number;
+  invoices: number;
+};
+
+const STATUS = (Object.keys(clientStatusConfig) as ClientStatus[]).map(
+  (value) => ({ value, label: clientStatusConfig[value].label }),
+);
+
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
 export function ClientDetail({
   client,
-  section,
-  projects,
-  invoices,
-  proposals,
-  projectCount,
-  invoiceCount,
-  proposalCount,
-  initialEdit = false,
+  summary,
+  panel,
+  search,
 }: {
   client: ClientRow;
-  section: ClientDetailSection;
-  projects: ProjectListResult | null;
-  invoices: InvoiceListResult | null;
-  proposals: ProposalListResult | null;
-  projectCount: number;
-  invoiceCount: number;
-  proposalCount: number;
-  initialEdit?: boolean;
+  summary: Summary;
+  panel: ClientTab;
+  search: string;
 }) {
-  const [activeSection, setOptimisticSection] = useOptimistic(section);
-  const [isSectionPending, startSectionTransition] = useTransition();
-
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState(initialEdit);
-  const [formError, setFormError] = useState<string | null>(null);
-
   const router = useRouter();
-  const config = clientStatusConfig[client.status];
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [status, setOptimisticStatus] = useOptimistic(client.status);
+  const [, startStatus] = useTransition();
 
-  const {
-    handleSubmit,
-    register,
-    control,
-    setValue,
-    formState: { isSubmitting, errors },
-    reset,
-  } = useForm<ClientInput>({
-    resolver: zodResolver(clientSchema),
-    defaultValues: toClientFormsDefault(client),
-  });
+  const owes = Number(summary.owes);
+  const config = clientStatusConfig[status];
+  const firstName = client.name.split(/\s+/)[0];
+  const company =
+    client.company && client.company !== client.name ? client.company : null;
 
-  const phoneFieldRef = useRef<PhoneFieldHandle>(null);
-  const countryValue = useWatch({ control, name: "country" });
-
-  const currentUrlWithout = (keys: string[]) => {
-    const params = new URLSearchParams(window.location.search);
-    for (const key of keys) params.delete(key);
-    const query = params.toString();
-    return `/clients/${client.id}${query ? `?${query}` : ""}`;
-  };
-
-  const handleEditClick = () => {
-    reset(toClientFormsDefault(client));
-    setIsEditing(true);
-  };
-
-  const handleCancelClick = () => {
-    reset(toClientFormsDefault(client));
-    setIsEditing(false);
-    window.history.replaceState(null, "", currentUrlWithout(["edit"]));
-  };
-
-  const handleSectionChange = (next: ClientDetailSection) => {
-    if (next === activeSection) return;
-
-    const params = new URLSearchParams(window.location.search);
-    for (const key of LIST_PARAMS) params.delete(key);
-    if (next === "projects") {
-      params.delete("section");
-    } else {
-      params.set("section", next);
-    }
-    const query = params.toString();
-
-    startSectionTransition(() => {
-      setOptimisticSection(next);
-      router.replace(`/clients/${client.id}${query ? `?${query}` : ""}`, {
-        scroll: false,
-      });
+  const changeStatus = (next: ClientStatus) => {
+    if (next === status) return;
+    startStatus(async () => {
+      setOptimisticStatus(next);
+      const result = await updateClientAction(client.id, { status: next });
+      if (result.success) {
+        toast.success(
+          `${client.name} is now ${clientStatusConfig[next].label.toLowerCase()}`,
+        );
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
     });
   };
 
-  const [prevInitialEdit, setPrevInitialEdit] = useState(initialEdit);
-  if (initialEdit !== prevInitialEdit) {
-    setPrevInitialEdit(initialEdit);
-    if (initialEdit) setIsEditing(true);
-  }
-  const clientVersion = `${client.id}:${new Date(client.updatedAt).getTime()}`;
-
-  useEffect(() => {
-    if (initialEdit) reset(toClientFormsDefault(client));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialEdit, clientVersion, reset]);
-
-  const onSubmit = handleSubmit(async (data: ClientInput) => {
-    setFormError(null);
-    await runActionWithToast(updateClientAction(client.id, data), {
-      loading: "Updating client...",
-      success: "Client updated.",
-      onSuccess: () => {
-        setIsEditing(false);
-        router.replace(currentUrlWithout(["edit"]), { scroll: false });
-      },
-      onError: setFormError,
-    });
-  });
+  const tabs = [
+    { key: "projects", label: "Projects", count: summary.projects },
+    { key: "proposals", label: "Proposals", count: summary.proposals },
+    { key: "invoices", label: "Invoices", count: summary.invoices },
+  ] as const;
+  const hasAny = panel.allCount > 0 || Boolean(search);
+  const work = summary.projects + summary.invoices;
 
   return (
     <>
       <PageHeader
         title={client.name}
-        subtitle="Client details"
         badge={
-          <StatusBadge
-            status={config.variant}
-            className={config.dim ? "opacity-60" : undefined}
-          >
+          <StatusBadge status={config.variant} variant="soft">
             {config.label}
           </StatusBadge>
         }
+        subtitle={[company, client.email || "No email"]
+          .filter(Boolean)
+          .join(" · ")}
         backHref="/clients"
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
@@ -178,345 +133,325 @@ export function ClientDetail({
           { label: client.name },
         ]}
         actions={
-          isEditing ? (
-            <>
-              <CustomButton
-                type="button"
-                variant="secondary"
-                onClick={handleCancelClick}
-                className="flex items-center gap-1"
+          <>
+            {client.email && (
+              <a
+                href={`mailto:${client.email}`}
+                className={customButtonClasses("secondary", "sm")}
               >
-                <X className="h-3.5 w-3.5" /> Cancel
-              </CustomButton>
-              <CustomButton
-                type="button"
-                variant="primary"
-                onClick={onSubmit}
-                disabled={isSubmitting}
-                className="flex items-center gap-1"
-              >
-                <Check className="h-3.5 w-3.5" />
-                {isSubmitting ? "Saving..." : "Save"}
-              </CustomButton>
-            </>
-          ) : (
-            <>
-              <CustomButton
-                variant="secondary"
-                onClick={() => setIsDeleteOpen(true)}
-                className="flex items-center gap-1"
-              >
-                <Trash2Icon className="h-3.5 w-3.5" /> Delete
-              </CustomButton>
-              <CustomButton
-                variant="primary"
-                onClick={handleEditClick}
-                className="flex items-center gap-1"
-              >
-                <PencilIcon className="h-3.5 w-3.5" /> Edit
-              </CustomButton>
-            </>
-          )
+                Email {firstName}
+              </a>
+            )}
+            <Link
+              href={`/clients/${client.id}/edit`}
+              className={customButtonClasses("secondary", "sm")}
+            >
+              Edit
+            </Link>
+            <CustomButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsDeleteOpen(true)}
+              className="text-danger-600 hover:text-danger-600"
+            >
+              Delete
+            </CustomButton>
+            <Link
+              href={`/invoices/new?clientId=${client.id}`}
+              className={customButtonClasses("secondary", "sm")}
+            >
+              New invoice
+            </Link>
+            <Link
+              href={`/proposals/new?clientId=${client.id}`}
+              className={customButtonClasses("primary", "sm")}
+            >
+              New proposal
+            </Link>
+          </>
         }
       />
-      <DashboardContainer>
-        <div className="flex flex-col gap-5">
-          <form onSubmit={onSubmit} className="border-border rounded-xl border">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5">
-              <div className="flex items-center gap-3">
-                <AvatarInitials
-                  name={client.name}
-                  variant="neutral"
-                  shape="square"
-                  size="lg"
-                />
-                <div>
-                  {isEditing ? (
-                    <div className="flex flex-col gap-1">
-                      <input
-                        {...register("name")}
-                        className="border-input bg-input/20 focus-visible:border-ring focus-visible:ring-ring/20 rounded-lg border px-2 py-1 font-mono text-base font-medium tracking-tight focus-visible:ring-2 focus-visible:outline-none"
-                      />
-                      {errors.name && (
-                        <span className="text-danger-600 text-xs">
-                          {errors.name.message}
-                        </span>
-                      )}
-                    </div>
-                  ) : (
-                    <h2 className="font-mono font-medium tracking-tight">
-                      {client.name}
-                    </h2>
-                  )}
-                  <div className="mt-0.5 flex items-center gap-2">
-                    {isEditing ? (
-                      <Controller
-                        control={control}
-                        name="status"
-                        render={({ field }) => (
-                          <Select
-                            value={field.value}
-                            onValueChange={field.onChange}
-                          >
-                            <SelectTrigger className="h-7 w-auto text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {Object.entries(clientStatusConfig).map(
-                                ([value, cfg]) => (
-                                  <SelectItem key={value} value={value}>
-                                    {cfg.label}
-                                  </SelectItem>
-                                ),
-                              )}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    ) : (
-                      <StatusBadge
-                        status={config.variant}
-                        className={config.dim ? "opacity-60" : undefined}
-                      >
-                        {config.label}
-                      </StatusBadge>
-                    )}
-                    {client.company && (
-                      <span className="text-muted-foreground text-sm">
-                        {client.company}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
 
-            <div className="border-border border-t" />
-
-            {/* Fields */}
-            <dl className="grid grid-cols-2 gap-6 px-6 py-5 sm:grid-cols-4">
-              <DataField
-                label="Email"
-                editing={isEditing}
-                value={client.email}
-                href={
-                  !isEditing && client.email
-                    ? `mailto:${client.email}`
-                    : undefined
-                }
-                registration={register("email")}
-                error={errors.email?.message}
-                type="email"
-              />
-
-              <div>
-                {isEditing ? (
-                  <Controller
-                    control={control}
-                    name="phone"
-                    render={({ field }) => (
-                      <PhoneField
-                        ref={phoneFieldRef}
-                        value={field.value}
-                        onChange={field.onChange}
-                        error={errors.phone?.message}
-                        defaultCountryValue={client.country ?? undefined}
-                        syncCountryValue={countryValue}
-                        onDialCountryChange={(isoValue) =>
-                          setValue("country", isoValue, {
-                            shouldValidate: true,
-                          })
-                        }
-                      />
-                    )}
-                  />
-                ) : (
-                  <DataField
-                    label="Phone"
-                    value={client.phone ? formatPhone(client.phone) : null}
-                    href={client.phone ? `tel:${client.phone}` : undefined}
-                  />
-                )}
-              </div>
-
-              <DataField
-                label="Company"
-                editing={isEditing}
-                value={client.company}
-                registration={register("company")}
-                error={errors.company?.message}
-                type="text"
-              />
-
-              <div>
-                {isEditing ? (
-                  <>
-                    <Controller
-                      control={control}
-                      name="country"
-                      render={({ field }) => (
-                        <CountryCombobox
-                          value={field.value}
-                          onChange={(value) => {
-                            phoneFieldRef.current?.resetOverride();
-                            field.onChange(value);
-                          }}
-                        />
-                      )}
-                    />
-                    {errors.country && (
-                      <p className="text-destructive text-sm">
-                        {errors.country.message}
-                      </p>
-                    )}
-                  </>
-                ) : (
-                  <DataField label="Country" value={client.country} />
-                )}
-              </div>
-            </dl>
-
-            {formError && (
-              <div className="border-t px-6 py-3 sm:px-8">
-                <p className="text-destructive text-sm">{formError}</p>
-              </div>
-            )}
-
-            <div className="border-border border-t" />
-            {/* Billing default - prefills hour lines on this client's invoices */}
-            <div className="px-6 py-5 sm:max-w-xs">
-              <DataField
-                label="Default hourly rate"
-                editing={isEditing}
-                value={
-                  client.hourlyRate
-                    ? `${formatCurrency(client.hourlyRate)}/hr`
-                    : null
-                }
-                registration={register("hourlyRate")}
-                error={errors.hourlyRate?.message}
-              />
-            </div>
-
-            {/* Always shown, so notes can be added while editing; empty
-                reads as "-". */}
-            <div className="border-border border-t" />
-            <div className="px-6 py-5">
-              <DataField
-                label="Notes"
-                editing={isEditing}
-                value={client.notes}
-                registration={register("notes")}
-                error={errors.notes?.message}
-                type="textarea"
-              />
-            </div>
-
-            <div className="border-border border-t" />
-
-            {/* Footer */}
-            <div className="text-muted-foreground flex items-center gap-3 px-6 py-3.5 text-xs">
-              <span>Added {formatDate(client.createdAt)}</span>
-              <span>·</span>
-              <span>
-                Last updated {formatRelativeDate(client.updatedAt)} (
-                {formatDate(client.updatedAt)})
-              </span>
-            </div>
-          </form>
-          <div className="border-border rounded-xl border">
-            <div
-              role="tablist"
-              aria-label="Client sections"
-              className="border-border flex items-center gap-1 px-6"
-            >
-              <TabButton
-                id="project-tab"
-                panelId="client-section-panel"
-                label="Projects"
-                count={projectCount}
-                isActive={activeSection === "projects"}
-                onClick={() => handleSectionChange("projects")}
-              />
-              <TabButton
-                id="proposals-tab"
-                panelId="client-section-panel"
-                label="Proposals"
-                count={proposalCount}
-                isActive={activeSection === "proposals"}
-                onClick={() => handleSectionChange("proposals")}
-              />
-              <TabButton
-                id="invoices-tab"
-                panelId="client-section-panel"
-                label="Invoices"
-                count={invoiceCount}
-                isActive={activeSection === "invoices"}
-                onClick={() => handleSectionChange("invoices")}
-              />
-            </div>
-            <div
-              id="client-section-panel"
-              role="tabpanel"
-              aria-labelledby={`${
-                activeSection === "projects"
-                  ? "project"
-                  : activeSection === "proposals"
-                    ? "proposals"
-                    : "invoices"
-              }-tab`}
-              aria-busy={isSectionPending}
-              className={cn(
-                "border-t transition-opacity",
-                isSectionPending && "pointer-events-none opacity-60",
-              )}
-            >
-              {activeSection === "projects" ? (
-                projects ? (
-                  <ProjectsPanel clientId={client.id} result={projects} />
-                ) : (
-                  <PanelLoading />
-                )
-              ) : activeSection === "proposals" ? (
-                proposals ? (
-                  <ProposalsPanel clientId={client.id} result={proposals} />
-                ) : (
-                  <PanelLoading />
-                )
-              ) : invoices ? (
-                <InvoicesPanel clientId={client.id} result={invoices} />
-              ) : (
-                <PanelLoading />
-              )}
-            </div>
-          </div>
-          <DeleteDialog
-            open={isDeleteOpen}
-            onOpenChange={setIsDeleteOpen}
-            onDelete={async () => {
-              await runActionWithToast(deleteClientAction(client.id), {
-                loading: "Deleting Client",
-                success: "Client deleted",
-                onSuccess: () => router.push("/clients"),
-                onError: (error) => {
-                  throw error;
-                },
-              });
-            }}
-            title="Delete Client"
-            description={`Are you sure you want to delete "${client.name}"? This can't be undone.`}
+      <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
+        <div className="flex flex-col gap-4">
+          <MetricStrip
+            columns={3}
+            items={[
+              {
+                label: "Outstanding",
+                value: formatCurrency(summary.owes),
+                sub: summary.late
+                  ? "Includes an overdue invoice"
+                  : owes
+                    ? "Not due yet"
+                    : "All settled",
+                tone: summary.late ? "danger" : "default",
+              },
+              {
+                label: "Lifetime billed",
+                value: formatCurrency(summary.lifetime),
+                sub: `${plural(summary.sentInvoices, "invoice")} sent`,
+              },
+              {
+                label: "Active projects",
+                value: String(summary.activeProjects),
+                sub: `${summary.projects} in total`,
+              },
+            ]}
           />
+
+          <div className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]">
+            <section className="bg-card @container min-w-0 overflow-hidden rounded-lg border shadow-xs">
+              <div
+                role="tablist"
+                aria-label="Client work"
+                className="flex gap-0.5 overflow-x-auto border-b px-2.5"
+              >
+                {tabs.map((tab) => {
+                  const on = tab.key === panel.key;
+                  return (
+                    <Link
+                      key={tab.key}
+                      role="tab"
+                      aria-selected={on}
+                      href={`/clients/${client.id}?tab=${tab.key}`}
+                      scroll={false}
+                      className={cn(
+                        "relative inline-flex h-11 items-center gap-1 px-2.5 text-[13.5px] font-medium whitespace-nowrap transition-colors",
+                        on
+                          ? "text-foreground after:bg-primary after:absolute after:inset-x-2.5 after:-bottom-px after:h-0.5"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {tab.label}
+                      <span className="text-muted-foreground font-space text-xs tabular-nums">
+                        {tab.count}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+
+              {hasAny ? (
+                <>
+                  <dl className="flex flex-wrap gap-x-6 gap-y-2 border-b px-4 py-3.5 sm:px-4.5">
+                    {panel.mini.map((m) => (
+                      <div key={m.label} className="flex flex-col gap-0.5">
+                        <dt className="text-muted-foreground text-[12.5px]">
+                          {m.label}
+                        </dt>
+                        <dd
+                          className={cn(
+                            "font-space text-sm font-medium tabular-nums",
+                            m.danger && "text-danger-600",
+                          )}
+                        >
+                          {m.value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+
+                  <div className="px-4 py-3 sm:px-4.5">
+                    <DataTableToolbar
+                      searchPlaceholder="Search"
+                      filters={[
+                        {
+                          key: "view",
+                          label: `Filter ${panel.key}`,
+                          allCount: panel.allCount,
+                          options: panel.chips,
+                        },
+                      ]}
+                    />
+                  </div>
+
+                  {panel.rows.length === 0 ? (
+                    <p className="text-muted-foreground border-t px-4 py-4 text-[13.5px] sm:px-4.5">
+                      Nothing matches this filter.
+                    </p>
+                  ) : (
+                    <ul>
+                      {panel.rows.map((row) => (
+                        <li key={row.id} className="border-t">
+                          <Link
+                            href={row.href}
+                            className="hover:bg-muted/50 focus-visible:ring-ring grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none sm:px-4.5 @[560px]:grid-cols-[minmax(0,1fr)_auto_8.5rem]"
+                          >
+                            <span className="min-w-0">
+                              <span className="block truncate text-sm font-medium">
+                                {row.title}
+                              </span>
+                              <span className="text-muted-foreground block truncate text-[12.5px]">
+                                {row.sub}
+                              </span>
+                            </span>
+                            <span className="font-space text-right text-sm font-medium tabular-nums">
+                              {row.amount}
+                            </span>
+                            <span className="col-start-1 @[560px]:col-start-auto @[560px]:justify-self-end">
+                              <StatusBadge status={row.tone} variant="soft">
+                                {row.label}
+                              </StatusBadge>
+                            </span>
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {panel.page.totalPages > 1 && (
+                    <div className="border-t px-4 py-3 sm:px-4.5">
+                      <DataTablePagination
+                        page={panel.page.page}
+                        pageSize={panel.page.pageSize}
+                        total={panel.page.total}
+                        totalPages={panel.page.totalPages}
+                      />
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex max-w-120 flex-col items-start gap-2 px-4.5 py-7">
+                  <p className="font-semibold">{panel.empty.title}</p>
+                  <p className="text-muted-foreground text-[13.5px]">
+                    {panel.empty.body}
+                  </p>
+                  <Link
+                    href={panel.empty.href}
+                    className={customButtonClasses("primary", "sm", "mt-1")}
+                  >
+                    {panel.empty.label}
+                  </Link>
+                </div>
+              )}
+            </section>
+
+            <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4">
+              <DetailCard title="Status">
+                <SegmentedControl
+                  label="Client status"
+                  options={STATUS}
+                  value={status}
+                  onChange={changeStatus}
+                  className="grid w-full grid-cols-2"
+                  itemClassName="h-9 justify-center px-3 text-[13px]"
+                />
+              </DetailCard>
+
+              <DetailCard title="Details">
+                <DetailList
+                  rows={[
+                    {
+                      label: "Email",
+                      value: client.email ? (
+                        <a
+                          href={`mailto:${client.email}`}
+                          className="text-primary hover:underline"
+                        >
+                          {client.email}
+                        </a>
+                      ) : (
+                        "Not added"
+                      ),
+                    },
+                    { label: "Phone", value: client.phone || "-" },
+                    { label: "Company", value: client.company || "-" },
+                    {
+                      label: "Country",
+                      value: countryName(client.country) ?? "-",
+                    },
+                    {
+                      label: "Default hourly rate",
+                      value: client.hourlyRate
+                        ? `${formatCurrency(client.hourlyRate)}/hr`
+                        : "-",
+                    },
+                    { label: "Added", value: formatDate(client.createdAt) },
+                    { label: "Currency", value: "USD" },
+                  ]}
+                />
+              </DetailCard>
+
+              <NotesCard clientId={client.id} initial={client.notes ?? ""} />
+            </aside>
+          </div>
         </div>
-      </DashboardContainer>
+      </div>
+
+      <DeleteDialog
+        open={isDeleteOpen}
+        onOpenChange={setIsDeleteOpen}
+        title={`Delete ${client.name}?`}
+        description={
+          work
+            ? `They have ${plural(summary.projects, "project")} and ${plural(summary.invoices, "invoice")}. Finished work stays; open work has to be closed first.`
+            : "This client is removed for good."
+        }
+        onDelete={async () => {
+          await runActionWithToast(deleteClientAction(client.id), {
+            loading: "Deleting client...",
+            success: `${client.name} deleted`,
+            onSuccess: () => router.push("/clients"),
+            onError: (error) => {
+              throw error;
+            },
+          });
+        }}
+      />
     </>
   );
 }
 
-function PanelLoading() {
+/** Private notes that save a moment after you stop typing. */
+function NotesCard({
+  clientId,
+  initial,
+}: {
+  clientId: string;
+  initial: string;
+}) {
+  const [notes, setNotes] = useState(initial);
+  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
+  const saved = useRef(initial);
+
+  useEffect(() => {
+    if (notes === saved.current) return;
+    const timer = setTimeout(async () => {
+      setState("saving");
+      const result = await updateClientAction(clientId, { notes });
+      if (result.success) {
+        saved.current = notes;
+        setState("saved");
+      } else {
+        setState("idle");
+        toast.error(result.error);
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [notes, clientId]);
+
   return (
-    <p className="text-muted-foreground px-6 py-12 text-center text-sm">
-      Loading…
-    </p>
+    <DetailCard
+      title={<label htmlFor="client-notes">Notes</label>}
+      aside={
+        state !== "idle" && (
+          <span className="text-muted-foreground text-xs" aria-live="polite">
+            {state === "saving" ? "Saving..." : "Saved"}
+          </span>
+        )
+      }
+    >
+      <textarea
+        id="client-notes"
+        rows={4}
+        value={notes}
+        maxLength={2000}
+        onChange={(event) => setNotes(event.target.value)}
+        placeholder="Only you can see this."
+        className="border-border bg-input/20 focus-visible:border-ring focus-visible:ring-ring/20 w-full rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
+      />
+    </DetailCard>
   );
 }

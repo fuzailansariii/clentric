@@ -1,10 +1,15 @@
 "use client";
 
 import { useRef, useTransition } from "react";
+import Link from "next/link";
 import { ImageIcon, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { BrandLogo } from "@/components/brand-logo";
-import { CustomButton } from "@/components/ui/custom-button";
+import {
+  CustomButton,
+  customButtonClasses,
+} from "@/components/ui/custom-button";
+import { UPGRADE_HREF } from "@/components/dashboard/plan-limit-page";
 import { LOGO_ACCEPT, logoSizeError } from "@/lib/logo-file";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { cn } from "@/lib/utils";
@@ -13,9 +18,12 @@ import { removeLogoAction, uploadLogoAction } from "./actions";
 export function LogoUploader({
   logoSrc,
   name,
+  locked = false,
 }: {
   logoSrc: string | null;
   name: string;
+  /** Free plan: no uploads, and documents don't show the logo. */
+  locked?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [isPending, startTransition] = useTransition();
@@ -68,7 +76,9 @@ export function LogoUploader({
       <div className="min-w-0 flex-1 basis-48">
         <p className="text-sm font-medium">Logo</p>
         <p className="text-muted-foreground mt-0.5 text-sm">
-          PNG, JPG or WebP, up to 1 MB. Shown on proposals, invoices and emails.
+          {locked
+            ? "Part of Pro. Upgrade to show your logo on proposals, invoices and emails."
+            : "PNG, JPG or WebP, up to 1 MB. Shown on proposals, invoices and emails."}
         </p>
       </div>
 
@@ -84,22 +94,31 @@ export function LogoUploader({
             Remove
           </CustomButton>
         )}
-        <CustomButton
-          type="button"
-          variant="secondary"
-          size="sm"
-          onClick={() => inputRef.current?.click()}
-          disabled={isPending}
-          aria-busy={isPending || undefined}
-        >
-          {isPending && (
-            <Loader2
-              aria-hidden="true"
-              className="mr-1.5 size-4 animate-spin"
-            />
-          )}
-          {logoSrc ? "Replace" : "Upload logo"}
-        </CustomButton>
+        {locked ? (
+          <Link
+            href={UPGRADE_HREF}
+            className={customButtonClasses("secondary", "sm")}
+          >
+            Upgrade to Pro
+          </Link>
+        ) : (
+          <CustomButton
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => inputRef.current?.click()}
+            disabled={isPending}
+            aria-busy={isPending || undefined}
+          >
+            {isPending && (
+              <Loader2
+                aria-hidden="true"
+                className="mr-1.5 size-4 animate-spin"
+              />
+            )}
+            {logoSrc ? "Replace" : "Upload logo"}
+          </CustomButton>
+        )}
         <input
           ref={inputRef}
           type="file"

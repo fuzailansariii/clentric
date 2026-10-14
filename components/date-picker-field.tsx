@@ -9,10 +9,12 @@ import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { CalendarIcon } from "lucide-react";
 import { Calendar } from "./ui/calendar";
 import { cn } from "@/lib/utils";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 type DatePickerFieldProps = {
-  label?: string;
+  label?: ReactNode;
+  /** Names the picker when there's no visible label, e.g. in a table row. */
+  "aria-label"?: string;
   value: string | undefined;
   onChange: (value: string) => void;
   error?: string;
@@ -25,6 +27,7 @@ export function DatePickerField({
   value,
   error,
   disablePast = false,
+  "aria-label": ariaLabel,
 }: DatePickerFieldProps) {
   const selectedDate = formValueToDate(value);
   const [month, setMonth] = useState<Date | undefined>(selectedDate);
@@ -44,6 +47,10 @@ export function DatePickerField({
         <PopoverTrigger asChild>
           <button
             type="button"
+            aria-label={
+              ariaLabel &&
+              `${ariaLabel}: ${selectedDate ? formatDate(selectedDate) : "not set"}`
+            }
             aria-describedby={error ? errorId : undefined}
             className={cn(
               "border-border bg-input/20 flex h-11 w-full items-center justify-between rounded-lg border px-3 text-sm font-medium",

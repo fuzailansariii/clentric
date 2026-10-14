@@ -86,8 +86,7 @@ const free = {
     "Accepted proposal turns into a project and deposit invoice automatically",
     "“Made with Clentric” on your documents",
   ],
-  // Beta is invite-only: sign-up starts from the waitlist.
-  cta: { label: "Join the beta", href: "/#waitlist" },
+  cta: { label: "Get started free", href: "/register" },
 } as const;
 
 const pro = {
@@ -108,13 +107,14 @@ const pro = {
       text: "Your logo and colours on proposals and invoices",
       availableAtLaunch: true,
     },
+    { text: "One-click payment reminders", availableAtLaunch: true },
     {
-      text: "Email notifications and payment reminders",
+      text: "Automatic reminders and email notifications",
       availableAtLaunch: false,
     },
   ] satisfies ProFeature[],
-  // Everyone gets Pro during the beta; upgrading happens in Billing settings.
-  cta: { label: "Join the beta", href: "/#waitlist" },
+  // Everyone signs up on Free; upgrading happens in Billing settings.
+  cta: { label: "Start with Pro", href: "/register" },
 } as const;
 
 const agency = {
@@ -167,7 +167,7 @@ export const PRICING = {
   subheadline: "Start free. Upgrade when you need more.",
   yearlyBadge: `Save $${YEARLY_DISCOUNT_PER_MONTH}/mo`,
   smallPrint:
-    "Everything is free with no limits during the beta. Prices in USD. Checkout may show your local currency, with local tax added. Cancel anytime. See our",
+    "Prices in USD. Checkout may show your local currency, with local tax added. Cancel anytime. See our",
   free,
   pro,
   agency,
