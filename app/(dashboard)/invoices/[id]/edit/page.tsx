@@ -17,7 +17,7 @@ export default async function EditInvoicePage({
   const [invoice, clients, projects] = await Promise.all([
     getInvoiceById(id),
     getClientOptions(),
-    getProjectOptionsByUserId(),
+    getProjectOptionsByUserId(id),
   ]);
 
   if (!invoice) {
@@ -38,9 +38,11 @@ export default async function EditInvoicePage({
       projects={projects}
       invoice={{
         id: invoice.id,
+        status: invoice.status,
         invoiceNumber: invoice.invoiceNumber,
         numberPrefix: invoice.numberPrefix,
         notes: invoice.notes ?? "",
+        showProjectBalance: invoice.showProjectBalance,
         clientId: invoice.clientId,
         projectId: invoice.projectId ?? undefined,
         issueDate: invoice.issueDate,
@@ -52,6 +54,7 @@ export default async function EditInvoicePage({
           quantity: Number(item.quantity),
           rate: Number(item.rate),
           unit: item.unit,
+          milestoneId: item.milestoneId ?? undefined,
         })),
       }}
     />

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { CustomButton } from "@/components/ui/custom-button";
+import { LEGAL } from "@/lib/legal-config";
 import { manageBillingAction, startCheckoutAction } from "./billing-actions";
 
 type Option = { interval: "monthly" | "yearly"; label: string };
@@ -32,24 +33,49 @@ export function UpgradeButtons({ options }: { options: Option[] }) {
   if (returning) return null;
 
   return (
-    <div className="flex flex-wrap gap-2">
-      {options.map((option, i) => (
-        <CustomButton
-          key={option.interval}
-          type="button"
-          variant={i === 0 ? "primary" : "secondary"}
-          disabled={pending}
-          onClick={() => start(option.interval)}
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap gap-2">
+        {options.map((option, i) => (
+          <CustomButton
+            key={option.interval}
+            type="button"
+            variant={i === 0 ? "primary" : "secondary"}
+            disabled={pending}
+            onClick={() => start(option.interval)}
+          >
+            {pending && chosen === option.interval
+              ? "Opening checkout…"
+              : option.label}
+          </CustomButton>
+        ))}
+      </div>
+      <p className="text-muted-foreground text-xs">
+        Renews automatically until you cancel, which you can do anytime from
+        Manage billing.{" "}
+        <Link
+          href={LEGAL.routes.terms}
+          className="hover:text-foreground underline underline-offset-2"
         >
-          {pending && chosen === option.interval ? "Opening checkout…" : option.label}
-        </CustomButton>
-      ))}
+          Terms
+        </Link>{" "}
+        ·{" "}
+        <Link
+          href={LEGAL.routes.refund}
+          className="hover:text-foreground underline underline-offset-2"
+        >
+          Refunds
+        </Link>
+      </p>
     </div>
   );
 }
 
 /** Opens the payment provider's portal: card, invoices, cancel. */
-export function ManageBillingButton({ variant = "secondary" }: { variant?: "primary" | "secondary" }) {
+export function ManageBillingButton({
+  variant = "secondary",
+}: {
+  variant?: "primary" | "secondary";
+}) {
   const [pending, startTransition] = useTransition();
 
   return (
@@ -107,12 +133,18 @@ export function CheckoutReturn({ isPro }: { isPro: boolean }) {
       : "Confirming your payment, activating Pro…";
 
   return (
-    <p role="status" className="bg-secondary/40 rounded-lg border px-4 py-3 text-sm">
+    <p
+      role="status"
+      className="bg-secondary/40 rounded-lg border px-4 py-3 text-sm"
+    >
       {message}
       {timedOut && !isPro && (
         <>
           {" "}
-          <Link href="/settings/billing" className="font-medium underline-offset-4 hover:underline">
+          <Link
+            href="/settings/billing"
+            className="font-medium underline-offset-4 hover:underline"
+          >
             Back to plans
           </Link>
         </>

@@ -25,10 +25,9 @@ export default async function PublicProposalPage({
 
   const result = await getProposalByToken(token);
 
-  // getProposalByToken already collapses "never existed", "revoked" and
-  // "expired" into one message, so nothing here can be used to probe tokens.
+  // Unknown tokens get one generic message; a real link says why it closed.
   if (!result.success) {
-    return <ProposalUnavailable />;
+    return <ProposalUnavailable closed={result.closed} />;
   }
 
   return <PublicProposalView proposal={result.data} token={token} />;

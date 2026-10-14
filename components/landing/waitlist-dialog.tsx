@@ -1,34 +1,27 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId, useState, useTransition, type FormEvent } from "react";
 import Link from "next/link";
 import { Dialog as DialogPrimitive } from "radix-ui";
 import { ArrowRightIcon, CheckIcon, LoaderCircleIcon, XIcon } from "lucide-react";
+import { joinAgencyWaitlist } from "@/app/actions/waitlist";
 import { DialogOverlay, DialogPortal } from "@/components/ui/dialog";
 import { LEGAL } from "@/lib/legal-config";
 import { PRICING } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 import { BTN_PRIMARY, Honeypot } from "./parts";
-import { useWaitlistSignup } from "./use-waitlist-signup";
-import type { WaitlistKind } from "./waitlist-context";
 
-const SOURCES = [
-  { label: "X", value: "x" },
-  { label: "Reddit", value: "reddit" },
-  { label: "Website", value: "direct" },
-  { label: "Somewhere else", value: "other" },
-] as const;
-
+/** Agency waitlist: the plan is not live yet. */
 export function WaitlistDialog({
-  kind,
+  open,
   onClose,
 }: {
-  kind: WaitlistKind | null;
+  open: boolean;
   onClose: () => void;
 }) {
   return (
     <DialogPrimitive.Root
-      open={kind !== null}
+      open={open}
       onOpenChange={(open) => !open && onClose()}
     >
       <DialogPortal>
@@ -38,7 +31,7 @@ export function WaitlistDialog({
           className="lp bg-card text-foreground fixed top-1/2 left-1/2 z-50 max-h-[calc(100vh-40px)] w-[calc(100%-40px)] max-w-115 -translate-x-1/2 -translate-y-1/2 overflow-auto rounded-[14px] border p-7 shadow-[0_40px_90px_-30px_rgba(0,0,0,.45)] outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95"
         >
           {/* Remounts per open, so a reopened dialog starts fresh. */}
-          {kind && <WaitlistDialogBody kind={kind} onClose={onClose} />}
+          {open && <WaitlistDialogBody onClose={onClose} />}
           <DialogPrimitive.Close
             aria-label="Close"
             className="text-muted-foreground hover:text-foreground absolute top-3 right-3 grid size-11 cursor-pointer place-items-center rounded-md hover:bg-(--lp-hover)"
@@ -51,18 +44,28 @@ export function WaitlistDialog({
   );
 }
 
-function WaitlistDialogBody({
-  kind,
-  onClose,
-}: {
-  kind: WaitlistKind;
-  onClose: () => void;
-}) {
-  const [source, setSource] = useState("");
-  const { email, setEmail, website, setWebsite, error, sent, pending, submit } =
-    useWaitlistSignup(kind, source);
+function WaitlistDialogBody({ onClose }: { onClose: () => void }) {
+  const [email, setEmailState] = useState("");
+  const [website, setWebsite] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState(false);
+  const [pending, startTransition] = useTransition();
   const id = useId();
-  const agency = kind === "agency";
+
+  const setEmail = (value: string) => {
+    setEmailState(value);
+    setError(null);
+  };
+
+  const submit = (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError(null);
+    startTransition(async () => {
+      const result = await joinAgencyWaitlist({ email, website });
+      if (result.success) setSent(true);
+      else setError(result.error);
+    });
+  };
 
   if (sent) {
     return (
@@ -78,9 +81,7 @@ function WaitlistDialogBody({
           <span className="text-foreground font-medium [overflow-wrap:anywhere]">
             {email}
           </span>{" "}
-          {agency
-            ? "when the Agency plan opens."
-            : "when your invite is ready."}
+          when the Agency plan opens.
         </p>
         <button
           type="button"
@@ -96,15 +97,14 @@ function WaitlistDialogBody({
   return (
     <>
       <span className="font-space inline-flex h-6 items-center rounded-full bg-(--lp-accent-bg) px-2.5 text-[12.5px] font-medium text-(--lp-accent-fg)">
-        {agency ? "Coming soon" : "Private beta"}
+        Coming soon
       </span>
       <DialogPrimitive.Title className="font-space mt-3.5 text-3xl leading-[1.1] font-medium tracking-[-0.035em]">
-        {agency ? "Join the Agency waitlist" : "Get early access"}
+        Join the Agency waitlist
       </DialogPrimitive.Title>
       <p className="mt-2 text-[15.5px] text-pretty text-(--lp-muted)">
-        {agency
-          ? `The Agency plan launches ${PRICING.agency.launchDateLabel}. Leave your email and we'll write to you when it opens.`
-          : "Clentric opens as an invite-only beta in mid-October 2026. Leave your email and we'll write to you when your invite is ready."}
+        The Agency plan launches {PRICING.agency.launchDateLabel}. Leave your
+        email and we&rsquo;ll write to you when it opens.
       </p>
 
       <form onSubmit={submit} noValidate className="mt-5.5 flex flex-col gap-4.5">
@@ -137,37 +137,6 @@ function WaitlistDialogBody({
           )}
         </div>
 
-        {!agency && (
-          <div role="group" aria-labelledby={`${id}-src`} className="flex flex-col gap-2">
-            <span id={`${id}-src`} className="text-sm font-medium">
-              How did you find us?{" "}
-              <span className="font-normal text-(--lp-muted)">Optional</span>
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {SOURCES.map((s) => {
-                const on = source === s.value;
-                return (
-                  <button
-                    key={s.value}
-                    type="button"
-                    aria-pressed={on}
-                    disabled={pending}
-                    onClick={() => setSource(on ? "" : s.value)}
-                    className={cn(
-                      "h-11 cursor-pointer rounded-full border px-4 text-[14.5px] font-medium transition-colors",
-                      on
-                        ? "bg-foreground text-background border-foreground"
-                        : "bg-card border-(--lp-border-strong)",
-                    )}
-                  >
-                    {s.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         <Honeypot id={`${id}-website`} value={website} onChange={setWebsite} />
 
         <button
@@ -182,7 +151,7 @@ function WaitlistDialogBody({
             </>
           ) : (
             <>
-              {agency ? "Join the Agency waitlist" : "Join the waitlist"}
+              Join the Agency waitlist
               <ArrowRightIcon className="size-4" aria-hidden="true" />
             </>
           )}

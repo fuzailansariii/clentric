@@ -173,6 +173,38 @@ export function reminderEmail(input: {
   };
 }
 
+export function grantInviteEmail(input: {
+  email: string;
+  registerUrl: string;
+  /** Formatted end date, or null when the grant never ends. */
+  until: string | null;
+}): RenderedEmail {
+  const paragraphs = [
+    "Hi,",
+    `You've been given ${LEGAL.productName} Pro for free${input.until ? ` until ${input.until}` : ""}. No card needed.`,
+    `Sign up with ${input.email} and Pro turns on by itself. Another email address won't get it.`,
+  ];
+  const rows = [
+    { label: "Plan", value: "Pro" },
+    { label: "Price", value: "Free" },
+    { label: "Until", value: input.until ?? "No end date" },
+  ];
+  const closing = "Questions? Just reply to this email.";
+
+  return {
+    subject: `You've been given free ${LEGAL.productName} Pro`,
+    html: layout({
+      preheader: `Sign up with ${input.email} to start using Pro.`,
+      heading: `Free ${LEGAL.productName} Pro is yours`,
+      paragraphs,
+      rows,
+      button: { label: "Create your account", url: input.registerUrl },
+      closing,
+    }),
+    text: plainText({ paragraphs, rows, link: input.registerUrl, closing }),
+  };
+}
+
 export function proposalEmail(input: {
   logo?: EmailLogo | null;
   senderName: string;

@@ -11,10 +11,16 @@ const sizeStyles: Record<AvatarSize, string> = {
   lg: "h-11 w-11 text-base",
 };
 
-const shapeStyles: Record<AvatarShape, string> = {
-  square: "rounded-xl",
-  circle: "rounded-full",
+// A fixed large radius turns small squares into circles, so it scales with size.
+const squareRadius: Record<AvatarSize, string> = {
+  xs: "rounded-sm",
+  sm: "rounded-md",
+  md: "rounded-lg",
+  lg: "rounded-xl",
 };
+
+const shapeClass = (shape: AvatarShape, size: AvatarSize) =>
+  shape === "circle" ? "rounded-full" : squareRadius[size];
 
 const COLOR_PALETTE = [
   "var(--color-ledger-500)",
@@ -62,7 +68,7 @@ export function AvatarInitials({
         className={cn(
           "bg-accent text-accent-foreground flex shrink-0 items-center justify-center font-semibold tracking-[0.02em]",
           sizeStyles[size],
-          shapeStyles[shape],
+          shapeClass(shape, size),
           className,
         )}
       >
@@ -77,7 +83,7 @@ export function AvatarInitials({
         className={cn(
           "flex shrink-0 items-center justify-center border border-black/10",
           sizeStyles[size],
-          shapeStyles[shape],
+          shapeClass(shape, size),
           className,
         )}
         style={{ backgroundColor: hashToColor(name) }}
@@ -97,7 +103,7 @@ export function AvatarInitials({
       className={cn(
         "bg-secondary border-border flex shrink-0 items-center justify-center border",
         sizeStyles[size],
-        shapeStyles[shape],
+        shapeClass(shape, size),
         className,
       )}
     >

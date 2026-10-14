@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { CURRENCY_CODES } from "@/lib/currency-options";
 import { clientIdSchema } from "../clients/schema";
-import { proposalStatusEnum as proposalStatusPgEnum } from "@/src/db/schema/proposals";
 
 export const proposalIdSchema = z.uuid();
 
@@ -17,7 +16,7 @@ export const EXPIRY_OPTIONS = [
 export const EXPIRY_DEFAULT_DAYS = 14;
 
 export const lineItemSchema = z.object({
-  description: z.string().trim().min(1, "Description is required"),
+  description: z.string().trim().min(1, "Add a description"),
   quantity: z.coerce
     .number()
     .positive("Quantity must be greater than 0")
@@ -35,7 +34,18 @@ export const milestoneSchema = z.object({
   name: z
     .string()
     .trim()
-    .max(200, "Milestone name must be 200 characters or fewer")
+    .max(200, "Stage name must be 200 characters or fewer")
+    .optional(),
+  /** "Weeks 1-2": shown beside a named stage. */
+  timeframe: z
+    .string()
+    .trim()
+    .max(60, "Keep it under 60 characters")
+    .optional(),
+  description: z
+    .string()
+    .trim()
+    .max(2000, "Keep the description under 2000 characters")
     .optional(),
   items: z.array(lineItemSchema).min(1, "Add at least one line item"),
 });
@@ -125,13 +135,15 @@ export const deleteProposalSchema = z.object({
   proposalId: proposalIdSchema,
 });
 
-export const proposalStatusFilterEnum = z.enum(proposalStatusPgEnum.enumValues);
-
-export const proposalSearchParamsSchema = z.object({
+/** The proposals page: chip (none = all), search and paging. */
+export const proposalListParamsSchema = z.object({
   search: z.string().trim().max(200).optional(),
-  status: proposalStatusFilterEnum.optional().catch(undefined),
+  view: z
+    .enum(["draft", "awaiting", "accepted", "closed"])
+    .optional()
+    .catch(undefined),
   page: z.coerce.number().int().min(1).catch(1),
-  pageSize: z.coerce.number().int().max(100).catch(20),
+  pageSize: z.coerce.number().int().min(1).max(100).catch(20),
 });
 
 // z.coerce fields mean the form's input type and the parsed output type

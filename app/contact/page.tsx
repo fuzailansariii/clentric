@@ -31,8 +31,7 @@ export default function ContactPage() {
           {LEGAL.tagline.slice(1)}
         </p>
         <p>
-          It is operated by {LEGAL.operatorLegalName}, a {LEGAL.entityType}{" "}
-          based in {LEGAL.operatorCountry}. Paid plans are subscriptions billed
+          It is run as a {LEGAL.entityType}. Paid plans are subscriptions billed
           monthly or yearly in {LEGAL.currency}.
         </p>
       </LegalSection>

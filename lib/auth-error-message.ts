@@ -1,5 +1,6 @@
+// Only shown if the invite-only sign-up hook is switched on again.
 export const INVITE_ONLY_MESSAGE =
-  "Clentric is invite-only during the beta. Join the waitlist on our home page and we'll send you an invite.";
+  "New sign-ups are paused right now. Please try again later, or write to us from the contact page.";
 
 /** Messages for ?error= codes the auth callback redirects with. */
 export const AUTH_REDIRECT_ERRORS: Record<string, string> = {

@@ -24,8 +24,7 @@ export default function TermsOfServicePage() {
       intro={
         <p>
           These terms are the agreement between you and{" "}
-          {LEGAL.operatorLegalName}, the {LEGAL.entityType} that operates{" "}
-          {LEGAL.productName}. By creating an account or using the service, you
+          {LEGAL.operatorLegalName}, run as a {LEGAL.entityType}. By creating an account or using the service, you
           agree to them. We have tried to write them in plain English.
         </p>
       }
@@ -192,11 +191,6 @@ export default function TermsOfServicePage() {
           work that is over those limits - you keep everything you already made.
           The limits only stop you creating new items beyond them until you
           upgrade again.
-        </p>
-        <p>
-          During the beta, paid plans are switched off: every account gets all
-          features and no limits apply. We will email you before limits or paid
-          plans start, and nothing you made during the beta will be deleted.
         </p>
       </LegalSection>
 

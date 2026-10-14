@@ -6,6 +6,7 @@ import {
   type FieldErrors,
   type FieldArrayWithId,
 } from "react-hook-form";
+import { XIcon } from "lucide-react";
 import { InvoiceFormInput } from "./schema";
 import { Field } from "@/components/ui/input";
 import {
@@ -15,9 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Trash2 } from "lucide-react";
 import { formatCurrency } from "@/lib/format-currency";
 import { lineItemUnitOptions, lineItemUnits } from "@/lib/format-line-item";
+import { cn } from "@/lib/utils";
 import type { InvoiceItemUnit } from "@/src/db/schema/invoice-items";
 
 type LineitemsProps = {
@@ -30,6 +31,13 @@ type LineitemsProps = {
   onUnitChange: (index: number, unit: InvoiceItemUnit) => void;
 };
 
+// Phone: description on its own row, then unit · qty · rate · amount.
+const ROW = cn(
+  "grid items-start gap-2",
+  "grid-cols-[minmax(0,1fr)_minmax(0,1fr)_2.75rem]",
+  "@[640px]:grid-cols-[1.25rem_minmax(0,1fr)_6.5rem_5.5rem_8rem_6.5rem_2.75rem]",
+);
+
 export default function LineItems({
   fields,
   errors,
@@ -40,107 +48,109 @@ export default function LineItems({
   onUnitChange,
 }: LineitemsProps) {
   return (
-    <div className="flex flex-col gap-4">
+    <div className="@container">
+      <div
+        aria-hidden="true"
+        className={cn(
+          ROW,
+          "text-muted-foreground hidden pb-1.5 text-xs @[640px]:grid",
+        )}
+      >
+        <span />
+        <span>Description</span>
+        <span>Unit</span>
+        <span className="text-right">Qty</span>
+        <span className="text-right">Rate</span>
+        <span className="text-right">Amount</span>
+        <span />
+      </div>
+
       {fields.map((field, index) => {
         const unit = watchedLineItems[index]?.unit ?? "item";
         const unitCopy = lineItemUnits[unit];
+        const amount =
+          Number(watchedLineItems[index]?.quantity || 0) *
+          Number(watchedLineItems[index]?.rate || 0);
+        const n = index + 1;
 
         return (
-          <div
-            key={field.id}
-            className="border-border grid gap-3 rounded-lg border p-3 sm:grid-cols-[112px_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_40px] sm:rounded-none sm:border-0 sm:border-b sm:p-0 sm:pb-4 sm:last:border-b-0 sm:last:pb-0"
-          >
-            {/* Description */}
-            <div className="sm:col-span-5">
+          <div key={field.id} className={cn(ROW, "border-t py-2.5")}>
+            <span className="text-muted-foreground font-space hidden pt-3 text-xs tabular-nums @[640px]:block">
+              {n}
+            </span>
+
+            <div className="col-span-3 @[640px]:col-span-1">
               <Field
                 {...register(`lineItems.${index}.description`)}
-                label="Description"
-                placeholder="e.g. Website development"
+                aria-label={`Line ${n} description`}
+                placeholder="Description"
                 error={errors.lineItems?.[index]?.description?.message}
               />
             </div>
 
-            {/* Unit */}
             <Controller
               control={control}
               name={`lineItems.${index}.unit`}
               render={({ field: unitField }) => (
-                <div className="flex flex-col gap-1">
-                  <label className="text-muted-foreground font-sans text-[13px] font-medium">
-                    Unit
-                  </label>
-                  <Select
-                    value={unitField.value ?? "item"}
-                    onValueChange={(value) =>
-                      onUnitChange(index, value as InvoiceItemUnit)
-                    }
+                <Select
+                  value={unitField.value ?? "item"}
+                  onValueChange={(value) =>
+                    onUnitChange(index, value as InvoiceItemUnit)
+                  }
+                >
+                  <SelectTrigger
+                    aria-label={`Line ${n} unit`}
+                    className="h-11! w-full"
                   >
-                    <SelectTrigger className="h-10 w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {lineItemUnitOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {lineItemUnitOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             />
 
-            {/* Quantity - labelled by unit ("Hours", "Days") */}
+            {/* Quantity: placeholder follows the unit ("Hours", "Days") */}
             <Field
               {...register(`lineItems.${index}.quantity`)}
-              label={unitCopy.quantityLabel}
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder={unit === "item" ? "1" : "e.g. 7.5"}
+              aria-label={`Line ${n} ${unitCopy.quantityLabel.toLowerCase()}`}
+              inputMode="decimal"
+              placeholder={unitCopy.quantityLabel}
+              className="text-right"
               error={errors.lineItems?.[index]?.quantity?.message}
             />
 
-            {/* Rate */}
-            <Field
-              {...register(`lineItems.${index}.rate`)}
-              label="Rate"
-              type="number"
-              min="0"
-              step="0.01"
-              placeholder="0.00"
-              prefix="$"
-              suffix={unitCopy.rateSuffix}
-              error={errors.lineItems?.[index]?.rate?.message}
-            />
-
-            {/* Amount */}
-            <div className="flex flex-col gap-1">
-              <label className="text-muted-foreground font-sans text-[13px] font-medium">
-                Amount
-              </label>
-              <div className="border-border bg-input/20 flex h-11 items-center rounded-lg border px-3 text-sm font-medium">
-                {formatCurrency(
-                  String(
-                    Number(watchedLineItems[index]?.quantity || 0) *
-                      Number(watchedLineItems[index]?.rate || 0),
-                  ),
-                )}
-              </div>
+            <div className="col-start-1 row-start-3 @[640px]:col-start-auto @[640px]:row-start-auto">
+              <Field
+                {...register(`lineItems.${index}.rate`)}
+                aria-label={`Line ${n} rate`}
+                inputMode="decimal"
+                placeholder="0"
+                prefix="$"
+                suffix={unitCopy.rateSuffix}
+                className="text-right"
+                error={errors.lineItems?.[index]?.rate?.message}
+              />
             </div>
 
-            {/* Remove */}
-            <div className="flex items-end justify-end">
-              <button
-                type="button"
-                onClick={() => remove(index)}
-                disabled={fields.length === 1}
-                className="text-muted-foreground hover:text-danger-600 inline-flex h-10 w-10 items-center justify-center rounded-lg transition-colors disabled:pointer-events-none disabled:opacity-30"
-                aria-label="Remove line item"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
+            <span className="font-space col-start-2 row-start-3 pt-3 text-right text-sm font-medium tabular-nums @[640px]:col-start-auto @[640px]:row-start-auto">
+              {formatCurrency(String(amount))}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => remove(index)}
+              disabled={fields.length === 1}
+              className="text-muted-foreground hover:text-danger-600 focus-visible:ring-ring col-start-3 row-start-2 inline-flex size-11 items-center justify-center rounded-lg transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30 @[640px]:col-start-auto @[640px]:row-start-auto"
+              aria-label={`Remove line ${n}`}
+            >
+              <XIcon className="size-4" />
+            </button>
           </div>
         );
       })}

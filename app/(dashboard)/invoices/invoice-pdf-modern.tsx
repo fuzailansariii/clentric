@@ -28,6 +28,7 @@ import { invoiceStatusConfig } from "./invoice-status-config";
 import { pdfFonts } from "./invoice-pdf-fonts";
 import type { InvoicePdfData } from "./queries";
 import type { PdfLogo } from "@/lib/logo-for-pdf";
+import { balanceRows } from "@/lib/project-ledger";
 
 /**
  * The "Modern" invoice template, ported from the Claude Design mockup
@@ -164,6 +165,12 @@ const s = StyleSheet.create({
   summary: { flexDirection: "row", marginTop: 13, alignItems: "flex-start" },
   notes: { flex: 1, paddingRight: 21, paddingTop: 1.5, color: c.body },
   totals: { width: 223 },
+  balance: {
+    marginTop: 12,
+    paddingTop: 7,
+    borderTopWidth: 0.5,
+    borderTopColor: c.rule,
+  },
   totalsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -503,6 +510,32 @@ export function ModernInvoicePdfDocument({
               </Text>
             </View>
             <Text style={s.dueNote}>{dueNote}</Text>
+            {invoice.projectBalance ? (
+              <View style={s.balance}>
+                <Text style={[s.label, { marginBottom: 2 }]}>
+                  Project balance
+                </Text>
+                {balanceRows(invoice.projectBalance).map(
+                  ([label, value], i, all) => {
+                    const last = i === all.length - 1;
+                    return (
+                      <View key={label} style={s.totalsRow}>
+                        <Text
+                          style={
+                            last ? { fontWeight: 600 } : { color: c.muted }
+                          }
+                        >
+                          {label}
+                        </Text>
+                        <Text style={[s.num, last ? { fontWeight: 600 } : {}]}>
+                          {money(String(value))}
+                        </Text>
+                      </View>
+                    );
+                  },
+                )}
+              </View>
+            ) : null}
           </View>
         </View>
 

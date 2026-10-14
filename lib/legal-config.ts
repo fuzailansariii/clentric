@@ -37,11 +37,11 @@ export const LEGAL = {
     "A client-centric workspace for freelancers to manage clients, projects, invoices and proposals in one place.",
 
   /** Shown as "Last updated" on the policy pages; also the accepted terms version. */
-  lastUpdated: "7 October 2026",
-  termsVersion: "2026-10-07",
+  lastUpdated: "14 October 2026",
+  termsVersion: "2026-10-14",
 
   /** The business behind the product. */
-  operatorLegalName: "Mohd Fuzail Ansari",
+  operatorLegalName: "Clentric",
   entityType: "Sole Proprietorship (India)",
   operatorCountry: "India",
   /** null hides the postal address everywhere rather than printing a
@@ -54,7 +54,7 @@ export const LEGAL = {
 
   /** Grievance Officer under the DPDP Act, 2023 and the IT Rules, 2021. */
   grievanceOfficer: {
-    name: "Mohd Fuzail Ansari",
+    name: "Clentric Support Team",
     designation: "Grievance Officer",
     acknowledgeWithin: "24 hours",
     resolveWithin: "15 days",

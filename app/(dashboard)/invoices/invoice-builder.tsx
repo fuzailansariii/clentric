@@ -1,7 +1,7 @@
 "use client";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
-import { useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import {
   invoiceSchema,
   type InvoiceFormInput,
@@ -17,19 +17,25 @@ import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import type { ReturnTo } from "@/lib/return-to";
 import { useRouter } from "next/navigation";
-import DashboardContainer from "@/components/dashboard/container";
 import PageHeader from "@/components/dashboard/page-header";
+import { DetailCard } from "@/components/dashboard/detail-parts";
 import { ClientOption } from "@/components/client-combobox";
-import { ProjectOption } from "@/components/project-combobox";
+import {
+  ProjectCombobox,
+  type ProjectOption,
+} from "@/components/project-combobox";
+import { DatePickerField } from "@/components/date-picker-field";
+import { CustomButton } from "@/components/ui/custom-button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import { addDays } from "date-fns";
-import { dateToFormValue } from "@/lib/format-date";
+import { dateToFormValue, formValueToDate } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { calculateInvoiceTotals } from "@/lib/calculate-totals";
-import { formatCurrency } from "@/lib/format-currency";
-import { AlertTriangle } from "lucide-react";
+import { projectLedger } from "@/lib/project-ledger";
+import { BudgetLine } from "./budget-line";
+import { BillToField } from "./bill-to-field";
 import InvoicePreview from "@/components/preview/invoice-preview";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { cn } from "@/lib/utils";
 import type { InvoiceItemUnit } from "@/src/db/schema/invoice-items";
 import DetailedInvoiceForm from "./new/detailed-invoice-form";
 import QuickInvoiceForm from "./new/quick-invoice-form";
@@ -37,6 +43,8 @@ import QuickInvoiceForm from "./new/quick-invoice-form";
 /** An existing invoice loaded into the builder for editing. */
 export type EditableInvoice = {
   id: string;
+  /** Only a draft may be saved half-written. */
+  status: "draft" | "sent" | "overdue" | "paid";
   invoiceNumber: number;
   numberPrefix: string;
   clientId: string;
@@ -46,11 +54,13 @@ export type EditableInvoice = {
   currency: string;
   taxRate: number;
   notes: string;
+  showProjectBalance: boolean;
   lineItems: {
     description: string;
     quantity: number;
     rate: number;
     unit: InvoiceItemUnit;
+    milestoneId?: string;
   }[];
 };
 
@@ -74,9 +84,30 @@ type InvoiceBuilderProps = {
   invoice?: EditableInvoice;
   /** Starting values for a new invoice. Ignored when editing. */
   defaults?: NewInvoiceDefaults;
+  /** First line of a new invoice, e.g. the milestone from "Invoice stage N". */
+  initialLine?: EditableInvoice["lineItems"][number];
   /** Where to go after creating, when opened from the dashboard's setup. */
   returnTo?: ReturnTo | null;
+  /** Set when the plan has no room for another client: no "Bill someone new". */
+  newClientBlocked?: string | null;
 };
+
+const MODES = [
+  { value: "quick", label: "Quick" },
+  { value: "detailed", label: "Detailed" },
+] as const;
+
+/** Due-date shortcuts: due = issue date + N days. */
+const TERMS = [
+  { value: "0", label: "On receipt" },
+  { value: "7", label: "Net 7" },
+  { value: "14", label: "Net 14" },
+  { value: "30", label: "Net 30" },
+] as const;
+type Term = (typeof TERMS)[number]["value"];
+
+const isTerm = (days: number): days is 0 | 7 | 14 | 30 =>
+  [0, 7, 14, 30].includes(days);
 
 export default function InvoiceBuilder({
   issuerName,
@@ -86,13 +117,29 @@ export default function InvoiceBuilder({
   initialProjectId,
   invoice,
   defaults,
+  initialLine,
   returnTo = null,
+  newClientBlocked = null,
 }: InvoiceBuilderProps) {
+  // Quick shows one amount, so only a single plain item line opens in it.
+  const oneFlatLine =
+    !invoice ||
+    (invoice.lineItems.length === 1 &&
+      invoice.lineItems[0].unit === "item" &&
+      Number(invoice.lineItems[0].quantity) === 1);
   const [mode, setMode] = useState<"quick" | "detailed">(
-    invoice ? "detailed" : "quick",
+    oneFlatLine ? "quick" : "detailed",
   );
   const [showQuickConfirm, setShowQuickConfirm] = useState(false);
+  // No saved clients yet: start by typing who you're billing.
+  const startNew = !invoice && clients.length === 0 && !newClientBlocked;
+  const [billNew, setBillNew] = useState(startNew);
   const [formError, setFormError] = useState("");
+  const termDays = defaults?.paymentTermsDays ?? 14;
+  // Editing the date by hand clears the shortcut.
+  const [term, setTerm] = useState<Term | null>(
+    !invoice && isTerm(termDays) ? (String(termDays) as Term) : null,
+  );
 
   const router = useRouter();
 
@@ -110,23 +157,34 @@ export default function InvoiceBuilder({
           currency: invoice.currency,
           taxRate: invoice.taxRate,
           notes: invoice.notes,
+          showProjectBalance: invoice.showProjectBalance,
           lineItems: invoice.lineItems,
         }
       : {
           clientId: initialClientId ?? "",
+          newClient: startNew ? { name: "", email: "" } : undefined,
           projectId: initialProjectId ?? undefined,
           issueDate: dateToFormValue(new Date()),
-          // Payment terms (users.payment_terms_days): due on receipt, or N
-          // days out.
-          dueDate: dateToFormValue(
-            addDays(new Date(), defaults?.paymentTermsDays ?? 0),
-          ),
+          // Payment terms (users.payment_terms_days): due on receipt, or N days out.
+          dueDate: dateToFormValue(addDays(new Date(), termDays)),
           currency:
             projects.find((project) => project.id === initialProjectId)
               ?.currency ?? "USD",
-          taxRate: defaults?.taxRate ?? 0,
+          // Empty rather than "0", so the placeholder shows.
+          taxRate: defaults?.taxRate || "",
           notes: defaults?.notes ?? "",
-          lineItems: [{ description: "", quantity: 1, rate: 0, unit: "item" }],
+          // On by default when opened from a fixed-price project.
+          showProjectBalance:
+            projects.find((project) => project.id === initialProjectId)
+              ?.pricing === "fixed",
+          lineItems: [
+            initialLine ?? {
+              description: "",
+              quantity: 1,
+              rate: "",
+              unit: "item",
+            },
+          ],
         },
   });
 
@@ -137,63 +195,54 @@ export default function InvoiceBuilder({
     reset,
     setValue,
     getValues,
+    setError,
     control,
+    unregister,
   } = form;
 
-  const watchedLineItems = useWatch({
-    control,
-    name: "lineItems",
-  });
-
-  const watchedTaxRate = useWatch({
-    control,
-    name: "taxRate",
-  });
-
-  const selectedClientId = useWatch({
-    control,
-    name: "clientId",
-  });
+  const watchedLineItems = useWatch({ control, name: "lineItems" });
+  const watchedTaxRate = useWatch({ control, name: "taxRate" });
+  const selectedClientId = useWatch({ control, name: "clientId" });
   const filteredProjects = projects.filter(
     (project) => project.clientId === selectedClientId,
   );
 
-  // to check if there is more than one item in the lineItems.
   const hasMeaningfulExtraLineItems = (): boolean => {
     if (watchedLineItems.length <= 1) return false;
-    const extraItems = watchedLineItems.slice(1);
-    return extraItems.some(
-      (item) => item.description !== "" || Number(item.rate) > 0,
-    );
+    return watchedLineItems
+      .slice(1)
+      .some((item) => item.description !== "" || Number(item.rate) > 0);
   };
 
   function collapseToSingleLineItem() {
     const firstItem = watchedLineItems[0];
-    // Quick mode bills one flat amount - a leftover "hour" unit would print
-    // "1 hr" on the invoice.
+    // Quick mode bills one flat amount - a leftover "hour" unit would print "1 hr".
     replace([{ ...firstItem, quantity: 1, unit: "item" }]);
   }
 
-  const handleQuickClick = () => {
-    if (mode === "quick") return;
-    if (hasMeaningfulExtraLineItems()) {
+  const changeMode = (next: "quick" | "detailed") => {
+    if (next === mode) return;
+    if (next === "detailed") {
+      setMode("detailed");
+    } else if (hasMeaningfulExtraLineItems()) {
       setShowQuickConfirm(true);
     } else {
+      collapseToSingleLineItem();
       setMode("quick");
     }
   };
 
   const selectedClient = clients.find((c) => c.id === selectedClientId);
+  const newClientName = useWatch({ control, name: "newClient.name" });
+  const showProjectBalance = useWatch({ control, name: "showProjectBalance" });
   const selectedProjectId = useWatch({ control, name: "projectId" });
   const selectedProject = projects.find((p) => p.id === selectedProjectId);
   const watchedDueDate = useWatch({ control, name: "dueDate" });
 
-  const fieldArray = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control: form.control,
     name: "lineItems",
   });
-
-  const { fields, append, remove, replace } = fieldArray;
 
   const hourlyRateFor = (
     clientId: string | undefined,
@@ -217,15 +266,24 @@ export default function InvoiceBuilder({
     });
   };
 
+  const toggleBillNew = (next: boolean) => {
+    setBillNew(next);
+    if (next) {
+      setValue("clientId", "");
+      setValue("projectId", undefined);
+      setValue("newClient", { name: "", email: "" });
+    } else {
+      unregister("newClient");
+    }
+  };
+
   const handleClientChange = (
     onChange: (value: string) => void,
     value: string,
   ) => {
     onChange(value);
-    setValue("projectId", undefined, {
-      shouldDirty: true,
-      shouldValidate: false,
-    });
+    // Changing the client clears the project.
+    setValue("projectId", undefined, { shouldDirty: true });
     fillEmptyHourlyRates(hourlyRateFor(value, undefined));
   };
 
@@ -234,6 +292,10 @@ export default function InvoiceBuilder({
     value: string,
   ) => {
     onChange(value);
+    const project = projects.find((p) => p.id === value);
+    setValue("showProjectBalance", project?.pricing === "fixed", {
+      shouldDirty: true,
+    });
     fillEmptyHourlyRates(
       hourlyRateFor(getValues("clientId"), value || undefined),
     );
@@ -251,6 +313,15 @@ export default function InvoiceBuilder({
     }
   };
 
+  const applyTerm = (next: Term, issueDate = getValues("issueDate")) => {
+    setTerm(next);
+    const issue = formValueToDate(issueDate) ?? new Date();
+    setValue("dueDate", dateToFormValue(addDays(issue, Number(next))), {
+      shouldDirty: true,
+      shouldValidate: true,
+    });
+  };
+
   const activeHourlyRate = hourlyRateFor(selectedClientId, selectedProjectId);
   const hourlyRateHint = activeHourlyRate
     ? {
@@ -258,20 +329,28 @@ export default function InvoiceBuilder({
         source:
           selectedProject && Number(selectedProject.hourlyRate) > 0
             ? selectedProject.title
-            : (selectedClient?.name ?? "This client"),
+            : (selectedClient?.name ?? "client"),
       }
     : null;
-
-  // Hidden while editing the deposit invoice itself.
-  const deposit =
-    selectedProject?.deposit && selectedProject.deposit.invoiceId !== invoice?.id
-      ? selectedProject.deposit
-      : null;
 
   const { subtotal, taxRate, taxAmount, total } = calculateInvoiceTotals(
     watchedLineItems,
     watchedTaxRate,
   );
+
+  const ledger = selectedProject
+    ? projectLedger({
+        budget: selectedProject.budget,
+        billed: selectedProject.billed,
+        thisInvoice: total,
+      })
+    : null;
+  // Not named while editing the deposit invoice itself.
+  const depositLabel =
+    selectedProject?.deposit &&
+    selectedProject.deposit.invoiceId !== invoice?.id
+      ? selectedProject.deposit.label
+      : null;
 
   const invoicePath = invoice
     ? `/invoices/${invoice.id}`
@@ -280,16 +359,68 @@ export default function InvoiceBuilder({
     ? formatInvoiceNumber(invoice.invoiceNumber, invoice.numberPrefix)
     : null;
 
-  // form submit handler
-  const onSubmit = handleSubmit(async (data: InvoiceFormOutput) => {
+  /** Lines left completely empty are dropped; one line always stays. */
+  const trimLines = (data: InvoiceFormOutput): InvoiceFormOutput => {
+    const typed = data.lineItems.filter(
+      (line) => line.description || line.rate > 0,
+    );
+    return {
+      ...data,
+      lineItems: typed.length ? typed : data.lineItems.slice(0, 1),
+    };
+  };
+
+  /** What sending needs: a description and an amount, and someone to email. */
+  const readyToSend = (data: InvoiceFormOutput, needsEmail: boolean) => {
+    let ready = true;
+    data.lineItems.forEach((line, index) => {
+      if (!line.description) {
+        setError(`lineItems.${index}.description`, {
+          message: "Add a description",
+        });
+        ready = false;
+      }
+    });
+    const sum = data.lineItems.reduce(
+      (acc, line) => acc + line.quantity * line.rate,
+      0,
+    );
+    if (!(sum > 0)) {
+      if (mode === "quick") {
+        setError("lineItems.0.rate", { message: "Enter an amount" });
+      } else {
+        setError("lineItems", { message: "Add at least one line with a rate" });
+      }
+      ready = false;
+    }
+    if (needsEmail) {
+      if (billNew && !data.newClient?.email) {
+        setError("newClient.email", {
+          message: "Add an email to send it, or save as draft",
+        });
+        ready = false;
+      } else if (!billNew && selectedClient?.hasEmail === false) {
+        setError("clientId", {
+          message: "This client has no email. Save as draft, or add one",
+        });
+        ready = false;
+      }
+    }
+    return ready;
+  };
+
+  const onSubmit = handleSubmit(async (raw: InvoiceFormOutput) => {
     setFormError("");
+    const data = trimLines(raw);
 
     if (invoice) {
+      // A sent invoice stays complete; only drafts may be half-written.
+      if (invoice.status !== "draft" && !readyToSend(data, false)) return;
       await runActionWithToast(
         updateInvoiceAction({ ...data, invoiceId: invoice.id }),
         {
           loading: "Saving invoice...",
-          success: "Invoice updated.",
+          success: "Changes saved",
           onSuccess: () => router.push(`/invoices/${invoice.id}`),
           onError: setFormError,
         },
@@ -298,8 +429,8 @@ export default function InvoiceBuilder({
     }
 
     await runActionWithToast(createInvoiceAction(data), {
-      loading: "Creating invoice.",
-      success: "Invoice created.",
+      loading: "Saving draft...",
+      success: "Saved as draft",
       onSuccess: ({ invoiceId }) => {
         router.push(returnTo ?? `/invoices/${invoiceId}`);
         reset();
@@ -309,10 +440,11 @@ export default function InvoiceBuilder({
   });
 
   // Create & Send: create the invoice, then send it. A failed send leaves a
-  // saved draft, so it still counts as success - the toast says it wasn't
-  // sent, and the invoice page (where it lands) has its own Send button.
-  const onSubmitAndSend = handleSubmit(async (data: InvoiceFormOutput) => {
+  // saved draft, so it still counts as success; the toast says it wasn't sent.
+  const onSubmitAndSend = handleSubmit(async (raw: InvoiceFormOutput) => {
     setFormError("");
+    const data = trimLines(raw);
+    if (!readyToSend(data, true)) return;
 
     const createAndSend = async (): Promise<
       ActionResult<{
@@ -338,13 +470,12 @@ export default function InvoiceBuilder({
       loading: "Creating and sending invoice...",
       success: ({ sent, emailError }) =>
         !sent
-          ? "Invoice saved as a draft, but it couldn't be sent. Try Send again from the invoice."
+          ? "Saved as a draft, but it couldn't be sent. Try Send again from the invoice."
           : emailError
             ? "Invoice created and marked as sent."
-            : "Invoice created and sent to your client.",
+            : "Invoice created and emailed to your client.",
       onSuccess: ({ invoiceId, sent, emailError }) => {
         warnNotEmailed(emailError, "invoice");
-        // A failed send lands on the invoice, where its toast says to retry.
         router.push(sent && returnTo ? returnTo : `/invoices/${invoiceId}`);
         reset();
       },
@@ -355,13 +486,11 @@ export default function InvoiceBuilder({
   return (
     <>
       <PageHeader
-        title={invoiceLabel ? `Edit ${invoiceLabel}` : "New Invoice"}
+        title={invoiceLabel ? `Edit ${invoiceLabel}` : "New invoice"}
         subtitle={
           invoice
-            ? "Update the client, dates, tax, or line items."
-            : defaults
-              ? `Next invoice: ${defaults.nextNumberLabel}. Bill a client for completed work.`
-              : "Bill a client for completed work with line items, tax, and due dates."
+            ? "Update the client, dates, tax or lines"
+            : "Emailed to your client with a PDF attached"
         }
         backHref={invoicePath}
         breadcrumbs={
@@ -378,122 +507,212 @@ export default function InvoiceBuilder({
                 { label: "New" },
               ]
         }
+        actions={
+          <>
+            <CustomButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => router.push(invoicePath)}
+            >
+              Cancel
+            </CustomButton>
+            {invoice ? (
+              <CustomButton
+                type="button"
+                size="sm"
+                onClick={onSubmit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Saving..." : "Save changes"}
+              </CustomButton>
+            ) : (
+              <>
+                <CustomButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={onSubmit}
+                  disabled={isSubmitting}
+                >
+                  Save as Draft
+                </CustomButton>
+                <CustomButton
+                  type="button"
+                  size="sm"
+                  onClick={onSubmitAndSend}
+                  disabled={isSubmitting}
+                >
+                  Create & Send
+                </CustomButton>
+              </>
+            )}
+          </>
+        }
       />
-      <DashboardContainer>
-        {formError && (
-          <div className="border-danger-200 bg-danger-50 text-danger-700 mx-auto mb-4 max-w-4xl rounded-lg border px-4 py-3 text-sm">
-            {formError}
-          </div>
-        )}
-        <div className="mb-6 flex w-full justify-end">
-          <div className="border-border bg-secondary flex w-full items-center rounded-lg border p-1 sm:w-auto">
-            <button
-              type="button"
-              onClick={handleQuickClick}
-              className={cn(
-                "relative flex-1 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 sm:flex-none sm:px-5",
-                mode === "quick"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
+
+      <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
+        <form
+          onSubmit={onSubmit}
+          noValidate
+          className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]"
+        >
+          <div className="flex min-w-0 flex-col gap-4">
+            {formError && (
+              <p className="bg-danger-600/12 text-danger-600 rounded-lg px-4 py-3 text-sm">
+                {formError}
+              </p>
+            )}
+
+            <DetailCard
+              title="Bill to"
+              aside={
+                <SegmentedControl
+                  label="Invoice type"
+                  options={MODES}
+                  value={mode}
+                  onChange={changeMode}
+                  itemClassName="h-8 px-3 text-[13px]"
+                />
+              }
+              className="@container"
             >
-              Quick
-            </button>
+              <div className="grid gap-4 @[560px]:grid-cols-2">
+                <BillToField
+                  control={control}
+                  register={register}
+                  errors={errors}
+                  clients={clients}
+                  onClientChange={handleClientChange}
+                  isNew={billNew}
+                  onToggleNew={invoice ? null : toggleBillNew}
+                  newBlocked={newClientBlocked}
+                />
 
-            <button
-              type="button"
-              onClick={() => setMode("detailed")}
-              className={cn(
-                "relative flex-1 rounded-md px-4 py-2 text-sm font-medium transition-all duration-200 sm:flex-none sm:px-5",
-                mode === "detailed"
-                  ? "bg-card text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
-            >
-              Detailed
-            </button>
-          </div>
-        </div>
+                <Controller
+                  control={control}
+                  name="projectId"
+                  render={({ field }) => (
+                    <ProjectCombobox
+                      projects={filteredProjects}
+                      value={field.value ?? ""}
+                      onChange={(value) =>
+                        handleProjectChange(field.onChange, value)
+                      }
+                      disabled={billNew || !selectedClientId}
+                      error={errors.projectId?.message}
+                    />
+                  )}
+                />
 
-        {deposit && selectedProject && (
-          <div
-            role="status"
-            className="border-warning-600/30 bg-warning-600/10 text-warning-600 mb-6 flex items-start gap-2 rounded-lg border px-4 py-3 text-sm"
-          >
-            <AlertTriangle
-              aria-hidden="true"
-              className="mt-0.5 h-4 w-4 shrink-0"
-            />
-            <p>
-              {selectedProject.title} already has a deposit invoice,{" "}
-              {deposit.label} for{" "}
-              {formatCurrency(deposit.total, selectedProject.currency)}
-              {deposit.paid ? " (paid)" : " (not paid yet)"}. If this invoice
-              bills the full agreed price, take the deposit off so your client
-              isn&apos;t charged twice.
-            </p>
-          </div>
-        )}
+                {mode === "detailed" && (
+                  <Controller
+                    control={control}
+                    name="issueDate"
+                    render={({ field }) => (
+                      <DatePickerField
+                        label="Issue date"
+                        value={field.value}
+                        onChange={(value) => {
+                          field.onChange(value);
+                          if (term) applyTerm(term, value);
+                        }}
+                        error={errors.issueDate?.message}
+                      />
+                    )}
+                  />
+                )}
 
-        <div className="@container">
-          <div className="grid gap-8 @[900px]:grid-cols-[minmax(0,1fr)_360px]">
-            {/* Invoice details form */}
+                <Controller
+                  control={control}
+                  name="dueDate"
+                  render={({ field }) => (
+                    <DatePickerField
+                      label="Due date"
+                      value={field.value}
+                      onChange={(value) => {
+                        setTerm(null);
+                        field.onChange(value);
+                      }}
+                      error={errors.dueDate?.message}
+                      disablePast
+                    />
+                  )}
+                />
+
+                <div className="@[560px]:col-span-2">
+                  <SegmentedControl
+                    label="Payment terms"
+                    options={TERMS}
+                    value={term ?? ("" as Term)}
+                    onChange={(value) => applyTerm(value)}
+                    className="grid w-full grid-cols-2 @[560px]:inline-flex @[560px]:w-auto"
+                    itemClassName="h-9 justify-center px-3 text-[13px]"
+                  />
+                </div>
+              </div>
+            </DetailCard>
+
             {mode === "quick" ? (
-              <QuickInvoiceForm
-                control={control}
-                register={register}
-                errors={errors}
-                clients={clients}
-                onSubmit={onSubmit}
-                filteredProjects={filteredProjects}
-                onClientChange={handleClientChange}
-              />
+              <QuickInvoiceForm register={register} errors={errors} />
             ) : (
               <DetailedInvoiceForm
                 control={control}
                 register={register}
                 errors={errors}
-                clients={clients}
-                filteredProjects={filteredProjects}
                 fields={fields}
                 watchedLineItems={watchedLineItems}
                 append={append}
                 remove={remove}
-                onClientChange={handleClientChange}
-                onProjectChange={handleProjectChange}
                 onUnitChange={handleUnitChange}
                 hourlyRateHint={hourlyRateHint}
-                onSubmit={onSubmit}
               />
             )}
-
-            {/* Invoice Preview */}
-            <div className="sticky top-6 self-start">
-              <InvoicePreview
-                issuerName={issuerName}
-                projectName={selectedProject?.title}
-                clientName={selectedClient?.name}
-                dueDate={watchedDueDate}
-                subTotal={subtotal}
-                taxRate={taxRate}
-                taxAmount={taxAmount}
-                total={total}
-                onSubmit={onSubmit}
-                onSubmitAndSend={invoice ? undefined : onSubmitAndSend}
-                onCancel={() => router.push(invoicePath)}
-                isSubmitting={isSubmitting}
-                editing={
-                  invoiceLabel ? { invoiceNumber: invoiceLabel } : undefined
-                }
-              />
-            </div>
           </div>
-        </div>
+
+          <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4">
+            {selectedProject && ledger && ledger.budget !== null && (
+              <BudgetLine
+                projectTitle={selectedProject.title}
+                currency={selectedProject.currency}
+                pricing={selectedProject.pricing}
+                balance={
+                  selectedProject.pricing === "hourly"
+                    ? undefined
+                    : {
+                        checked: Boolean(showProjectBalance),
+                        onChange: (checked) =>
+                          setValue("showProjectBalance", checked, {
+                            shouldDirty: true,
+                          }),
+                      }
+                }
+                ledger={{ ...ledger, budget: ledger.budget }}
+                depositLabel={depositLabel}
+              />
+            )}
+            <InvoicePreview
+              issuerName={issuerName}
+              numberLabel={invoiceLabel ?? defaults?.nextNumberLabel ?? "New"}
+              projectName={selectedProject?.title}
+              clientName={
+                billNew ? newClientName || undefined : selectedClient?.name
+              }
+              dueDate={watchedDueDate}
+              lines={watchedLineItems}
+              subTotal={subtotal}
+              taxRate={taxRate}
+              taxAmount={taxAmount}
+              total={total}
+            />
+          </aside>
+        </form>
+
         <ConfirmDialog
           open={showQuickConfirm}
           onOpenChange={setShowQuickConfirm}
           title="Switch to Quick mode?"
-          description="This will keep only your first line item and remove the rest. This can't be undone."
+          description="This keeps only your first line and removes the rest."
           confirmLabel="Switch to Quick"
           variant="destructive"
           onConfirm={() => {
@@ -501,7 +720,7 @@ export default function InvoiceBuilder({
             setMode("quick");
           }}
         />
-      </DashboardContainer>
+      </div>
     </>
   );
 }

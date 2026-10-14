@@ -7,6 +7,7 @@ import {
   date,
   index,
   integer,
+  decimal,
 } from "drizzle-orm/pg-core";
 import { projects } from "./projects";
 
@@ -39,6 +40,8 @@ export const milestones = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // What this stage is worth; null = not priced. Last: INSERT ... SELECT lists columns in order.
+    amount: decimal("amount", { precision: 12, scale: 2 }),
   },
   (table) => [index("idx_milestones_project_id").on(table.projectId)],
 );

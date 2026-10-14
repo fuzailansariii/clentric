@@ -17,7 +17,7 @@ export async function GET(request: Request) {
     if (!error) return redirectTo(next);
   }
 
-  // A new Google account refused by the beta invite hook.
+  // A new Google account refused by the invite-only hook, if it is on.
   if (searchParams.get("error_description")?.includes("invite-only")) {
     return redirectTo("/register?error=invite_only");
   }

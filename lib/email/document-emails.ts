@@ -3,6 +3,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/src/db";
 import { proposals } from "@/src/db/schema/proposals";
 import { AppError } from "@/lib/errors";
+import { getPlanFeatures } from "@/lib/billing";
 import { formatCurrency } from "@/lib/format-currency";
 import { formatDate } from "@/lib/format-date";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
@@ -70,14 +71,17 @@ export async function emailInvoice(input: {
   invoiceId: string;
   kind: "invoice" | "reminder";
 }): Promise<"sent" | "skipped"> {
-  const data = await getInvoicePdfDataForOwner(input.invoiceId, input.userId);
+  const [data, features] = await Promise.all([
+    getInvoicePdfDataForOwner(input.invoiceId, input.userId),
+    getPlanFeatures(input.userId),
+  ]);
   if (!data) throw new AppError("NOT_FOUND", "Invoice not found");
 
   const { invoice, profile } = data;
   const to = invoice.clientEmail?.trim();
   if (!to) throw new AppError("NO_CLIENT_EMAIL", NO_CLIENT_EMAIL);
 
-  const from = sender(profile, data.logoUrl);
+  const from = sender(profile, features.customBranding ? data.logoUrl : null);
   const invoiceNumber = formatInvoiceNumber(
     invoice.invoiceNumber,
     invoice.numberPrefix,
@@ -109,8 +113,7 @@ export async function emailInvoice(input: {
                 (Date.now() - new Date(invoice.dueDate).getTime()) / DAY_MS,
               ),
             });
-      // TODO(billing): showBranding follows the plan, same as the download.
-      const pdf = await renderInvoicePdf(data, true);
+      const pdf = await renderInvoicePdf(data, features);
 
       return {
         ...email,
@@ -128,6 +131,7 @@ export async function emailProposal(input: {
   userId: string;
   proposalId: string;
 }): Promise<"sent" | "skipped"> {
+  const features = getPlanFeatures(input.userId);
   const row = await db.query.proposals.findFirst({
     where: and(
       eq(proposals.id, input.proposalId),
@@ -161,7 +165,10 @@ export async function emailProposal(input: {
   if (!to) throw new AppError("NO_CLIENT_EMAIL", NO_CLIENT_EMAIL);
 
   const profile = resolveIssuer(row.issuerSnapshot, liveIssuer(row.user));
-  const from = sender(profile, row.user.logoUrl);
+  const from = sender(
+    profile,
+    (await features).customBranding ? row.user.logoUrl : null,
+  );
   const email = proposalEmail({
     logo: from.logo,
     senderName: from.name,

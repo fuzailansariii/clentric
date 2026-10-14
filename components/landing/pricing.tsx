@@ -25,7 +25,7 @@ const AGENCY_SHORT_DATE = new Date(`${AGENCY_LAUNCH_DATE}T00:00:00Z`).toLocaleDa
 });
 
 const CTA =
-  "mt-5 flex h-10 w-full cursor-pointer items-center justify-center rounded-md border text-sm font-medium transition-[filter,scale] duration-150 hover:brightness-[.94] active:scale-[.98]";
+  "mt-4 flex h-10 sm:mt-5 w-full cursor-pointer items-center justify-center rounded-md border text-sm font-medium transition-[filter,scale] duration-150 hover:brightness-[.94] active:scale-[.98]";
 const CTA_PLAIN = "bg-card text-foreground border-(--lp-border-strong)";
 const CTA_HOT = "bg-primary text-primary-foreground border-primary";
 
@@ -71,7 +71,7 @@ export function Pricing({ today }: { today: string }) {
         }
       />
 
-      <div className="mt-12 grid grid-cols-[repeat(auto-fit,minmax(min(100%,290px),1fr))] items-stretch gap-5">
+      <div className="mt-8 grid grid-cols-[repeat(auto-fit,minmax(min(100%,290px),1fr))] items-stretch gap-4 sm:mt-12 sm:gap-5">
         <PlanCard
           rv="0"
           name={free.name}
@@ -80,9 +80,9 @@ export function Pricing({ today }: { today: string }) {
           per={free.price.sublabel}
           bill="No card needed"
           cta={
-            <button type="button" onClick={() => openWaitlist()} className={cn(CTA, CTA_PLAIN)}>
+            <Link href={free.cta.href} className={cn(CTA, CTA_PLAIN)}>
               {free.cta.label}
-            </button>
+            </Link>
           }
         >
           {free.features.map((f) => (
@@ -101,9 +101,9 @@ export function Pricing({ today }: { today: string }) {
           bill={yearly ? `$${proPrice * 12} billed yearly` : "Billed monthly"}
           inc={pro.featuresHeading}
           cta={
-            <button type="button" onClick={() => openWaitlist()} className={cn(CTA, CTA_HOT)}>
+            <Link href={pro.cta.href} className={cn(CTA, CTA_HOT)}>
               {pro.cta.label}
-            </button>
+            </Link>
           }
         >
           {pro.features.map((f) => (
@@ -144,7 +144,7 @@ export function Pricing({ today }: { today: string }) {
                 {agency.cta.live.label}
               </Link>
             ) : (
-              <button type="button" onClick={() => openWaitlist("agency")} className={cn(CTA, CTA_PLAIN)}>
+              <button type="button" onClick={() => openWaitlist()} className={cn(CTA, CTA_PLAIN)}>
                 {agency.cta.coming_soon.label}
               </button>
             )
@@ -200,7 +200,7 @@ function PlanCard({
     <div
       data-rv={rv}
       className={cn(
-        "bg-card flex flex-col rounded-[14px] border p-7",
+        "bg-card flex flex-col rounded-[14px] border p-5 sm:p-7",
         hot && "border-primary shadow-[0_0_0_1px_var(--primary),var(--lp-lift)]",
       )}
     >
@@ -208,10 +208,10 @@ function PlanCard({
         <h3 className="font-space text-[22px] font-medium tracking-[-0.02em]">{name}</h3>
         {badge}
       </div>
-      <p className="mt-1.5 text-[14.5px] text-pretty text-(--lp-muted)">{desc}</p>
-      <div className="mt-6 flex items-baseline gap-1.5">
+      <p className="mt-1 text-sm text-pretty text-(--lp-muted) sm:mt-1.5 sm:text-[14.5px]">{desc}</p>
+      <div className="mt-4 flex items-baseline gap-1.5 sm:mt-6">
         {/* Keyed so a new price or bill line rolls in instead of swapping. */}
-        <span key={price} className="font-space text-[42px] leading-none font-medium tracking-[-0.04em] tabular-nums animate-[lp-in_.4s_cubic-bezier(.2,.7,.2,1)_both]">
+        <span key={price} className="font-space text-[34px] leading-none sm:text-[42px] font-medium tracking-[-0.04em] tabular-nums animate-[lp-in_.4s_cubic-bezier(.2,.7,.2,1)_both]">
           {price}
         </span>
         <span className="text-sm text-(--lp-muted)">{per}</span>
@@ -221,7 +221,7 @@ function PlanCard({
       </div>
       {seats}
       {cta}
-      <ul className="mt-6 flex flex-col gap-2.5 border-t pt-5">
+      <ul className="mt-5 flex flex-col gap-2 border-t pt-4 sm:mt-6 sm:gap-2.5 sm:pt-5">
         {inc && <li className="text-[13.5px] text-(--lp-muted)">{inc}</li>}
         {children}
       </ul>
@@ -244,8 +244,8 @@ function Badge({ soon = false, children }: { soon?: boolean; children: ReactNode
 
 function Feature({ children, soon = false }: { children: ReactNode; soon?: boolean }) {
   return (
-    <li className="flex items-start gap-2.5 text-[14.5px]">
-      <CheckIcon className="text-primary mt-0.75 size-4 flex-none" strokeWidth={2.2} aria-hidden="true" />
+    <li className="flex items-start gap-2.5 text-sm sm:text-[14.5px]">
+      <CheckIcon className="text-primary mt-0.5 size-4 sm:mt-0.75 flex-none" strokeWidth={2.2} aria-hidden="true" />
       <span>
         {children}
         {soon && (

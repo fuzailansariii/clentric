@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import {
   getInvoicesForProject,
   getMilestonesByProjectId,
@@ -17,9 +17,10 @@ export default async function ProjectPage({
   searchParams,
 }: ProjectDetailProps) {
   const { id } = await params;
-  const query = await searchParams;
+  // Old links opened the inline editor; editing has its own page now.
+  if ((await searchParams).edit === "true") redirect(`/projects/${id}/edit`);
 
-  // Independent reads - both check ownership themselves.
+  // Independent reads - each checks ownership itself.
   const [project, milestones, invoices] = await Promise.all([
     getProjectById(id),
     getMilestonesByProjectId(id),
@@ -41,7 +42,6 @@ export default async function ProjectPage({
       milestones={milestones}
       invoices={invoices}
       fromProposal={fromProposal}
-      initialEdit={query.edit === "true"}
     />
   );
 }

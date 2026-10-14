@@ -20,3 +20,12 @@ export function formatShortDate(date: Date | string): string {
     day: "numeric",
   }).format(new Date(date));
 }
+
+/** "Oct 2" from a YYYY-MM-DD date, the same day in every timezone. */
+export function formatDayValue(date: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(`${date.slice(0, 10)}T00:00:00Z`));
+}

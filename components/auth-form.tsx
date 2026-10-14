@@ -79,6 +79,10 @@ function AuthFormContent({
     const code = new URLSearchParams(window.location.search).get("error");
     return (code && AUTH_REDIRECT_ERRORS[code]) || null;
   });
+  // An invite link (/register?email=...) fills in the address it was sent to.
+  const [linkEmail] = useState(
+    () => new URLSearchParams(window.location.search).get("email")?.trim().slice(0, 254) ?? "",
+  );
   const [submittedEmail, setSubmittedEmail] = useState(saved.email);
   const [code, setCode] = useState("");
   const [resendIn, setResendIn] = useState(saved.resendIn);
@@ -100,6 +104,7 @@ function AuthFormContent({
   } = useForm<AuthFormValues>({
     resolver: zodResolver(schema) as unknown as Resolver<AuthFormValues>,
     mode: "onChange",
+    defaultValues: { email: linkEmail },
   });
 
   // HANDLERS

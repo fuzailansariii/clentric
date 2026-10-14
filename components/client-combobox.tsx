@@ -11,6 +11,8 @@ export type ClientOption = {
   company: string | null;
   /** Default hourly rate (decimal string) - prefills hour lines on invoices. */
   hourlyRate: string | null;
+  /** Sending needs one; absent where the picker doesn't care. */
+  hasEmail?: boolean;
 };
 
 type ClientComboboxProps = {
@@ -42,7 +44,7 @@ export function ClientCombobox({
           <AvatarInitials
             name={client.name}
             variant="colored"
-            shape="circle"
+            shape="square"
             size="sm"
           />
           <span className="truncate text-sm font-medium">{client.name}</span>
@@ -50,7 +52,7 @@ export function ClientCombobox({
       )}
       renderItem={(client, isSelected) => (
         <>
-          <AvatarInitials name={client.name} variant="colored" shape="circle" />
+          <AvatarInitials name={client.name} variant="colored" shape="square" />
           <span className="flex min-w-0 flex-1 flex-col leading-tight">
             <span className="truncate">{client.name}</span>
             {client.company && (

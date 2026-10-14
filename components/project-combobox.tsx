@@ -10,15 +10,11 @@ export type ProjectOption = {
   id: string;
   title: string;
   clientId: string;
-  /** Overrides the client's hourly rate when prefilling invoice hour lines. */
   hourlyRate: string | null;
-  /** Deposit invoice raised when the proposal behind this project was accepted. */
-  deposit?: {
-    invoiceId: string;
-    label: string;
-    total: string;
-    paid: boolean;
-  } | null;
+  pricing?: "fixed" | "hourly";
+  budget?: string;
+  billed?: string;
+  deposit?: { invoiceId: string; label: string } | null;
 };
 
 type ProjectComboboxProps = {

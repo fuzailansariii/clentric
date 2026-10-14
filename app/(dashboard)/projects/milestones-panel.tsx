@@ -1,45 +1,31 @@
 "use client";
 
+import Link from "next/link";
 import {
   useOptimistic,
-  useRef,
   useState,
   useTransition,
   type ChangeEvent,
   type FormEvent,
-  type KeyboardEvent,
 } from "react";
-import {
-  MoreVerticalIcon,
-  PencilIcon,
-  PlusIcon,
-  Trash2Icon,
-  XIcon,
-} from "lucide-react";
+import { CheckIcon, PencilIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 
 import { DatePickerField } from "@/components/date-picker-field";
 import { DeleteDialog } from "@/components/delete-dialog";
-import { Checkbox } from "@/components/ui/checkbox";
 import { CustomButton } from "@/components/ui/custom-button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Field } from "@/components/ui/input";
-import { formValueToDate } from "@/lib/format-date";
-import { formatDaysUntilDue, formatShortDate } from "@/lib/format-due";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { formatCurrency } from "@/lib/format-currency";
+import { formatDayValue } from "@/lib/format-due";
 import { cn } from "@/lib/utils";
+import { invoiceStatusConfig } from "../invoices/invoice-status-config";
 import {
   createMilestoneAction,
   deleteMilestoneAction,
   setMilestoneStatusAction,
   updateMilestoneAction,
 } from "./milestone-actions";
-import { MilestoneProgress } from "./milestone-progress";
 import type { MilestoneItem } from "./queries";
 import { milestoneSchema } from "./schema";
 
@@ -70,319 +56,392 @@ function milestonesReducer(
   }
 }
 
+type Draft = { title: string; dueDate: string; amount: string };
+const EMPTY_DRAFT: Draft = { title: "", dueDate: "", amount: "" };
+
+type ProjectRef = {
+  id: string;
+  clientId: string;
+  billing: "per_milestone" | "end";
+  currency: string;
+};
+
+/** Done, finished-but-unbilled stages can be invoiced on their own. */
+function canInvoice(m: MilestoneItem, billing: ProjectRef["billing"]) {
+  return (
+    billing === "per_milestone" &&
+    m.status === "completed" &&
+    !m.invoice &&
+    Number(m.amount ?? 0) > 0
+  );
+}
+
 /**
- * Checklist of a project's milestones: add, tick off, edit, delete.
+ * The project's stages: tick off, price, invoice, edit and add.
  *
- * Every change shows instantly through useOptimistic. The server action then
- * revalidates the page, and the fresh `milestones` prop replaces the
- * optimistic list. If an action fails, the optimistic change simply falls
- * away when the transition ends and a toast explains why.
+ * Changes show at once through useOptimistic; the server action revalidates
+ * the page and the fresh list replaces the optimistic one.
  */
 export function MilestonesPanel({
-  projectId,
+  project,
   milestones,
 }: {
-  projectId: string;
+  project: ProjectRef;
   milestones: MilestoneItem[];
 }) {
-  const [optimisticMilestones, applyOptimistic] = useOptimistic(
-    milestones,
-    milestonesReducer,
-  );
+  const [items, applyOptimistic] = useOptimistic(milestones, milestonesReducer);
   const [, startMutation] = useTransition();
 
-  const [title, setTitle] = useState("");
-  const [dueDate, setDueDate] = useState("");
+  const [draft, setDraft] = useState<Draft>(EMPTY_DRAFT);
   const [addError, setAddError] = useState<string | null>(null);
-  const titleInputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
-
   const [editingId, setEditingId] = useState<string | null>(null);
-  // Kept separately from `isDeleteOpen` so the dialog's text doesn't blank
-  // out during its closing animation.
+  // Kept apart from `isDeleteOpen` so the dialog text survives its exit animation.
   const [deleteTarget, setDeleteTarget] = useState<MilestoneItem | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
-  const total = optimisticMilestones.length;
-  const completed = optimisticMilestones.filter(
-    (milestone) => milestone.status === "completed",
-  ).length;
-  const progress = total === 0 ? 0 : Math.round((completed / total) * 100);
+  const total = items.length;
+  const done = items.filter((m) => m.status === "completed").length;
 
   const handleAdd = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    const parsed = milestoneSchema.safeParse({ title, dueDate });
+    const parsed = milestoneSchema.safeParse(draft);
     if (!parsed.success) {
       setAddError(parsed.error.issues[0].message);
       return;
     }
-
     setAddError(null);
 
-    const draft = { title, dueDate };
+    const sent = draft;
     const optimistic: MilestoneItem = {
       id: `${TEMP_ID_PREFIX}${crypto.randomUUID()}`,
       title: parsed.data.title,
       status: "pending",
       dueDate: parsed.data.dueDate || null,
       daysUntilDue: null,
+      amount: parsed.data.amount || null,
+      invoice: null,
       createdAt: new Date(),
     };
-
-    // Clear right away so the next milestone can be typed immediately.
-    setTitle("");
-    setDueDate("");
-    titleInputRef.current?.focus();
+    setDraft(EMPTY_DRAFT);
 
     startMutation(async () => {
       applyOptimistic({ type: "add", milestone: optimistic });
-      const result = await createMilestoneAction(projectId, parsed.data);
-
-      if (!result.success) {
+      const result = await createMilestoneAction(project.id, parsed.data);
+      if (result.success) {
+        toast.success("Milestone added");
+      } else {
         toast.error(result.error);
-        // Give the text back so nothing typed is lost.
-        setTitle(draft.title);
-        setDueDate(draft.dueDate);
+        setDraft(sent);
       }
     });
   };
 
-  const handleToggle = (milestone: MilestoneItem, checked: boolean) => {
-    const status = checked ? "completed" : "pending";
-
+  const handleToggle = (milestone: MilestoneItem) => {
+    const status = milestone.status === "completed" ? "pending" : "completed";
     startMutation(async () => {
       applyOptimistic({ type: "update", id: milestone.id, changes: { status } });
       const result = await setMilestoneStatusAction(milestone.id, status);
-      if (!result.success) toast.error(result.error);
+      if (!result.success) {
+        toast.error(result.error);
+      } else if (status === "pending") {
+        toast.success("Marked not done");
+      } else {
+        const ready = canInvoice({ ...milestone, status }, project.billing);
+        toast.success(ready ? "Done - ready to invoice" : "Milestone done");
+      }
     });
   };
 
-  const handleUpdate = (
-    milestone: MilestoneItem,
-    values: { title: string; dueDate: string },
-  ) => {
+  const handleUpdate = (milestone: MilestoneItem, values: Draft) => {
+    const parsed = milestoneSchema.safeParse(values);
+    if (!parsed.success) return parsed.error.issues[0].message;
     setEditingId(null);
 
-    // Send only what actually changed.
-    const payload: { title?: string; dueDate?: string } = {};
-    const changes: Partial<MilestoneItem> = {};
-
-    if (values.title !== milestone.title) {
-      payload.title = values.title;
-      changes.title = values.title;
-    }
-
-    if (values.dueDate !== (milestone.dueDate ?? "")) {
-      payload.dueDate = values.dueDate;
-      changes.dueDate = values.dueDate || null;
-      // The relative label comes back from the server with the refresh.
-      changes.daysUntilDue = null;
-    }
-
-    if (Object.keys(payload).length === 0) return;
-
+    const payload = {
+      title: parsed.data.title,
+      dueDate: parsed.data.dueDate ?? "",
+      amount: parsed.data.amount ?? "",
+    };
     startMutation(async () => {
-      applyOptimistic({ type: "update", id: milestone.id, changes });
+      applyOptimistic({
+        type: "update",
+        id: milestone.id,
+        changes: {
+          title: payload.title,
+          dueDate: payload.dueDate || null,
+          amount: payload.amount || null,
+          // The relative label comes back from the server with the refresh.
+          daysUntilDue: null,
+        },
+      });
       const result = await updateMilestoneAction(milestone.id, payload);
-      if (!result.success) toast.error(result.error);
+      if (result.success) toast.success("Milestone saved");
+      else toast.error(result.error);
     });
+    return null;
   };
 
   const handleDelete = (milestone: MilestoneItem) => {
+    setEditingId(null);
     startMutation(async () => {
       applyOptimistic({ type: "remove", id: milestone.id });
       const result = await deleteMilestoneAction(milestone.id);
-
-      if (result.success) {
-        toast.success("Milestone deleted.");
-      } else {
-        toast.error(result.error);
-      }
+      if (result.success) toast.success("Milestone deleted");
+      else toast.error(result.error);
     });
   };
 
   return (
-    <div>
-      {total > 0 && (
-        <div className="flex items-center justify-between gap-4 px-5 pt-4">
-          <p className="text-muted-foreground text-xs">
-            <span className="text-foreground font-medium tabular-nums">
-              {completed}
-            </span>{" "}
-            of <span className="tabular-nums">{total}</span> done
-          </p>
-          <MilestoneProgress
-            completed={completed}
-            total={total}
-            progress={progress}
-            fill
-            showCount={false}
-            className="w-40"
-          />
+    <section className="bg-card @container overflow-hidden rounded-lg border shadow-xs">
+      <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-4.5">
+        <h2 className="text-sm font-semibold">Milestones</h2>
+        {total > 0 && (
+          <span className="text-muted-foreground font-space text-[12.5px] tabular-nums">
+            {done} of {total} done
+          </span>
+        )}
+      </div>
+
+      {total > 0 ? (
+        <div
+          role="img"
+          aria-label={`${done} of ${total} milestones done`}
+          className="flex gap-0.75 px-4 pb-3.5 sm:px-4.5"
+        >
+          {items.map((m) => (
+            <span
+              key={m.id}
+              className={cn(
+                "h-1.5 flex-1 rounded-xs",
+                canInvoice(m, project.billing)
+                  ? "bg-success-600"
+                  : m.status === "completed"
+                    ? "bg-primary"
+                    : "bg-foreground/10",
+              )}
+            />
+          ))}
         </div>
+      ) : (
+        <p className="text-muted-foreground px-4 pb-3.5 text-[13.5px] sm:px-4.5">
+          No milestones yet. Add stages to track progress and invoice as you go.
+        </p>
       )}
+
+      <ul>
+        {items.map((m, index) =>
+          editingId === m.id ? (
+            <MilestoneEditRow
+              key={m.id}
+              milestone={m}
+              onCancel={() => setEditingId(null)}
+              onSave={(values) => handleUpdate(m, values)}
+              onDelete={() => {
+                setDeleteTarget(m);
+                setIsDeleteOpen(true);
+              }}
+            />
+          ) : (
+            <MilestoneRow
+              key={m.id}
+              milestone={m}
+              project={project}
+              stage={index + 1}
+              onToggle={() => handleToggle(m)}
+              onEdit={() => setEditingId(m.id)}
+            />
+          ),
+        )}
+      </ul>
 
       <form
         onSubmit={handleAdd}
         noValidate
-        className="flex flex-col gap-2 px-5 py-4 sm:flex-row sm:items-start"
+        className="bg-muted/40 grid grid-cols-1 gap-2 border-t px-4 py-3 sm:px-4.5 @[560px]:grid-cols-[minmax(0,1fr)_10rem_8rem_auto]"
       >
-        <div className="min-w-0 flex-1">
-          <Field
-            ref={titleInputRef}
-            id="new-milestone-title"
-            aria-label="Milestone title"
-            placeholder="Add a milestone, e.g. Wireframes approved"
-            autoComplete="off"
-            maxLength={200}
-            value={title}
-            onChange={(event: ChangeEvent<HTMLInputElement>) => {
-              setTitle(event.target.value);
-              if (addError) setAddError(null);
-            }}
-            error={addError ?? undefined}
-          />
-        </div>
-
-        <div className="flex items-start gap-2">
-          <div className="flex-1 sm:w-44 sm:flex-none">
-            <DueDateInput value={dueDate} onChange={setDueDate} />
-          </div>
-          <CustomButton type="submit" variant="primary" className="h-11 gap-1.5">
-            <PlusIcon className="h-4 w-4" />
-            Add
-          </CustomButton>
-        </div>
+        <Field
+          aria-label="New milestone title"
+          placeholder="Add a milestone"
+          autoComplete="off"
+          maxLength={200}
+          value={draft.title}
+          onChange={(event: ChangeEvent<HTMLInputElement>) => {
+            setDraft((d) => ({ ...d, title: event.target.value }));
+            if (addError) setAddError(null);
+          }}
+          error={addError ?? undefined}
+        />
+        <DatePickerField
+          aria-label="New milestone due date"
+          value={draft.dueDate}
+          onChange={(dueDate) => setDraft((d) => ({ ...d, dueDate }))}
+        />
+        <Field
+          aria-label="Amount"
+          placeholder="Amount"
+          prefix="$"
+          inputMode="decimal"
+          className="text-right"
+          value={draft.amount}
+          onChange={(event: ChangeEvent<HTMLInputElement>) =>
+            setDraft((d) => ({ ...d, amount: event.target.value }))
+          }
+        />
+        <CustomButton
+          type="submit"
+          variant="secondary"
+          disabled={!draft.title.trim()}
+          className="h-11 gap-1.5"
+        >
+          <PlusIcon className="size-4" />
+          Add
+        </CustomButton>
       </form>
-
-      {total === 0 ? (
-        <p className="text-muted-foreground border-border border-t px-5 py-8 text-center text-sm">
-          No milestones yet. Break the project into steps to track progress.
-        </p>
-      ) : (
-        <ul className="divide-border border-border divide-y border-t">
-          {optimisticMilestones.map((milestone) =>
-            editingId === milestone.id ? (
-              <MilestoneEditRow
-                key={milestone.id}
-                milestone={milestone}
-                onCancel={() => setEditingId(null)}
-                onSave={(values) => handleUpdate(milestone, values)}
-              />
-            ) : (
-              <MilestoneRow
-                key={milestone.id}
-                milestone={milestone}
-                onToggle={(checked) => handleToggle(milestone, checked)}
-                onEdit={() => setEditingId(milestone.id)}
-                onDelete={() => {
-                  setDeleteTarget(milestone);
-                  setIsDeleteOpen(true);
-                }}
-              />
-            ),
-          )}
-        </ul>
-      )}
 
       <DeleteDialog
         open={isDeleteOpen}
         onOpenChange={setIsDeleteOpen}
         title="Delete milestone"
-        description={`Delete "${deleteTarget?.title ?? ""}"? This can't be undone.`}
+        description={
+          deleteTarget?.invoice
+            ? `Delete "${deleteTarget.title}"? ${deleteTarget.invoice.number} stays, but no longer points to it.`
+            : `Delete "${deleteTarget?.title ?? ""}"? This can't be undone.`
+        }
         onDelete={async () => {
           if (deleteTarget) handleDelete(deleteTarget);
         }}
       />
-    </div>
+    </section>
   );
 }
 
 function MilestoneRow({
-  milestone,
+  milestone: m,
+  project,
+  stage,
   onToggle,
   onEdit,
-  onDelete,
 }: {
   milestone: MilestoneItem;
-  onToggle: (checked: boolean) => void;
+  project: ProjectRef;
+  stage: number;
+  onToggle: () => void;
   onEdit: () => void;
-  onDelete: () => void;
 }) {
-  const isSaving = milestone.id.startsWith(TEMP_ID_PREFIX);
-  const isDone = milestone.status === "completed";
-  const due = getDueLabel(milestone);
+  const isSaving = m.id.startsWith(TEMP_ID_PREFIX);
+  const isDone = m.status === "completed";
+  const ready = canInvoice(m, project.billing);
+  const late = !isDone && m.daysUntilDue !== null && m.daysUntilDue < 0;
+  const hasAmount = Number(m.amount ?? 0) > 0;
+
+  let sub: string;
+  if (isDone) {
+    sub = m.invoice
+      ? `Done · invoiced ${m.invoice.number}`
+      : hasAmount && project.billing === "per_milestone"
+        ? "Done · not invoiced yet"
+        : "Done";
+  } else if (m.dueDate) {
+    const days = m.daysUntilDue ?? 0;
+    sub = `Due ${formatDayValue(m.dueDate)}${late ? ` · ${Math.abs(days)} day${days === -1 ? "" : "s"} late` : ""}`;
+  } else {
+    sub = "Upcoming · no date";
+  }
+
+  const invoiceHref = `/invoices/new?${new URLSearchParams({
+    clientId: project.clientId,
+    projectId: project.id,
+    milestoneId: m.id,
+  }).toString()}`;
+  const status = m.invoice ? invoiceStatusConfig[m.invoice.status] : null;
 
   return (
     <li
       className={cn(
-        "group/milestone flex items-center gap-3 px-5 py-2.5",
+        "grid min-h-15 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 border-t px-4 py-2.5 sm:px-4.5 @[560px]:grid-cols-[1.5rem_minmax(0,1fr)_6rem_auto]",
         isSaving && "opacity-60",
       )}
     >
-      <Checkbox
-        checked={isDone}
+      <button
+        type="button"
+        onClick={onToggle}
         disabled={isSaving}
-        onCheckedChange={(checked) => onToggle(checked === true)}
+        aria-pressed={isDone}
         aria-label={
-          isDone
-            ? `Mark "${milestone.title}" as not done`
-            : `Mark "${milestone.title}" as done`
+          isDone ? `Mark "${m.title}" not done` : `Mark "${m.title}" done`
         }
-      />
-
-      <p
         className={cn(
-          "min-w-0 flex-1 text-sm break-words",
-          isDone && "text-muted-foreground line-through",
+          "focus-visible:ring-ring text-background grid size-5.5 cursor-pointer place-items-center rounded-full transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none",
+          isDone
+            ? ready
+              ? "bg-success-600"
+              : "bg-primary"
+            : "ring-foreground/25 hover:ring-foreground/40 ring-[1.5px] ring-inset",
         )}
       >
-        {milestone.title}
-      </p>
+        {isDone && <CheckIcon className="size-3" strokeWidth={3} />}
+      </button>
 
-      {due && (
+      <button
+        type="button"
+        onClick={onEdit}
+        disabled={isSaving}
+        className="min-w-0 cursor-text text-left"
+      >
+        <span className="block text-sm font-medium wrap-anywhere">
+          {m.title}
+        </span>
         <span
           className={cn(
-            "shrink-0 text-xs tabular-nums",
-            due.late ? "text-danger-600" : "text-muted-foreground",
+            "block text-[12.5px]",
+            late
+              ? "text-danger-600"
+              : ready
+                ? "text-success-600"
+                : "text-muted-foreground",
           )}
         >
-          {due.date}
-          {due.relative && (
-            <span className="hidden sm:inline"> · {due.relative}</span>
-          )}
+          {sub}
         </span>
-      )}
+      </button>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <CustomButton
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={isSaving}
-            aria-label={`Actions for "${milestone.title}"`}
-            className="w-8 px-0! opacity-0 group-hover/milestone:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 [@media(hover:none)]:opacity-100"
+      <span className="font-space text-right text-sm font-medium whitespace-nowrap tabular-nums">
+        {hasAmount ? formatCurrency(m.amount!, project.currency) : "-"}
+      </span>
+
+      <span className="col-span-2 col-start-2 flex items-center justify-start gap-1.5 @[560px]:col-span-1 @[560px]:col-start-auto @[560px]:justify-end">
+        {ready && (
+          <Link
+            href={invoiceHref}
+            aria-label={`Invoice stage ${stage}`}
+            className="bg-primary text-primary-foreground focus-visible:ring-ring inline-flex h-7 items-center rounded-lg px-2.5 text-[12.5px] font-medium transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
-            <MoreVerticalIcon className="h-3.5 w-3.5" />
-          </CustomButton>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-40">
-          <DropdownMenuItem onClick={onEdit} className="items-center">
-            <PencilIcon className="size-3.5" />
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem
-            variant="destructive"
-            onClick={onDelete}
-            className="items-center"
+            Invoice
+          </Link>
+        )}
+        {m.invoice && status && (
+          <Link
+            href={`/invoices/${m.invoice.id}`}
+            aria-label={`${m.invoice.number}, ${status.label}`}
+            className="rounded-full focus-visible:ring-2 focus-visible:outline-none"
           >
-            <Trash2Icon className="size-3.5" />
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <StatusBadge status={status.variant} variant="soft" size="sm">
+              {status.label}
+            </StatusBadge>
+          </Link>
+        )}
+        <CustomButton
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onEdit}
+          disabled={isSaving}
+          aria-label={`Edit "${m.title}"`}
+          className="w-8 px-0!"
+        >
+          <PencilIcon className="size-3.5" />
+        </CustomButton>
+      </span>
     </li>
   );
 }
@@ -391,122 +450,103 @@ function MilestoneEditRow({
   milestone,
   onSave,
   onCancel,
+  onDelete,
 }: {
   milestone: MilestoneItem;
-  onSave: (values: { title: string; dueDate: string }) => void;
+  /** Returns an error message, or null once saved. */
+  onSave: (values: Draft) => string | null;
   onCancel: () => void;
+  onDelete: () => void;
 }) {
-  const [title, setTitle] = useState(milestone.title);
-  const [dueDate, setDueDate] = useState(milestone.dueDate ?? "");
+  const [values, setValues] = useState<Draft>({
+    title: milestone.title,
+    dueDate: milestone.dueDate ?? "",
+    amount: milestone.amount ?? "",
+  });
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    const parsed = milestoneSchema.safeParse({ title, dueDate });
-    if (!parsed.success) {
-      setError(parsed.error.issues[0].message);
-      return;
-    }
-
-    onSave({ title: parsed.data.title, dueDate: parsed.data.dueDate ?? "" });
-  };
-
-  // Escape in the title input cancels. Only there: Escape inside the date
-  // picker should just close the calendar.
-  const handleKeyDown = (event: KeyboardEvent<HTMLFormElement>) => {
-    if (event.key === "Escape" && event.target instanceof HTMLInputElement) {
-      event.preventDefault();
-      onCancel();
-    }
+    setError(onSave(values));
   };
 
   return (
-    <li className="px-5 py-3">
+    <li className="border-t px-4 py-3 sm:px-4.5">
       <form
         onSubmit={handleSubmit}
-        onKeyDown={handleKeyDown}
+        onKeyDown={(event) => {
+          // Escape in a text input cancels; inside the date picker it just closes it.
+          if (event.key === "Escape" && event.target instanceof HTMLInputElement) {
+            event.preventDefault();
+            onCancel();
+          }
+        }}
         noValidate
-        className="flex flex-col gap-2 sm:flex-row sm:items-start"
+        className="flex flex-col gap-2.5 sm:pl-9"
       >
-        <div className="min-w-0 flex-1">
+        <div className="grid grid-cols-1 gap-2 @[560px]:grid-cols-[minmax(0,1fr)_10rem_8rem]">
           <Field
-            id={`milestone-title-${milestone.id}`}
             aria-label="Milestone title"
             autoFocus
             autoComplete="off"
             maxLength={200}
-            value={title}
+            value={values.title}
             onChange={(event: ChangeEvent<HTMLInputElement>) => {
-              setTitle(event.target.value);
+              setValues((v) => ({ ...v, title: event.target.value }));
               if (error) setError(null);
             }}
             error={error ?? undefined}
           />
+          <DatePickerField
+            aria-label="Due date"
+            value={values.dueDate}
+            onChange={(dueDate) => setValues((v) => ({ ...v, dueDate }))}
+          />
+          <Field
+            aria-label="Amount"
+            placeholder="Amount"
+            prefix="$"
+            inputMode="decimal"
+            className="text-right"
+            value={values.amount}
+            onChange={(event: ChangeEvent<HTMLInputElement>) =>
+              setValues((v) => ({ ...v, amount: event.target.value }))
+            }
+          />
         </div>
-
-        <div className="flex items-start gap-2">
-          <div className="flex-1 sm:w-44 sm:flex-none">
-            <DueDateInput value={dueDate} onChange={setDueDate} />
-          </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <CustomButton type="submit" variant="primary" size="sm">
+            Save
+          </CustomButton>
           <CustomButton
             type="button"
             variant="secondary"
+            size="sm"
             onClick={onCancel}
-            className="h-11"
           >
             Cancel
           </CustomButton>
-          <CustomButton type="submit" variant="primary" className="h-11">
-            Save
+          {values.dueDate && (
+            <CustomButton
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => setValues((v) => ({ ...v, dueDate: "" }))}
+            >
+              Clear date
+            </CustomButton>
+          )}
+          <CustomButton
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onDelete}
+            className="text-danger-600 hover:text-danger-600 ml-auto"
+          >
+            Delete
           </CustomButton>
         </div>
       </form>
     </li>
   );
-}
-
-/** Date picker with a clear button, since a due date is optional. */
-function DueDateInput({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="relative">
-      <DatePickerField value={value} onChange={onChange} />
-      {value && (
-        <button
-          type="button"
-          aria-label="Clear due date"
-          onClick={() => onChange("")}
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring absolute top-[22px] right-9 -translate-y-1/2 rounded p-1 outline-none focus-visible:ring-2"
-        >
-          <XIcon className="h-3.5 w-3.5" />
-        </button>
-      )}
-    </div>
-  );
-}
-
-/** "Sep 22" plus "Due in 9 days" / "3 days late" for open milestones. */
-function getDueLabel(
-  milestone: MilestoneItem,
-): { date: string; relative: string | null; late: boolean } | null {
-  const date = formValueToDate(milestone.dueDate ?? undefined);
-  if (!date) return null;
-
-  const shortDate = formatShortDate(date);
-
-  if (milestone.status === "completed" || milestone.daysUntilDue === null) {
-    return { date: shortDate, relative: null, late: false };
-  }
-
-  return {
-    date: shortDate,
-    relative: formatDaysUntilDue(milestone.daysUntilDue),
-    late: milestone.daysUntilDue < 0,
-  };
 }

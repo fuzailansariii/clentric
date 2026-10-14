@@ -4,11 +4,15 @@ import { CustomButton } from "@/components/ui/custom-button";
 import PageHeader from "@/components/dashboard/page-header";
 
 /** Shared by the page and its loading screen, so the header never jumps. */
-export function ProjectsHeader() {
+export function ProjectsHeader({
+  subtitle = "Track and manage all your client projects",
+}: {
+  subtitle?: string;
+}) {
   return (
     <PageHeader
       title="Projects"
-      subtitle="Track and manage all your client projects"
+      subtitle={subtitle}
       icon={<FolderKanbanIcon className="h-4 w-4" />}
       breadcrumbs={[
         { label: "Dashboard", href: "/dashboard" },
@@ -22,7 +26,7 @@ export function ProjectsHeader() {
             className="mx-auto flex items-center gap-1 text-xs"
           >
             <PlusIcon className="h-4 w-4" />
-            <span>Add Project</span>
+            <span>New project</span>
           </Link>
         </CustomButton>
       }

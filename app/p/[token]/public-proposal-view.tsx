@@ -1,19 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { CheckCircle2, Loader2, Mail } from "lucide-react";
+import { Loader2, Mail } from "lucide-react";
+import Link from "next/link";
 
 import { BrandLogo } from "@/components/brand-logo";
 import { resolveBrandColor, textOnBrandColor } from "@/lib/brand-color";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  formatCurrency,
-  formatNumber,
-  formatPercent,
-} from "@/lib/format-currency";
-import { formatDate, formatRelativeDate } from "@/lib/format-date";
+import { formatCurrency, formatPercent } from "@/lib/format-currency";
+import { formatDate } from "@/lib/format-date";
 import { formatIssuer } from "@/lib/format-issuer";
 import { formatPaymentMethod, hasPaymentDetails } from "@/lib/payment-methods";
+import { cn } from "@/lib/utils";
 import {
   markPaymentSentAction,
   respondProposalAction,
@@ -27,29 +25,33 @@ type Props = {
   token: string;
 };
 
+const qty = new Intl.NumberFormat("en-US", { maximumFractionDigits: 2 });
+const labelClass =
+  "text-muted-foreground text-[11px] font-semibold tracking-[0.12em] uppercase";
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const inputClass =
+  "border-border bg-background focus-visible:border-ring focus-visible:ring-ring/20 w-full rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none";
+
 export function PublicProposalView({ proposal, token }: Props) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
-  const [showDecline, setShowDecline] = useState(false);
+  const [declining, setDeclining] = useState(false);
   const [declineReason, setDeclineReason] = useState("");
   const [outcome, setOutcome] = useState<RespondResult | null>(
-    // A reopened link should show the answer already given rather than
-    // offering the buttons again.
+    // A reopened link shows the answer already given, not the buttons again.
     proposal.status === "accepted"
       ? { response: "accepted", deposit: proposal.deposit }
       : proposal.status === "rejected"
         ? { response: "declined", deposit: null }
         : null,
   );
+  const [acceptedAt, setAcceptedAt] = useState(proposal.acceptedAt);
   const [paymentClaimed, setPaymentClaimed] = useState(proposal.paymentClaimed);
   const [paymentNote, setPaymentNote] = useState("");
 
   const recorded = useRef(false);
-
   useEffect(() => {
-    // Fire-and-forget, once per mount. Recording the view is not worth
-    // blocking the page on, and the action itself only ever writes the
-    // first view.
+    // Fire-and-forget, once per mount; the action only writes the first view.
     if (recorded.current) return;
     recorded.current = true;
     void viewProposalAction(token);
@@ -57,26 +59,32 @@ export function PublicProposalView({ proposal, token }: Props) {
 
   const brand = resolveBrandColor(proposal.owner.brandColor);
   const onBrand = textOnBrandColor(brand);
-
   const currency = proposal.currency;
+  const money = (value: string | number) =>
+    formatCurrency(String(value), currency);
   const depositPercent = Number(proposal.depositPercent);
   const taxRate = Number(proposal.taxRate);
   const depositAmount =
     Math.round(Number(proposal.total) * (depositPercent / 100) * 100) / 100;
 
-  const ungrouped = proposal.items.filter((item) => !item.milestoneId);
-  const sections = [
-    ...proposal.milestones.map((milestone) => ({
-      id: milestone.id,
-      name: milestone.name as string | null,
-      items: proposal.items.filter((item) => item.milestoneId === milestone.id),
+  const issuer = formatIssuer(proposal.owner);
+  const ownerName = issuer.title;
+  const clientLabel = proposal.clientCompany ?? proposal.clientName;
+
+  const stages = [
+    ...proposal.milestones.map((stage) => ({
+      ...stage,
+      name: stage.name as string | null,
+      items: proposal.items.filter((item) => item.milestoneId === stage.id),
     })),
-    ...(ungrouped.length > 0
+    ...(proposal.items.some((item) => !item.milestoneId)
       ? [
           {
             id: "ungrouped",
             name: null,
-            items: ungrouped,
+            description: null,
+            timeframe: null,
+            items: proposal.items.filter((item) => !item.milestoneId),
           },
         ]
       : []),
@@ -92,7 +100,8 @@ export function PublicProposalView({ proposal, token }: Props) {
       });
       if (result.success) {
         setOutcome(result.data);
-        setShowDecline(false);
+        if (response === "accepted") setAcceptedAt(new Date());
+        setDeclining(false);
       } else {
         setError(result.error);
       }
@@ -106,449 +115,385 @@ export function PublicProposalView({ proposal, token }: Props) {
         token,
         note: paymentNote.trim(),
       });
-      if (result.success) {
-        setPaymentClaimed(true);
-      } else {
-        setError(result.error);
-      }
+      if (result.success) setPaymentClaimed(true);
+      else setError(result.error);
     });
   };
 
-  // Business name when set, else the person - the proposal's snapshot once
-  // sent, so it matches what the client was sent.
-  const issuer = formatIssuer(proposal.owner);
-  const ownerName = issuer.title;
+  const status =
+    outcome?.response === "accepted"
+      ? { tone: "success" as const, label: "Accepted" }
+      : outcome?.response === "declined"
+        ? { tone: "danger" as const, label: "Declined" }
+        : { tone: "info" as const, label: "Awaiting your reply" };
 
   return (
     <main className="bg-muted/30 min-h-dvh px-4 py-8 sm:px-6 sm:py-12">
-      <div className="bg-card border-border mx-auto w-full max-w-160 overflow-hidden rounded-2xl border shadow-sm">
-        {/* Branding strip. Shrinks on narrow screens but never disappears -
-            it is the freelancer's identity on this page. */}
-        <div className="h-1.5 w-full" style={{ backgroundColor: brand }} />
+      <div className="mx-auto flex w-full max-w-195 flex-col gap-4">
+        <article className="bg-card overflow-hidden rounded-xl border shadow-sm">
+          <div className="h-1.5 w-full" style={{ backgroundColor: brand }} />
 
-        <header className="border-border flex items-start justify-between gap-4 border-b px-5 py-5 sm:px-8 sm:py-6">
-          <div className="flex min-w-0 items-center gap-3">
-            <BrandLogo
-              src={proposal.owner.logoSrc}
-              name={ownerName}
-              fallbackShape="circle"
-            />
-            <div className="min-w-0">
-              <p className="truncate text-sm font-medium">{ownerName}</p>
-              {proposal.viewedAt && (
-                <p className="text-muted-foreground text-xs">
-                  Viewed {formatRelativeDate(proposal.viewedAt)}
-                </p>
-              )}
-            </div>
-          </div>
-
-          <StatusBadge
-            status={
-              outcome?.response === "accepted"
-                ? "success"
-                : outcome?.response === "declined"
-                  ? "danger"
-                  : "info"
-            }
-            variant="soft"
-            className="shrink-0"
-          >
-            {outcome?.response === "accepted"
-              ? "Accepted"
-              : outcome?.response === "declined"
-                ? "Declined"
-                : "Awaiting your reply"}
-          </StatusBadge>
-        </header>
-
-        <div className="flex flex-col gap-7 px-5 py-6 sm:px-8 sm:py-8">
-          <div>
-            <p className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.2em] uppercase">
-              Proposal
-            </p>
-            <h1 className="font-space mt-2 text-2xl leading-tight font-semibold tracking-tight text-balance">
-              {proposal.title}
-            </h1>
-            <p className="text-muted-foreground mt-2 text-sm">
-              Prepared for{" "}
-              <span className="text-foreground font-medium">
-                {proposal.clientCompany ?? proposal.clientName}
-              </span>
-            </p>
-          </div>
-
-          {proposal.content?.trim() && (
-            <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-line">
-              {proposal.content}
-            </p>
-          )}
-
-          {/* Rows, not a table: at phone width a four-column table either
-              scrolls sideways or crushes the description. */}
-          {sections.map((section) => {
-            const stageTotal = section.items.reduce(
-              (sum, item) => sum + Number(item.amount),
-              0,
-            );
-
-            return (
-              <section key={section.id}>
-                {section.name && (
-                  <h2 className="font-space text-base font-semibold">
-                    {section.name}
-                  </h2>
-                )}
-
-                <ul className="mt-3 flex flex-col">
-                  {section.items.map((item) => (
-                    <li
-                      key={item.id}
-                      className="border-border flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b py-3 text-sm last:border-b-0"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block">{item.description}</span>
-                        <span className="text-muted-foreground text-xs tabular-nums">
-                          {formatNumber(Number(item.quantity))} ×{" "}
-                          {formatCurrency(item.rate, currency)}
-                        </span>
-                      </span>
-                      <span className="shrink-0 font-medium tabular-nums">
-                        {formatCurrency(item.amount, currency)}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-
-                {section.items.length > 0 && (
-                  <p className="text-muted-foreground mt-2 text-right text-xs tabular-nums">
-                    Stage subtotal{" "}
-                    {formatCurrency(String(stageTotal), currency)}
+          <header className="flex items-start justify-between gap-4 border-b px-5 py-5 sm:px-8 sm:py-6">
+            <div className="flex min-w-0 items-center gap-3">
+              <BrandLogo
+                src={proposal.owner.logoSrc}
+                name={ownerName}
+                fallbackShape="circle"
+              />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{ownerName}</p>
+                {issuer.lines.length > 0 && (
+                  <p className="text-muted-foreground truncate text-xs">
+                    {issuer.lines.slice(0, 2).join(" · ")}
                   </p>
                 )}
-              </section>
-            );
-          })}
-
-          <dl className="border-border flex flex-col gap-2 border-t pt-5 text-sm">
-            <div className="text-muted-foreground flex justify-between">
-              <dt>Subtotal</dt>
-              <dd className="tabular-nums">
-                {formatCurrency(proposal.subtotal, currency)}
-              </dd>
-            </div>
-            <div className="text-muted-foreground flex justify-between">
-              <dt>Tax{taxRate > 0 ? ` (${formatPercent(taxRate)}%)` : ""}</dt>
-              <dd className="tabular-nums">
-                {formatCurrency(proposal.tax, currency)}
-              </dd>
-            </div>
-            <div className="border-border mt-1 flex items-baseline justify-between border-t pt-3">
-              <dt className="font-space text-base font-semibold">Total</dt>
-              <dd className="font-space text-xl font-semibold tabular-nums">
-                {formatCurrency(proposal.total, currency)}
-              </dd>
-            </div>
-            {depositPercent > 0 && (
-              <div className="flex justify-between pt-1 text-[13px]">
-                <dt className="text-muted-foreground">
-                  Deposit to begin ({formatPercent(depositPercent)}%)
-                </dt>
-                <dd className="font-medium tabular-nums">
-                  {formatCurrency(String(depositAmount), currency)}
-                </dd>
               </div>
+            </div>
+            <StatusBadge status={status.tone} variant="soft" className="shrink-0">
+              {status.label}
+            </StatusBadge>
+          </header>
+
+          <div className="flex flex-col gap-7 px-5 py-6 sm:px-8 sm:py-8">
+            <div>
+              <p
+                className="text-[11px] font-semibold tracking-[0.12em] uppercase"
+                style={{ color: brand }}
+              >
+                Proposal for {clientLabel}
+              </p>
+              <h1 className="font-space mt-2 text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-[34px]">
+                {proposal.title}
+              </h1>
+              <p className="text-muted-foreground mt-2 text-sm">
+                {proposal.expiresAt
+                  ? `Open until ${formatDate(proposal.expiresAt)}`
+                  : "No expiry"}
+              </p>
+            </div>
+
+            {proposal.content?.trim() && (
+              <p className="text-sm leading-relaxed text-pretty whitespace-pre-line">
+                {proposal.content}
+              </p>
             )}
-            {proposal.deliveryDays ? (
-              <div className="flex justify-between pt-1 text-[13px]">
-                <dt className="text-muted-foreground">Delivery</dt>
-                <dd className="font-medium">
-                  {proposal.deliveryDays}{" "}
-                  {proposal.deliveryDays === 1 ? "day" : "days"} after work
-                  starts
+
+            {stages.map((stage) => {
+              const subtotal = stage.items.reduce(
+                (sum, item) => sum + Number(item.amount),
+                0,
+              );
+              return (
+                <section key={stage.id}>
+                  {stage.name && (
+                    <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
+                      <h2 className="font-space text-base font-semibold">
+                        {stage.name}
+                      </h2>
+                      {stage.timeframe && (
+                        <span className="text-muted-foreground text-[13px]">
+                          {stage.timeframe}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                  {stage.description && (
+                    <p className="text-muted-foreground mb-2 text-[13.5px] text-pretty whitespace-pre-line">
+                      {stage.description}
+                    </p>
+                  )}
+                  {/* Rows, not a table: at phone width four columns crush the description. */}
+                  <ul className="flex flex-col">
+                    {stage.items.map((item) => (
+                      <li
+                        key={item.id}
+                        className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-b py-3 text-sm"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block">{item.description}</span>
+                          <span className="text-muted-foreground text-xs tabular-nums">
+                            {qty.format(Number(item.quantity))} ×{" "}
+                            {money(item.rate)}
+                          </span>
+                        </span>
+                        <span className="font-space shrink-0 font-medium tabular-nums">
+                          {money(item.amount)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  {stage.name && stage.items.length > 0 && (
+                    <p className="text-muted-foreground mt-2 text-right text-[13px]">
+                      Stage subtotal{" "}
+                      <span className="font-space text-foreground font-medium tabular-nums">
+                        {money(subtotal)}
+                      </span>
+                    </p>
+                  )}
+                </section>
+              );
+            })}
+
+            <dl className="ml-auto flex w-full max-w-80 flex-col gap-1.5 text-sm">
+              <div className="text-muted-foreground flex justify-between">
+                <dt>Subtotal</dt>
+                <dd className="font-space text-foreground tabular-nums">
+                  {money(proposal.subtotal)}
                 </dd>
               </div>
-            ) : null}
-          </dl>
-
-          {error && (
-            <p className="text-danger-600 text-sm" role="alert">
-              {error}
-            </p>
-          )}
-
-          {/* Action row → confirmation panel */}
-          {!outcome ? (
-            <div className="flex flex-col gap-3">
-              {/* Stacked full-width on phones so both are easy to tap. */}
-              <div className="flex flex-col gap-3 sm:flex-row-reverse">
-                <button
-                  type="button"
-                  onClick={() => respond("accepted")}
-                  disabled={isPending}
-                  style={{ backgroundColor: brand, color: onBrand }}
-                  className="focus-visible:ring-ring inline-flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-semibold transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60 sm:flex-1"
-                >
-                  {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {depositPercent > 0
-                    ? `Pay ${formatPercent(depositPercent)}% deposit to begin`
-                    : "Accept proposal"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setShowDecline((value) => !value)}
-                  disabled={isPending}
-                  aria-expanded={showDecline}
-                  className="border-border text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:ring-ring inline-flex w-full items-center justify-center rounded-lg border px-4 py-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60 sm:w-auto"
-                >
-                  Decline
-                </button>
+              {taxRate > 0 && (
+                <div className="text-muted-foreground flex justify-between">
+                  <dt>Tax ({formatPercent(taxRate)}%)</dt>
+                  <dd className="font-space text-foreground tabular-nums">
+                    {money(proposal.tax)}
+                  </dd>
+                </div>
+              )}
+              <div className="mt-1 flex items-baseline justify-between border-t pt-2.5 font-semibold">
+                <dt>Total</dt>
+                <dd className="font-space text-xl font-medium tabular-nums">
+                  {money(proposal.total)}
+                </dd>
               </div>
+              {depositPercent > 0 && (
+                <div
+                  className="flex justify-between font-medium"
+                  style={{ color: brand }}
+                >
+                  <dt>Deposit to begin ({formatPercent(depositPercent)}%)</dt>
+                  <dd className="font-space tabular-nums">
+                    {money(depositAmount)}
+                  </dd>
+                </div>
+              )}
+              {proposal.deliveryDays ? (
+                <div className="text-muted-foreground flex justify-between">
+                  <dt>Delivery time</dt>
+                  <dd className="text-foreground">
+                    {plural(proposal.deliveryDays, "day")}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          </div>
+        </article>
 
-              {/* Declining reveals the reason inline - it never navigates
-                  away from the proposal. */}
-              {showDecline && (
-                <div className="border-border flex flex-col gap-3 rounded-lg border p-4">
-                  <label
-                    htmlFor="decline-reason"
-                    className="text-sm font-medium"
+        {error && (
+          <p className="text-danger-600 text-sm" role="alert">
+            {error}
+          </p>
+        )}
+
+        {!outcome ? (
+          <section className="bg-card rounded-xl border p-5 shadow-sm sm:p-6">
+            {declining ? (
+              <div className="flex flex-col gap-3">
+                <label htmlFor="decline-reason" className="text-sm font-medium">
+                  Why are you declining?{" "}
+                  <span className="text-muted-foreground font-normal">
+                    (optional, shared with {ownerName})
+                  </span>
+                </label>
+                <textarea
+                  id="decline-reason"
+                  rows={3}
+                  value={declineReason}
+                  onChange={(event) => setDeclineReason(event.target.value)}
+                  maxLength={2000}
+                  placeholder="Budget, timing, scope, whatever is useful."
+                  className={inputClass}
+                />
+                <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDeclining(false)}
+                    disabled={isPending}
+                    className="text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors disabled:opacity-60"
                   >
-                    Anything you would like to add? (optional)
-                  </label>
-                  <textarea
-                    id="decline-reason"
-                    rows={3}
-                    value={declineReason}
-                    onChange={(event) => setDeclineReason(event.target.value)}
-                    maxLength={2000}
-                    placeholder="Budget, timing, scope - whatever is useful."
-                    className="border-border bg-background focus-visible:border-ring focus-visible:ring-ring/20 w-full rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-                  />
+                    Cancel
+                  </button>
                   <button
                     type="button"
                     onClick={() => respond("declined")}
                     disabled={isPending}
-                    className="bg-foreground text-background inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-90 disabled:opacity-60"
+                    className="bg-danger-600 inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-60"
                   >
-                    {isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                    Send decline
+                    {isPending && <Loader2 className="size-4 animate-spin" />}
+                    Decline proposal
                   </button>
                 </div>
-              )}
-            </div>
-          ) : outcome.response === "declined" ? (
-            <div className="border-border rounded-lg border p-5 text-center">
-              <p className="text-sm font-medium">Thanks for letting us know.</p>
-              <p className="text-muted-foreground mt-1 text-sm">
-                Your response is recorded. {ownerName} will see it in their
-                Clentric dashboard.
-              </p>
-            </div>
-          ) : (
-            <div className="border-border flex flex-col gap-4 rounded-lg border p-5">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5" style={{ color: brand }} />
-                <p className="text-sm font-semibold">Proposal accepted</p>
               </div>
+            ) : (
+              <>
+                <h2 className="text-base font-semibold">Ready to go ahead?</h2>
+                <p className="text-muted-foreground mt-1 text-sm text-pretty">
+                  Accepting starts the project.
+                  {depositPercent > 0 &&
+                    ` A ${formatPercent(depositPercent)}% deposit invoice (${money(depositAmount)}) follows.`}
+                </p>
+                <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={() => setDeclining(true)}
+                    disabled={isPending}
+                    className="text-foreground hover:bg-muted rounded-lg border px-4 py-3 text-sm font-medium transition-colors disabled:opacity-60 sm:py-2.5"
+                  >
+                    Decline
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => respond("accepted")}
+                    disabled={isPending}
+                    style={{ backgroundColor: brand, color: onBrand }}
+                    className="focus-visible:ring-ring inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:outline-none disabled:opacity-60 sm:py-2.5"
+                  >
+                    {isPending && <Loader2 className="size-4 animate-spin" />}
+                    Accept proposal
+                  </button>
+                </div>
+              </>
+            )}
+          </section>
+        ) : outcome.response === "declined" ? (
+          <p className="bg-danger-600/12 text-danger-600 rounded-xl px-5 py-4 text-sm">
+            You declined this proposal. {ownerName} has been told.
+          </p>
+        ) : (
+          <>
+            <p className="bg-success-600/12 text-success-600 rounded-xl px-5 py-4 text-sm">
+              You accepted this proposal
+              {acceptedAt ? ` on ${formatDate(acceptedAt)}` : ""}. {ownerName}{" "}
+              has been told and the project is set up.
+            </p>
 
-              {outcome.deposit ? (
-                <>
-                  <ol className="flex flex-col gap-1.5 text-sm">
-                    <li>
-                      <span className="font-medium">1.</span> Pay the{" "}
-                      {formatPercent(outcome.deposit.percent)}% deposit using
-                      the details below.
-                    </li>
-                    <li>
-                      <span className="font-medium">2.</span> Enter your payment
-                      reference and tap &ldquo;I&rsquo;ve made the
-                      payment&rdquo;, so {ownerName} can confirm it when it
-                      arrives.
-                    </li>
-                  </ol>
+            {outcome.deposit && (
+              <section className="bg-card flex flex-col gap-4 rounded-xl border p-5 shadow-sm sm:p-6">
+                <div>
+                  <p className={labelClass}>Deposit</p>
+                  <p className="font-space mt-1 text-[32px] leading-tight font-medium tracking-tight tabular-nums">
+                    {money(outcome.deposit.amount)}
+                  </p>
+                  <p className="text-muted-foreground text-sm">
+                    Invoice{" "}
+                    <span className="font-mono">
+                      {outcome.deposit.invoiceNumber}
+                    </span>
+                    {outcome.deposit.dueDate &&
+                      ` · due ${formatDate(outcome.deposit.dueDate)}`}
+                  </p>
+                </div>
 
-                  {/* The deposit invoice, summarised: what the client pays
-                      against, and where its PDF copy went. */}
-                  <div className="border-border overflow-hidden rounded-lg border">
-                    <div className="bg-muted/50 flex items-baseline justify-between gap-3 px-4 py-3">
-                      <p className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.18em] uppercase">
-                        Deposit invoice
-                      </p>
-                      <p className="font-mono text-sm font-medium">
-                        {outcome.deposit.invoiceNumber}
-                      </p>
-                    </div>
-
-                    <dl className="divide-border divide-y px-4 text-sm">
-                      <div className="flex justify-between gap-3 py-2.5">
-                        <dt className="text-muted-foreground">Amount due</dt>
-                        <dd className="font-semibold tabular-nums">
-                          {formatCurrency(outcome.deposit.amount, currency)}
-                        </dd>
-                      </div>
-                      {outcome.deposit.dueDate && (
-                        <div className="flex justify-between gap-3 py-2.5">
-                          <dt className="text-muted-foreground">Due date</dt>
-                          <dd>{formatDate(outcome.deposit.dueDate)}</dd>
-                        </div>
-                      )}
-                    </dl>
-
-                    <div className="border-border border-t px-4 py-3">
-                      <p className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.18em] uppercase">
-                        How to pay
-                      </p>
-                      {hasPaymentDetails(outcome.deposit.payment) ? (
-                        <div className="mt-2 flex flex-col gap-3 text-sm leading-relaxed wrap-anywhere">
-                          {outcome.deposit.payment.methods.map((method) => {
-                            const { label, lines } =
-                              formatPaymentMethod(method);
-                            return (
-                              <div key={method.type}>
-                                <p className="font-medium">{label}</p>
-                                {lines.map((line, index) => (
-                                  <p
-                                    key={index}
-                                    className="text-muted-foreground"
-                                  >
-                                    {line}
-                                  </p>
-                                ))}
-                              </div>
-                            );
-                          })}
-                          {outcome.deposit.payment.instructions?.trim() && (
-                            <p className="whitespace-pre-line">
-                              {outcome.deposit.payment.instructions}
-                            </p>
-                          )}
-                          <p className="text-muted-foreground">
-                            Use{" "}
-                            <strong className="text-foreground font-mono font-medium">
-                              {outcome.deposit.invoiceNumber}
-                            </strong>{" "}
-                            as the payment reference.
+                <div className="bg-muted/40 rounded-lg border p-4 text-sm">
+                  <p className={cn(labelClass, "mb-2")}>How to pay</p>
+                  {hasPaymentDetails(outcome.deposit.payment) ? (
+                    <div className="flex flex-col gap-1.5 wrap-anywhere">
+                      {outcome.deposit.payment.methods.map((method) => {
+                        const { label, lines } = formatPaymentMethod(method);
+                        return (
+                          <p key={method.type}>
+                            <strong className="font-medium">{label}</strong>
+                            {lines.length > 0 && ` · ${lines.join(", ")}`}
                           </p>
-                        </div>
-                      ) : (
-                        <p className="text-muted-foreground mt-2 text-sm">
-                          {ownerName} will send payment details shortly.
+                        );
+                      })}
+                      {outcome.deposit.payment.instructions?.trim() && (
+                        <p className="text-muted-foreground whitespace-pre-line">
+                          {outcome.deposit.payment.instructions}
                         </p>
                       )}
-                    </div>
-
-                    {outcome.deposit.emailedTo && (
-                      <div className="border-border flex items-start gap-2 border-t px-4 py-3 text-sm">
-                        <Mail
-                          className="text-muted-foreground mt-0.5 h-4 w-4 shrink-0"
-                          aria-hidden="true"
-                        />
-                        <p className="text-muted-foreground wrap-anywhere">
-                          A PDF copy of this invoice is on its way to{" "}
-                          <span className="text-foreground font-medium">
-                            {outcome.deposit.emailedTo}
-                          </span>
-                          .
-                        </p>
-                      </div>
-                    )}
-                  </div>
-
-                  {paymentClaimed ? (
-                    <div className="flex items-start gap-2 text-sm">
-                      <CheckCircle2
-                        className="mt-0.5 h-4 w-4 shrink-0"
-                        style={{ color: brand }}
-                        aria-hidden="true"
-                      />
-                      <p className="text-muted-foreground">
-                        Thanks, your payment is recorded on the invoice.{" "}
-                        {ownerName} will confirm once it arrives.
+                      <p className="mt-0.5 font-mono text-xs">
+                        Reference: {outcome.deposit.invoiceNumber}
                       </p>
                     </div>
                   ) : (
-                    <div className="flex flex-col gap-2">
-                      <label
-                        htmlFor="payment-reference"
-                        className="text-sm font-medium"
-                      >
-                        Payment reference
-                      </label>
-                      <input
-                        id="payment-reference"
-                        type="text"
-                        value={paymentNote}
-                        onChange={(event) => setPaymentNote(event.target.value)}
-                        maxLength={200}
-                        required
-                        placeholder="e.g. transaction ID or UTR number"
-                        className="border-border bg-background focus-visible:border-ring focus-visible:ring-ring/20 w-full rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
-                      />
-                      <button
-                        type="button"
-                        onClick={claimPayment}
-                        disabled={isPending || paymentNote.trim().length < 3}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                        style={{ backgroundColor: brand, color: onBrand }}
-                      >
-                        {isPending && (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        )}
-                        I&rsquo;ve made the payment
-                      </button>
-                      <p className="text-muted-foreground text-xs">
-                        Only tap this after paying. {ownerName} checks the
-                        reference against their account before confirming.
-                      </p>
-                    </div>
+                    <p className="text-muted-foreground">
+                      {ownerName} will send payment details shortly.
+                    </p>
                   )}
-                </>
-              ) : (
-                <p className="text-muted-foreground text-sm">
-                  Your response is recorded. {ownerName} will see it in their
-                  Clentric dashboard and be in touch.
-                </p>
-              )}
-            </div>
-          )}
+                </div>
 
-          <section className="border-border border-t pt-6">
-            <h2 className="text-muted-foreground font-mono text-[10px] font-medium tracking-[0.2em] uppercase">
-              From
-            </h2>
-            <p className="mt-2 text-sm font-medium wrap-anywhere">
-              {issuer.title}
-            </p>
-            {issuer.lines.length > 0 && (
-              <div className="text-muted-foreground mt-1 text-sm leading-relaxed wrap-anywhere">
-                {issuer.lines.map((line, index) => (
-                  <p key={index}>{line}</p>
-                ))}
-              </div>
+                {outcome.deposit.emailedTo && (
+                  <p className="text-muted-foreground flex items-start gap-2 text-sm wrap-anywhere">
+                    <Mail className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <span>
+                      A PDF copy is on its way to{" "}
+                      <span className="text-foreground font-medium">
+                        {outcome.deposit.emailedTo}
+                      </span>
+                      .
+                    </span>
+                  </p>
+                )}
+
+                {proposal.depositPaid ? (
+                  <p className="bg-success-600/12 text-success-600 rounded-lg px-4 py-3 text-sm">
+                    Deposit received. Work is underway.
+                  </p>
+                ) : paymentClaimed ? (
+                  <p className="bg-warning-600/12 text-warning-600 rounded-lg px-4 py-3 text-sm">
+                    Thanks. {ownerName} will confirm once the payment arrives.
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <label
+                      htmlFor="payment-reference"
+                      className="text-sm font-medium"
+                    >
+                      Payment reference
+                    </label>
+                    <input
+                      id="payment-reference"
+                      type="text"
+                      value={paymentNote}
+                      onChange={(event) => setPaymentNote(event.target.value)}
+                      maxLength={200}
+                      required
+                      placeholder="e.g. transaction ID or UTR number"
+                      className={inputClass}
+                    />
+                    <button
+                      type="button"
+                      onClick={claimPayment}
+                      disabled={isPending || paymentNote.trim().length < 3}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                      style={{ backgroundColor: brand, color: onBrand }}
+                    >
+                      {isPending && <Loader2 className="size-4 animate-spin" />}
+                      I&rsquo;ve made the payment
+                    </button>
+                    <p className="text-muted-foreground text-xs">
+                      Only tap this after paying. {ownerName} checks the
+                      reference before confirming.
+                    </p>
+                  </div>
+                )}
+              </section>
             )}
-          </section>
+          </>
+        )}
 
-          {proposal.owner.testimonialQuote?.trim() && (
-            <blockquote className="border-border border-t pt-6">
-              <p className="text-sm leading-relaxed italic">
-                &ldquo;{proposal.owner.testimonialQuote}&rdquo;
-              </p>
-              {proposal.owner.testimonialAuthor?.trim() && (
-                <footer className="text-muted-foreground mt-2 text-xs">
-                  - {proposal.owner.testimonialAuthor}
-                </footer>
-              )}
-            </blockquote>
-          )}
-        </div>
+        {proposal.owner.testimonialQuote?.trim() && (
+          <blockquote className="text-muted-foreground px-1 text-sm">
+            <p className="italic">&ldquo;{proposal.owner.testimonialQuote}&rdquo;</p>
+            {proposal.owner.testimonialAuthor?.trim() && (
+              <footer className="mt-1 text-xs">
+                - {proposal.owner.testimonialAuthor}
+              </footer>
+            )}
+          </blockquote>
+        )}
 
-        <footer className="border-border text-muted-foreground border-t px-5 py-4 text-center text-xs sm:px-8">
+        <p className="text-muted-foreground text-center text-xs">
           No login required
-          {proposal.expiresAt
-            ? ` · Link expires ${formatDate(proposal.expiresAt)}`
-            : ""}
-        </footer>
+          {proposal.owner.clentricBranding && (
+            <>
+              {" · "}
+              <Link href="/" className="hover:text-foreground underline underline-offset-2">
+                Made with Clentric
+              </Link>
+            </>
+          )}
+        </p>
       </div>
     </main>
   );

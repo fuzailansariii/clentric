@@ -17,12 +17,13 @@ export const clientSchema = z.object({
 
 export const clientIdSchema = z.uuid();
 
-export const clientSearchParamsSchema = z.object({
+/** The clients page: chip, status select, search and paging. */
+export const clientListParamsSchema = z.object({
   search: z.string().trim().max(200).optional(),
+  view: z.enum(["owes", "active", "idle"]).optional().catch(undefined),
   status: clientStatusEnum.optional().catch(undefined),
   page: z.coerce.number().int().min(1).catch(1),
-  pageSize: z.coerce.number().int().max(100).catch(20),
+  pageSize: z.coerce.number().int().min(1).max(100).catch(20),
 });
 
 export type ClientInput = z.infer<typeof clientSchema>;
-export type ClientSearchParams = z.input<typeof clientSearchParamsSchema>;
