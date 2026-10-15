@@ -13,6 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon, XIcon } from "lucide-react";
 
 import PageHeader from "@/components/dashboard/page-header";
+import { FormActionBar } from "@/components/dashboard/form-action-bar";
 import DashboardContainer from "@/components/dashboard/container";
 import { ClientCombobox, type ClientOption } from "@/components/client-combobox";
 import { DatePickerField } from "@/components/date-picker-field";
@@ -115,7 +116,7 @@ export function ProjectForm({
     handleSubmit,
     register,
     control,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<ProjectFormInput, any, ProjectInput>({
     resolver: zodResolver(isEdit ? projectEditFormSchema : projectSchema),
@@ -168,7 +169,7 @@ export function ProjectForm({
   const cancelHref = project ? `/projects/${project.id}` : "/projects";
 
   return (
-    <>
+    <div className="flex min-h-full flex-col">
       <PageHeader
         title={project ? `Edit ${project.title}` : "New project"}
         subtitle="Break the work into milestones you can invoice"
@@ -183,31 +184,6 @@ export function ProjectForm({
               ]
             : [{ label: "New" }]),
         ]}
-        actions={
-          <>
-            <CustomButton
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => router.push(cancelHref)}
-            >
-              Cancel
-            </CustomButton>
-            <CustomButton
-              type="submit"
-              form="project-form"
-              variant="primary"
-              size="sm"
-              disabled={isSubmitting}
-            >
-              {isSubmitting
-                ? "Saving..."
-                : project
-                  ? "Save changes"
-                  : "Create project"}
-            </CustomButton>
-          </>
-        }
       />
 
       <DashboardContainer>
@@ -284,6 +260,7 @@ export function ProjectForm({
                     }
                     placeholder="0"
                     prefix="$"
+                    suffix="before tax"
                     inputMode="decimal"
                     error={errors.budget?.message}
                   />
@@ -459,7 +436,22 @@ export function ProjectForm({
           </div>
         </form>
       </DashboardContainer>
-    </>
+
+      <FormActionBar isDirty={isDirty} isPending={isSubmitting} cancelHref={cancelHref}>
+        <CustomButton
+          type="submit"
+          form="project-form"
+          size="sm"
+          disabled={isSubmitting}
+        >
+          {isSubmitting
+            ? "Saving..."
+            : project
+              ? "Save changes"
+              : "Create project"}
+        </CustomButton>
+      </FormActionBar>
+    </div>
   );
 }
 

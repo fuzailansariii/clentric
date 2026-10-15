@@ -32,6 +32,7 @@ export default async function InvoicesPage({
   return (
     <>
       <InvoicesHeader
+        showNew={!isEmpty}
         subtitle={
           isEmpty
             ? "Nothing here yet"

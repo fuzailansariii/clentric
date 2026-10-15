@@ -23,6 +23,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   return (
     <>
       <ClientsHeader
+        showNew={!isEmpty}
         subtitle={
           isEmpty
             ? "Nothing here yet"

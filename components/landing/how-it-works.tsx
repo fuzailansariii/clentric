@@ -2,7 +2,17 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useReducedMotion } from "motion/react";
-import { BellIcon, CheckIcon, LockIcon, ReceiptIcon } from "lucide-react";
+import {
+  BellIcon,
+  CheckIcon,
+  LockIcon,
+  MailIcon,
+  PaletteIcon,
+  ReceiptIcon,
+  ShieldCheckIcon,
+  WalletIcon,
+  type LucideIcon,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { SECTION, SectionHead, StatusPill } from "./parts";
 
@@ -14,10 +24,11 @@ const CHORES = [
   ["Keeping a spreadsheet of who owes what", "One dashboard that always knows what is paid, due and late."],
 ] as const;
 
-const STATS = [
-  { big: "5 → 1", label: "Tools collapsed into one workspace." },
-  { big: "<60s", label: "From a blank invoice to a sent one." },
-  { big: "1 email", label: "At launch. Nothing else, ever." },
+const DETAILS: { icon: LucideIcon; title: string; body: string }[] = [
+  { icon: PaletteIcon, title: "Your brand on everything", body: "Your logo and colour on proposals, invoices and PDFs. On Pro." },
+  { icon: MailIcon, title: "Sent as you", body: "Emails go out as “Maya via Clentric”, and replies land in your inbox." },
+  { icon: WalletIcon, title: "Deposits sort themselves", body: "Accepting emails the deposit invoice. They tap “I’ve made the payment”, you confirm." },
+  { icon: ShieldCheckIcon, title: "No accidental overbilling", body: "The invoice builder warns before you bill past the agreed price or estimate." },
 ];
 
 const CARD = "bg-card rounded-xl border p-5 shadow-(--lp-lift)";
@@ -174,15 +185,21 @@ export function HowItWorks() {
         </div>
       </div>
 
-      <div className="mt-16 grid grid-cols-[repeat(auto-fit,minmax(min(100%,220px),1fr))] border-t border-(--lp-border-strong)">
-        {STATS.map((s, i) => (
-          <div key={s.big} data-rv={String(i * 90)} className="flex flex-col gap-1.5 border-b pt-7 pr-6">
-            <span className="font-space text-[clamp(34px,3.6vw,48px)] leading-none font-medium tracking-[-0.045em] tabular-nums">
-              {s.big}
-            </span>
-            <span className="pb-6 text-[15px] text-(--lp-muted)">{s.label}</span>
-          </div>
-        ))}
+      <div className="mt-16 border-t border-(--lp-border-strong) pt-7">
+        <h3 data-rv="0" className="font-space text-[clamp(20px,1.8vw,24px)] font-medium tracking-[-0.02em]">
+          The small things, handled.
+        </h3>
+        <ul className="mt-6 grid grid-cols-[repeat(auto-fit,minmax(min(100%,230px),1fr))] gap-3">
+          {DETAILS.map(({ icon: Icon, title, body }, i) => (
+            <li key={title} data-rv={String(i * 80)} className="bg-card flex flex-col gap-2 rounded-xl border p-5">
+              <span className="mb-1.5 grid size-9 place-items-center rounded-lg bg-(--lp-accent-bg) text-(--lp-accent-fg)">
+                <Icon className="size-4.5" aria-hidden="true" />
+              </span>
+              <span className="font-space text-[17px] leading-tight font-medium tracking-[-0.01em]">{title}</span>
+              <span className="text-[15px] text-pretty text-(--lp-muted)">{body}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </section>
   );

@@ -12,15 +12,20 @@ import {
 import { toast } from "sonner";
 
 import PageHeader from "@/components/dashboard/page-header";
+import { FileText, PencilIcon, Receipt, Trash2Icon } from "lucide-react";
+import { NewMenu } from "@/components/dashboard/new-menu";
 import { DetailCard, DetailList } from "@/components/dashboard/detail-parts";
+import {
+  CardActions,
+  HeaderActions,
+  MoreMenu,
+  type PageAction,
+} from "@/components/dashboard/page-actions";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DeleteDialog } from "@/components/delete-dialog";
 
-import {
-  CustomButton,
-  customButtonClasses,
-} from "@/components/ui/custom-button";
+import { customButtonClasses } from "@/components/ui/custom-button";
 import { MetricStrip } from "@/components/ui/metric-strip";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
@@ -86,7 +91,6 @@ export function ClientDetail({
 
   const owes = Number(summary.owes);
   const config = clientStatusConfig[status];
-  const firstName = client.name.split(/\s+/)[0];
   const company =
     client.company && client.company !== client.name ? client.company : null;
 
@@ -114,6 +118,36 @@ export function ClientDetail({
   const hasAny = panel.allCount > 0 || Boolean(search);
   const work = summary.projects + summary.invoices;
 
+  // Header: managing the client. Side card: starting work for them.
+  const cardActions: PageAction[] = [
+    {
+      label: "New proposal",
+      kind: "primary",
+      href: `/proposals/new?clientId=${client.id}`,
+      icon: <FileText className="size-4" />,
+    },
+    {
+      label: "New invoice",
+      kind: "secondary",
+      href: `/invoices/new?clientId=${client.id}`,
+      icon: <Receipt className="size-4" />,
+    },
+  ];
+  const headerActions: PageAction[] = [
+    {
+      label: "Edit client",
+      kind: "quiet",
+      href: `/clients/${client.id}/edit`,
+      icon: <PencilIcon className="size-4" />,
+    },
+    {
+      label: "Delete client",
+      kind: "danger",
+      onClick: () => setIsDeleteOpen(true),
+      icon: <Trash2Icon className="size-4" />,
+    },
+  ];
+
   return (
     <>
       <PageHeader
@@ -127,50 +161,32 @@ export function ClientDetail({
           .filter(Boolean)
           .join(" · ")}
         backHref="/clients"
+        actions={<HeaderActions actions={headerActions} />}
+        mobileActions="inline"
+        mobileMenu={
+          <>
+            <NewMenu
+              items={[
+                {
+                  label: "New proposal",
+                  href: `/proposals/new?clientId=${client.id}`,
+                  icon: FileText,
+                },
+                {
+                  label: "New invoice",
+                  href: `/invoices/new?clientId=${client.id}`,
+                  icon: Receipt,
+                },
+              ]}
+            />
+            <MoreMenu actions={headerActions} />
+          </>
+        }
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Clients", href: "/clients" },
           { label: client.name },
         ]}
-        actions={
-          <>
-            {client.email && (
-              <a
-                href={`mailto:${client.email}`}
-                className={customButtonClasses("secondary", "sm")}
-              >
-                Email {firstName}
-              </a>
-            )}
-            <Link
-              href={`/clients/${client.id}/edit`}
-              className={customButtonClasses("secondary", "sm")}
-            >
-              Edit
-            </Link>
-            <CustomButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsDeleteOpen(true)}
-              className="text-danger-600 hover:text-danger-600"
-            >
-              Delete
-            </CustomButton>
-            <Link
-              href={`/invoices/new?clientId=${client.id}`}
-              className={customButtonClasses("secondary", "sm")}
-            >
-              New invoice
-            </Link>
-            <Link
-              href={`/proposals/new?clientId=${client.id}`}
-              className={customButtonClasses("primary", "sm")}
-            >
-              New proposal
-            </Link>
-          </>
-        }
       />
 
       <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
@@ -202,7 +218,12 @@ export function ClientDetail({
           />
 
           <div className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]">
-            <section className="bg-card @container min-w-0 overflow-hidden rounded-lg border shadow-xs">
+            {/* Tablet up: first on narrow, atop the right column when wide. Phones: "New" in the header. */}
+            <DetailCard className="max-md:hidden @[1000px]:col-start-2 @[1000px]:row-start-1">
+              <CardActions actions={cardActions} />
+            </DetailCard>
+
+            <section className="bg-card @container min-w-0 overflow-hidden rounded-lg border shadow-xs @[1000px]:col-start-1 @[1000px]:row-span-2 @[1000px]:row-start-1">
               <div
                 role="tablist"
                 aria-label="Client work"
@@ -328,7 +349,7 @@ export function ClientDetail({
               )}
             </section>
 
-            <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4">
+            <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4 @[1000px]:col-start-2">
               <DetailCard title="Status">
                 <SegmentedControl
                   label="Client status"

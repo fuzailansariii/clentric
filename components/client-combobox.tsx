@@ -13,6 +13,7 @@ export type ClientOption = {
   hourlyRate: string | null;
   /** Sending needs one; absent where the picker doesn't care. */
   hasEmail?: boolean;
+  email?: string | null;
 };
 
 type ClientComboboxProps = {

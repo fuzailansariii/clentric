@@ -2,7 +2,10 @@ import { PlanLimitPage } from "@/components/dashboard/plan-limit-page";
 import { planBlockMessage } from "@/lib/plan-limits";
 import { getSafeReturnTo } from "@/lib/return-to";
 import { getClientOptions } from "../../clients/queries";
-import { getDocumentDefaults } from "../../settings/queries";
+import {
+  getDocumentDefaults,
+  getHasPaymentDetails,
+} from "../../settings/queries";
 import ProposalBuilder from "../proposal-builder";
 
 export default async function NewProposal({
@@ -11,11 +14,14 @@ export default async function NewProposal({
   searchParams: Promise<{ clientId?: string; returnTo?: string }>;
 }) {
   const { clientId, returnTo } = await searchParams;
-  const [clients, defaults, blocked] = await Promise.all([
-    getClientOptions(),
-    getDocumentDefaults(),
-    planBlockMessage("proposals"),
-  ]);
+  const [clients, defaults, blocked, clientBlocked, hasPaymentDetails] =
+    await Promise.all([
+      getClientOptions(),
+      getDocumentDefaults(),
+      planBlockMessage("proposals"),
+      planBlockMessage("clients"),
+      getHasPaymentDetails(),
+    ]);
   if (blocked) {
     return (
       <PlanLimitPage title="New proposal" section="Proposals" sectionHref="/proposals" message={blocked} />
@@ -35,6 +41,8 @@ export default async function NewProposal({
       initialClientId={initialClientId}
       returnTo={getSafeReturnTo(returnTo)}
       brandColor={defaults?.brandColor ?? null}
+      hasPaymentDetails={hasPaymentDetails}
+      newClientBlocked={clientBlocked}
       defaults={
         defaults
           ? {

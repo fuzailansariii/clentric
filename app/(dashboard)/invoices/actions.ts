@@ -26,6 +26,7 @@ import { getDisplayStatus } from "@/lib/get-invoice-display-status";
 import { issuerSnapshotSql } from "@/lib/issuer-snapshot";
 import { emailInvoice } from "@/lib/email/document-emails";
 import { assertWithinPlan, planLimitsFor } from "@/lib/plan-limits";
+import { MAX_MONEY, TOTAL_TOO_LARGE } from "@/lib/money-limits";
 
 // Every page that renders an invoice: the list, its detail page, and its
 // client's page.
@@ -100,6 +101,9 @@ export async function createInvoiceAction(
       ) / 100;
     taxAmount = Math.round(subTotal * (parsed.data.taxRate / 100) * 100) / 100;
     total = Math.round((subTotal + taxAmount) * 100) / 100;
+    if (total > MAX_MONEY) {
+      return { success: false, error: TOTAL_TOO_LARGE };
+    }
 
     const { newClient } = parsed.data;
     const limits = await planLimitsFor(user.id);
@@ -282,6 +286,9 @@ export async function updateInvoiceAction(
       ) / 100;
     taxAmount = Math.round(subTotal * (parsed.data.taxRate / 100) * 100) / 100;
     total = Math.round((subTotal + taxAmount) * 100) / 100;
+    if (total > MAX_MONEY) {
+      return { success: false, error: TOTAL_TOO_LARGE };
+    }
 
     const update = await db.transaction(async (tx) => {
       // client ownership

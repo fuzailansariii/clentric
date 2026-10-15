@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { CURRENCY_CODES } from "@/lib/currency-options";
 import { clientIdSchema } from "../clients/schema";
+import {
+  LINE_TOO_LARGE,
+  MAX_MONEY,
+  MAX_QUANTITY,
+  NOT_A_NUMBER,
+  QUANTITY_TOO_LARGE,
+  RATE_TOO_LARGE,
+  lineWithinLimit,
+} from "@/lib/money-limits";
 
 export const proposalIdSchema = z.uuid();
 
@@ -15,14 +24,23 @@ export const EXPIRY_OPTIONS = [
 
 export const EXPIRY_DEFAULT_DAYS = 14;
 
-export const lineItemSchema = z.object({
-  description: z.string().trim().min(1, "Add a description"),
-  quantity: z.coerce
-    .number()
-    .positive("Quantity must be greater than 0")
-    .default(1),
-  rate: z.coerce.number().nonnegative("Rate cannot be negative"),
-});
+export const lineItemSchema = z
+  .object({
+    description: z.string().trim().min(1, "Add a description"),
+    quantity: z.coerce
+      .number({ error: NOT_A_NUMBER })
+      .positive("Quantity must be greater than 0")
+      .max(MAX_QUANTITY, QUANTITY_TOO_LARGE)
+      .default(1),
+    rate: z.coerce
+      .number({ error: NOT_A_NUMBER })
+      .nonnegative("Rate cannot be negative")
+      .max(MAX_MONEY, RATE_TOO_LARGE),
+  })
+  .refine((line) => lineWithinLimit(line.quantity, line.rate), {
+    message: LINE_TOO_LARGE,
+    path: ["rate"],
+  });
 
 export const milestoneSchema = z.object({
   /**
@@ -75,19 +93,19 @@ export const proposalObjectSchema = z.object({
     .refine((value) => CURRENCY_CODES.includes(value), "Pick a currency")
     .default("USD"),
   taxRate: z.coerce
-    .number()
+    .number({ error: NOT_A_NUMBER })
     .min(0, "Tax rate cannot be negative")
     .max(100, "Tax rate cannot exceed 100")
     .default(0),
   /** 0 means no deposit is asked for. */
   depositPercent: z.coerce
-    .number()
+    .number({ error: NOT_A_NUMBER })
     .min(0, "Deposit cannot be negative")
     .max(100, "Deposit cannot exceed 100%")
     .default(0),
   /** Days of work once the project starts; 0 (or empty) means not given. */
   deliveryDays: z.coerce
-    .number()
+    .number({ error: NOT_A_NUMBER })
     .int("Use whole days")
     .min(0, "Delivery time cannot be negative")
     .max(365, "Delivery time cannot be more than a year")
@@ -98,7 +116,7 @@ export const proposalObjectSchema = z.object({
    * so sending re-bases it - see sendProposalAction.
    */
   expiresInDays: z.coerce
-    .number()
+    .number({ error: NOT_A_NUMBER })
     .int("Pick one of the expiry options")
     .min(0)
     .max(365, "Expiry cannot be more than a year")
@@ -109,7 +127,22 @@ export const proposalObjectSchema = z.object({
     .max(20, "That is a lot of milestones - 20 is the limit"),
 });
 
-export const createProposalSchema = proposalObjectSchema;
+/** Someone not saved yet: saved as a client together with the proposal. */
+export const newProposalClientSchema = z.object({
+  name: z.string().trim().min(1, "Enter who the proposal is for").max(100),
+  email: z.email("Invalid email").optional().or(z.literal("")),
+});
+
+export const createProposalSchema = proposalObjectSchema
+  .extend({
+    // "" while writing for someone new (newClient) instead of a saved client.
+    clientId: z.union([z.literal(""), clientIdSchema]).optional(),
+    newClient: newProposalClientSchema.optional(),
+  })
+  .refine((data) => Boolean(data.clientId) || Boolean(data.newClient), {
+    error: "Choose a client or add someone new",
+    path: ["clientId"],
+  });
 
 export const updateProposalSchema = proposalObjectSchema.extend({
   proposalId: proposalIdSchema,

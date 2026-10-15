@@ -213,6 +213,8 @@ export async function getClientOptions() {
         // Prefills hour lines in the invoice builder.
         hourlyRate: clients.hourlyRate,
         hasEmail: sql<boolean>`coalesce(${clients.email}, '') <> ''`,
+        // Named in the "Send?" confirm.
+        email: clients.email,
       })
       .from(clients)
       .where(and(eq(clients.userId, user.id), isNull(clients.deletedAt)))

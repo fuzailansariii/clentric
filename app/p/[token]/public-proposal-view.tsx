@@ -18,6 +18,7 @@ import {
   viewProposalAction,
   type RespondResult,
 } from "@/app/(dashboard)/proposals/public-actions";
+import { depositAmounts } from "@/lib/deposit-amounts";
 import type { PublicProposal } from "@/app/(dashboard)/proposals/actions";
 
 type Props = {
@@ -64,8 +65,11 @@ export function PublicProposalView({ proposal, token }: Props) {
     formatCurrency(String(value), currency);
   const depositPercent = Number(proposal.depositPercent);
   const taxRate = Number(proposal.taxRate);
-  const depositAmount =
-    Math.round(Number(proposal.total) * (depositPercent / 100) * 100) / 100;
+  const depositAmount = depositAmounts(
+    proposal.subtotal,
+    proposal.total,
+    depositPercent,
+  ).total;
 
   const issuer = formatIssuer(proposal.owner);
   const ownerName = issuer.title;
@@ -141,9 +145,11 @@ export function PublicProposalView({ proposal, token }: Props) {
                 fallbackShape="circle"
               />
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold">{ownerName}</p>
+                <p className="text-sm font-semibold wrap-anywhere sm:truncate">
+                  {ownerName}
+                </p>
                 {issuer.lines.length > 0 && (
-                  <p className="text-muted-foreground truncate text-xs">
+                  <p className="text-muted-foreground text-xs wrap-anywhere sm:truncate">
                     {issuer.lines.slice(0, 2).join(" · ")}
                   </p>
                 )}

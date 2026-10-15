@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { getProjectForProposal, getProposalById } from "../queries";
 import { getEmailStatus } from "@/lib/email/quota";
+import { emailConfig } from "@/lib/email/config";
+import { getHasPaymentDetails } from "../../settings/queries";
 import { ProposalDetailView } from "./proposal-detail";
 
 type ProposalPageProps = {
@@ -21,9 +23,11 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
   // Only accepted proposals can have a project, and only ones still out
   // with the client can be emailed, so each lookup runs only when needed.
   const isOut = proposal.status === "sent" || proposal.status === "viewed";
-  const [project, emailStatus] = await Promise.all([
+  const [project, emailStatus, hasPaymentDetails] = await Promise.all([
     proposal.status === "accepted" ? getProjectForProposal(id) : null,
     isOut ? getEmailStatus(id, "proposal") : null,
+    // Payment details freeze when it's sent, so only a draft can still fix them.
+    proposal.status === "draft" ? getHasPaymentDetails() : true,
   ]);
 
   return (
@@ -31,6 +35,8 @@ export default async function ProposalPage({ params }: ProposalPageProps) {
       proposal={proposal}
       project={project}
       emailStatus={emailStatus}
+      hasPaymentDetails={hasPaymentDetails}
+      appUrl={emailConfig().appUrl}
     />
   );
 }

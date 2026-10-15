@@ -4,7 +4,7 @@ export const BILLED_STATUSES = ["sent", "paid", "overdue"] as const;
 export type ProjectLedger = {
   /** Null when the project has no budget (stored as 0). */
   budget: number | null;
-  /** Sent, paid and overdue invoices, in their totals (tax included). */
+  /** Sent, paid and overdue invoices, before tax. */
   billed: number;
   paid: number;
   outstanding: number;
@@ -27,8 +27,8 @@ type Money = string | number | null | undefined;
 const cents = (value: Money) => Math.round(Number(value ?? 0) * 100) || 0;
 
 /**
- * Where a project stands against its budget. Compares invoice totals, the
- * same basis as proposal budgets and deposits. Assumes one currency (USD only).
+ * Where a project stands against its budget. Everything is before tax, like
+ * budgets, milestones and deposits. Assumes one currency (USD only).
  */
 export function projectLedger(input: {
   budget: Money;
@@ -58,15 +58,15 @@ export function projectLedger(input: {
   };
 }
 
-/** Folds a project's invoice rows into ledger inputs. */
+/** Folds a project's invoice rows into ledger inputs, by their subtotals. */
 export function sumProjectInvoices(
-  rows: readonly { status: string; total: string }[],
+  rows: readonly { status: string; subTotal: string }[],
 ) {
   let billed = 0;
   let paid = 0;
   let drafts = 0;
   for (const row of rows) {
-    const amount = cents(row.total);
+    const amount = cents(row.subTotal);
     if (row.status === "draft") drafts += amount;
     else if ((BILLED_STATUSES as readonly string[]).includes(row.status)) {
       billed += amount;
@@ -83,6 +83,8 @@ export type InvoiceProjectBalance = {
   thisInvoice: number;
   /** Never below 0. */
   remaining: number;
+  /** The invoice carries tax, so the box says its figures are before tax. */
+  beforeTax: boolean;
 };
 
 /** The balance box on an invoice. Fixed-price projects with a price only. */
@@ -91,6 +93,7 @@ export function invoiceProjectBalance(input: {
   budget: Money;
   paidBefore: Money;
   thisInvoice: Money;
+  taxRate?: Money;
 }): InvoiceProjectBalance | null {
   const total = cents(input.budget);
   if (input.pricing !== "fixed" || total <= 0) return null;
@@ -101,13 +104,14 @@ export function invoiceProjectBalance(input: {
     paidBefore: paidBefore / 100,
     thisInvoice: thisInvoice / 100,
     remaining: Math.max(0, total - paidBefore - thisInvoice) / 100,
+    beforeTax: Number(input.taxRate ?? 0) > 0,
   };
 }
 
 /** The balance box's rows, in print order; the last one is the emphasised total. */
 export function balanceRows(balance: InvoiceProjectBalance): [string, number][] {
   return [
-    ["Project total", balance.projectTotal],
+    [balance.beforeTax ? "Project total before tax" : "Project total", balance.projectTotal],
     ["Paid before this invoice", balance.paidBefore],
     ["This invoice", balance.thisInvoice],
     ["Remaining after this invoice", balance.remaining],
