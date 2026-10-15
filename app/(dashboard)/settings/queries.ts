@@ -1,6 +1,6 @@
 import { cache } from "react";
 import { unstable_rethrow } from "next/navigation";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { requireUser } from "@/lib/current-user";
 import { AppError, logError } from "@/lib/errors";
 import { db } from "@/src/db";
@@ -93,6 +93,39 @@ export async function getIssuerTitle(): Promise<string> {
     logError("getIssuerTitle", error);
     if (error instanceof AppError) throw error;
     throw new AppError("FETCH_FAILED", "Could not load your business name.");
+  }
+}
+
+/**
+ * Whether a document sent now would tell the client how to pay: a payment
+ * method shown on invoices, or "Other payment instructions".
+ */
+export async function getHasPaymentDetails(): Promise<boolean> {
+  try {
+    const user = await requireUser();
+
+    const [row] = await db
+      .select({
+        hasDetails: sql<boolean>`(
+          coalesce(btrim(${users.paymentDetails}), '') <> ''
+          or exists (
+            select 1 from ${userPaymentMethods}
+            where ${userPaymentMethods.userId} = ${users.id}
+              and ${userPaymentMethods.showOnInvoices}
+              and ${userPaymentMethods.deletedAt} is null
+          )
+        )`,
+      })
+      .from(users)
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)))
+      .limit(1);
+
+    return row?.hasDetails ?? false;
+  } catch (error) {
+    unstable_rethrow(error);
+    logError("getHasPaymentDetails", error);
+    // Unknown: show no warning rather than a wrong one.
+    return true;
   }
 }
 

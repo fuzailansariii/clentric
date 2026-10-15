@@ -41,9 +41,9 @@ const daysUntilDue = sql<number>`(${invoices.dueDate} - current_date)`.mapWith(
   Number,
 );
 
-/** Paid invoices on the same project created before this one (the balance box). */
+/** Paid invoices on the same project created before this one, before tax (the balance box). */
 const paidBeforeOnProject = sql<string>`(
-  select coalesce(sum(o.total), 0)::text from invoices o
+  select coalesce(sum(o.sub_total), 0)::text from invoices o
   where o.project_id = ${invoices.projectId}
     and o.user_id = ${invoices.userId}
     and o.id <> ${invoices.id}
@@ -272,7 +272,8 @@ export async function getInvoicePdfDataForOwner(
                 pricing: liveProject.pricing,
                 budget: liveProject.budget,
                 paidBefore,
-                thisInvoice: invoice.total,
+                thisInvoice: invoice.subTotal,
+                taxRate: invoice.taxRate,
               })
             : null,
       },
@@ -364,6 +365,7 @@ export async function getInvoiceList(
             select 1 from invoice_items ii
             where ii.invoice_id = ${invoices.id} and btrim(ii.description) = ''
           ))`,
+          clientEmail: clients.email,
           clientHasEmail: sql<boolean>`coalesce(${clients.email}, '') <> ''`,
           firstLine: sql<string | null>`(
             select ii.description from invoice_items ii

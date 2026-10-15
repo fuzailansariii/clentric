@@ -206,9 +206,9 @@ export async function getProjectOptionsByUserId(excludeInvoiceId?: string) {
         currency: projects.currency,
         pricing: projects.pricing,
         budget: projects.budget,
-        // The budget line in the invoice builder (lib/project-ledger.ts).
+        // The budget line in the invoice builder (lib/project-ledger.ts), before tax.
         billed: sql<string>`(
-          select coalesce(sum(${invoices.total}), 0)::text from ${invoices}
+          select coalesce(sum(${invoices.subTotal}), 0)::text from ${invoices}
           where ${invoices.projectId} = ${projects.id}
             and ${invoices.userId} = ${user.id}
             and ${invoices.deletedAt} is null
@@ -218,6 +218,8 @@ export async function getProjectOptionsByUserId(excludeInvoiceId?: string) {
         depositInvoiceId: deposits.id,
         depositNumber: deposits.invoiceNumber,
         depositPrefix: deposits.numberPrefix,
+        // The tax the client agreed to, prefilled on invoices for this project.
+        proposalTaxRate: proposals.taxRate,
       })
       .from(projects)
       .leftJoin(
@@ -344,6 +346,8 @@ export type ProjectInvoiceRow = {
   numberPrefix: string;
   status: InvoiceDisplayStatus;
   total: string;
+  /** Before tax: what counts against the project's budget. */
+  subTotal: string;
   currency: string;
   issueDate: string;
   dueDate: string;
@@ -376,6 +380,7 @@ export async function getInvoicesForProject(
         numberPrefix: invoices.numberPrefix,
         status: invoices.status,
         total: invoices.total,
+        subTotal: invoices.subTotal,
         currency: invoices.currency,
         issueDate: invoices.issueDate,
         dueDate: invoices.dueDate,
@@ -537,8 +542,9 @@ export async function getProjectBoard(
             ) order by m.sort_order, m.id), '[]'::json)
             from milestones m where m.project_id = ${projects.id}
           )`,
+          // Before tax, like the budget it is compared to.
           billed: sql<string>`(
-            select coalesce(sum(i.total), 0)::text from invoices i
+            select coalesce(sum(i.sub_total), 0)::text from invoices i
             where i.project_id = ${projects.id}
               and i.user_id = ${user.id}
               and i.deleted_at is null
@@ -565,7 +571,7 @@ export async function getProjectBoard(
           budgetSum: sql<string>`coalesce(sum(${projects.budget}), 0)::text`,
           // Spelled out: single-table selects leave column names unqualified.
           billedSum: sql<string>`coalesce(sum((
-            select coalesce(sum(i.total), 0) from invoices i
+            select coalesce(sum(i.sub_total), 0) from invoices i
             where i.project_id = "projects"."id" and i.deleted_at is null
               and i.status in ('sent', 'paid', 'overdue')
           )), 0)::text`,

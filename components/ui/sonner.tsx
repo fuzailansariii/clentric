@@ -20,14 +20,11 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme as ToasterProps["theme"]}
-      // Top right so a notification arriving on its own is noticed rather
-      // than competing with the bottom of a long form. Applies to action
-      // toasts too, which keeps every toast in one predictable place.
-      position="top-right"
-      // Below the page header, so a toast never covers its buttons or sits
-      // under the pointer that just clicked one (hover pauses the timer).
-      offset={{ top: 100 }}
-      mobileOffset={{ top: 148 }}
+      // Bottom right, clear of the page header and its content; lifted above
+      // the forms' sticky save bar so a toast never covers Save or Send.
+      position="bottom-right"
+      offset={{ bottom: 72, right: 24 }}
+      mobileOffset={{ bottom: 84 }}
       className="toaster group"
       // Same tinted tiles as the list rows, so a toast reads like the app.
       icons={{

@@ -23,6 +23,7 @@ import { createProjectFromProposal } from "@/lib/create-project-from-proposal";
 import { logActivity } from "@/lib/activity";
 import { emailProposal } from "@/lib/email/document-emails";
 import { assertWithinPlan, planLimitsFor } from "@/lib/plan-limits";
+import { MAX_MONEY, TOTAL_TOO_LARGE } from "@/lib/money-limits";
 import {
   issuerSnapshotSql,
   liveIssuer,
@@ -399,6 +400,9 @@ export async function createProposalAction(
     const taxAmount =
       Math.round(subtotal * (parsed.data.taxRate / 100) * 100) / 100;
     const total = Math.round((subtotal + taxAmount) * 100) / 100;
+    if (total > MAX_MONEY) {
+      return { success: false, error: TOTAL_TOO_LARGE };
+    }
 
     // 0 days means the link never expires. Set now so a draft shows the
     // intended date; sending re-bases it off the same window.
@@ -407,32 +411,59 @@ export async function createProposalAction(
         ? new Date(Date.now() + parsed.data.expiresInDays * 86_400_000)
         : null;
 
+    const { clientId: savedClientId, newClient } = parsed.data;
     const limits = await planLimitsFor(user.id);
     // Proposal, milestones and items have to land together — a proposal with
     // no items would show an empty quote at a public URL.
     const created = await db.transaction(async (tx) => {
-      await assertWithinPlan(tx, user.id, limits, ["proposals"]);
-      const [client] = await tx
-        .select({ id: clients.id })
-        .from(clients)
-        .where(
-          and(
-            eq(clients.id, parsed.data.clientId),
-            eq(clients.userId, user.id),
-            isNull(clients.deletedAt),
-          ),
-        )
-        .limit(1);
+      await assertWithinPlan(
+        tx,
+        user.id,
+        limits,
+        newClient && !savedClientId ? ["proposals", "clients"] : ["proposals"],
+      );
+      let clientId: string;
+      if (savedClientId) {
+        const [client] = await tx
+          .select({ id: clients.id })
+          .from(clients)
+          .where(
+            and(
+              eq(clients.id, savedClientId),
+              eq(clients.userId, user.id),
+              isNull(clients.deletedAt),
+            ),
+          )
+          .limit(1);
 
-      if (!client) {
-        throw new AppError("NOT_FOUND", "Client not found");
+        if (!client) {
+          throw new AppError("NOT_FOUND", "Client not found");
+        }
+        clientId = client.id;
+      } else if (newClient) {
+        // Written for someone not saved yet: saved together with the proposal.
+        const [client] = await tx
+          .insert(clients)
+          .values({
+            userId: user.id,
+            name: newClient.name,
+            email: newClient.email || null,
+          })
+          .returning({ id: clients.id });
+
+        if (!client) {
+          throw new AppError("INSERT_FAILED", "Could not save the client");
+        }
+        clientId = client.id;
+      } else {
+        throw new AppError("VALIDATION_ERROR", "Choose a client");
       }
 
       const [row] = await tx
         .insert(proposals)
         .values({
           userId: user.id,
-          clientId: parsed.data.clientId,
+          clientId,
           title: parsed.data.title,
           content: parsed.data.content,
           currency: parsed.data.currency,
@@ -499,10 +530,18 @@ export async function createProposalAction(
         ),
       );
 
-      return row;
+      return { ...row, clientId };
     });
 
-    revalidateProposalPaths(created.proposalId, parsed.data.clientId);
+    revalidateProposalPaths(created.proposalId, created.clientId);
+    if (newClient && !savedClientId) {
+      revalidatePath("/clients");
+      logActivity({
+        userId: user.id,
+        action: "client.created",
+        entityId: created.clientId,
+      });
+    }
     logActivity({
       userId: user.id,
       action: "proposal.created",
@@ -852,7 +891,7 @@ export async function createProjectFromProposalAction(
           clientId: proposals.clientId,
           title: proposals.title,
           content: proposals.content,
-          total: proposals.total,
+          subtotal: proposals.subtotal,
           currency: proposals.currency,
           depositInvoiceId: proposals.depositInvoiceId,
           deliveryDays: proposals.deliveryDays,
@@ -967,6 +1006,9 @@ export async function updateProposalAction(
     const taxAmount =
       Math.round(subtotal * (parsed.data.taxRate / 100) * 100) / 100;
     const total = Math.round((subtotal + taxAmount) * 100) / 100;
+    if (total > MAX_MONEY) {
+      return { success: false, error: TOTAL_TOO_LARGE };
+    }
 
     await db.transaction(async (tx) => {
       const [client] = await tx

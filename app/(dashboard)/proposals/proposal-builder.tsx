@@ -4,8 +4,16 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { useState, type ChangeEvent } from "react";
 import { useRouter } from "next/navigation";
+import { depositAmounts } from "@/lib/deposit-amounts";
 import { PlusIcon } from "lucide-react";
 import PageHeader from "@/components/dashboard/page-header";
+import { FormActionBar } from "@/components/dashboard/form-action-bar";
+import {
+  DEPOSIT_NO_PAYMENT,
+  DepositPaymentWarning,
+} from "@/components/dashboard/deposit-payment-warning";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { proposalSendDescription } from "@/lib/send-confirm";
 import { DetailCard } from "@/components/dashboard/detail-parts";
 import {
   ClientCombobox,
@@ -19,6 +27,7 @@ import { resolveBrandColor } from "@/lib/brand-color";
 import { calculateTotals } from "@/lib/calculate-totals";
 import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
+import { scrollToFirstError } from "@/lib/scroll-to-first-error";
 import type { ActionResult } from "@/lib/action-result";
 import type { ReturnTo } from "@/lib/return-to";
 import {
@@ -70,7 +79,16 @@ type ProposalBuilderProps = {
   returnTo?: ReturnTo | null;
   /** The freelancer's brand colour, for the preview. */
   brandColor: string | null;
+  /** False when a deposit invoice would go out without how to pay. */
+  hasPaymentDetails?: boolean;
+  /** Why someone new can't be added (plan limit); hides that option. */
+  newClientBlocked?: string | null;
 };
+
+const WHO = [
+  { value: "saved", label: "Saved client" },
+  { value: "new", label: "Someone new" },
+] as const;
 
 const DEPOSITS = [
   { value: "0", label: "None" },
@@ -101,11 +119,17 @@ export default function ProposalBuilder({
   defaults,
   returnTo = null,
   brandColor,
+  hasPaymentDetails = true,
+  newClientBlocked = null,
 }: ProposalBuilderProps) {
   const router = useRouter();
   const isEditing = Boolean(proposal);
   const startDeposit =
     proposal?.depositPercent ?? defaults?.depositPercent ?? 0;
+  // No saved clients yet: start by typing who it's for.
+  const canAddNew = !proposal && !newClientBlocked;
+  const startNew = canAddNew && clients.length === 0;
+  const [isNew, setIsNew] = useState(startNew);
   // A deposit other than None / 30 / 50 starts in the custom box.
   const [customDeposit, setCustomDeposit] = useState(
     ![0, 30, 50].includes(startDeposit),
@@ -129,6 +153,7 @@ export default function ProposalBuilder({
         }
       : {
           clientId: initialClientId ?? "",
+          newClient: startNew ? { name: "", email: "" } : undefined,
           title: "",
           content: "",
           currency: "USD",
@@ -146,8 +171,19 @@ export default function ProposalBuilder({
     handleSubmit,
     setValue,
     setError,
-    formState: { errors, isSubmitting },
+    unregister,
+    formState: { errors, isSubmitting, isDirty },
   } = form;
+
+  const toggleNew = (next: boolean) => {
+    setIsNew(next);
+    if (next) {
+      setValue("clientId", "");
+      setValue("newClient", { name: "", email: "" });
+    } else {
+      unregister("newClient");
+    }
+  };
 
   const {
     fields: stageFields,
@@ -162,22 +198,25 @@ export default function ProposalBuilder({
   const watchedTitle = useWatch({ control, name: "title" });
   const watchedClientId = useWatch({ control, name: "clientId" });
   const watchedExpiry = useWatch({ control, name: "expiresInDays" });
+  const newClientName = useWatch({ control, name: "newClient.name" });
   // Everything is USD for now.
   const currency = "USD";
 
   // Preview only; the server action recomputes everything it stores.
-  const { taxRate, taxAmount, total } = calculateTotals(
+  const { subtotal, taxRate, taxAmount, total } = calculateTotals(
     watchedStages.flatMap((stage) => stage?.items ?? []),
     watchedTaxRate,
   );
   const depositPercent = Number(watchedDeposit ?? 0);
-  const depositAmount = Math.round(total * (depositPercent / 100) * 100) / 100;
+  const depositAmount = depositAmounts(subtotal, total, depositPercent).total;
   const selectedClient = clients.find(
     (client) => client.id === watchedClientId,
   );
   const cancelHref = proposal
     ? `/proposals/${proposal.id}`
     : (returnTo ?? "/proposals");
+
+  const showErrors = () => scrollToFirstError("proposal-form");
 
   const save = handleSubmit(async (data) => {
     if (proposal) {
@@ -198,7 +237,10 @@ export default function ProposalBuilder({
       onSuccess: ({ proposalId }) =>
         router.push(returnTo ?? `/proposals/${proposalId}`),
     });
-  });
+  }, showErrors);
+
+  // Valid and ready: held here while the "Send?" confirm is open.
+  const [toSend, setToSend] = useState<ProposalFormOutput | null>(null);
 
   const saveAndSend = handleSubmit(async (data) => {
     // Checked only when sending: a draft may still be half-written.
@@ -207,15 +249,24 @@ export default function ProposalBuilder({
     );
     if (!priced) {
       setError("milestones", { message: "Add at least one line with a rate" });
-      return;
+      return showErrors();
     }
-    if (selectedClient && selectedClient.hasEmail === false) {
+    if (isNew && !data.newClient?.email) {
+      setError("newClient.email", {
+        message: "Add an email to send it, or save as draft",
+      });
+      return showErrors();
+    }
+    if (!isNew && selectedClient && selectedClient.hasEmail === false) {
       setError("clientId", {
         message: "This client has no email. Save as draft, or add one",
       });
-      return;
+      return showErrors();
     }
+    setToSend(data);
+  }, showErrors);
 
+  const sendNow = async (data: ProposalFormOutput) => {
     const createAndSend = async (): Promise<
       ActionResult<{ proposalId: string; emailError: string | null }>
     > => {
@@ -245,10 +296,10 @@ export default function ProposalBuilder({
         router.push(returnTo ?? `/proposals/${proposalId}`);
       },
     });
-  });
+  };
 
   return (
-    <>
+    <div className="flex min-h-full flex-col">
       <PageHeader
         title={proposal ? `Edit ${proposal.title}` : "New proposal"}
         subtitle={
@@ -267,52 +318,11 @@ export default function ProposalBuilder({
               ]
             : [{ label: "New" }]),
         ]}
-        actions={
-          <>
-            <CustomButton
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => router.push(cancelHref)}
-            >
-              Cancel
-            </CustomButton>
-            {isEditing ? (
-              <CustomButton
-                type="button"
-                size="sm"
-                onClick={save}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Saving..." : "Save changes"}
-              </CustomButton>
-            ) : (
-              <>
-                <CustomButton
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={save}
-                  disabled={isSubmitting}
-                >
-                  Save draft
-                </CustomButton>
-                <CustomButton
-                  type="button"
-                  size="sm"
-                  onClick={saveAndSend}
-                  disabled={isSubmitting}
-                >
-                  Send proposal
-                </CustomButton>
-              </>
-            )}
-          </>
-        }
       />
 
       <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
         <form
+          id="proposal-form"
           onSubmit={save}
           noValidate
           className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]"
@@ -320,24 +330,73 @@ export default function ProposalBuilder({
           <div className="flex min-w-0 flex-col gap-4">
             <DetailCard title="Proposal" className="@container">
               <div className="grid gap-4 @[560px]:grid-cols-2">
-                <Field
-                  {...register("title")}
-                  label="Title"
-                  placeholder="e.g. Website redesign"
-                  error={errors.title?.message}
-                />
-                <Controller
-                  control={control}
-                  name="clientId"
-                  render={({ field }) => (
-                    <ClientCombobox
-                      clients={clients}
-                      value={field.value}
-                      onChange={field.onChange}
-                      error={errors.clientId?.message}
+                <div className={canAddNew ? "@[560px]:col-span-2" : undefined}>
+                  <Field
+                    {...register("title")}
+                    label="Title"
+                    placeholder="e.g. Website redesign"
+                    error={errors.title?.message}
+                  />
+                </div>
+                {canAddNew && (
+                  <SegmentedControl
+                    label="Client"
+                    options={WHO}
+                    value={isNew ? "new" : "saved"}
+                    onChange={(value) => toggleNew(value === "new")}
+                    className="justify-self-start @[560px]:col-span-2"
+                  />
+                )}
+                {isNew ? (
+                  <>
+                    <Field
+                      {...register("newClient.name")}
+                      label="Client name"
+                      placeholder="Person or business"
+                      error={
+                        errors.newClient?.name?.message ??
+                        errors.clientId?.message
+                      }
                     />
-                  )}
-                />
+                    <div className="flex flex-col gap-1">
+                      <Field
+                        {...register("newClient.email")}
+                        type="email"
+                        label={
+                          <>
+                            Client email{" "}
+                            <span className="font-normal opacity-70">
+                              optional
+                            </span>
+                          </>
+                        }
+                        placeholder="name@company.com"
+                        error={errors.newClient?.email?.message}
+                      />
+                      <span className="text-muted-foreground text-xs">
+                        Saved as a new client. Needed to email the proposal.
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <Controller
+                    control={control}
+                    name="clientId"
+                    render={({ field }) => (
+                      <ClientCombobox
+                        clients={clients}
+                        value={field.value ?? ""}
+                        onChange={field.onChange}
+                        error={errors.clientId?.message}
+                      />
+                    )}
+                  />
+                )}
+                {!proposal && newClientBlocked && (
+                  <p className="text-muted-foreground text-xs @[560px]:col-span-2">
+                    Adding someone new adds a client. {newClientBlocked}
+                  </p>
+                )}
                 <div className="@[560px]:col-span-2">
                   <Field
                     {...register("content")}
@@ -457,6 +516,9 @@ export default function ProposalBuilder({
                       />
                     </div>
                   </div>
+                  {depositPercent > 0 && !hasPaymentDetails && (
+                    <DepositPaymentWarning className="mt-3" />
+                  )}
                 </div>
 
                 <div className="@[560px]:col-span-2">
@@ -488,7 +550,11 @@ export default function ProposalBuilder({
           <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4">
             <ProposalPreview
               title={watchedTitle}
-              clientName={selectedClient?.company || selectedClient?.name}
+              clientName={
+                isNew
+                  ? newClientName?.trim() || undefined
+                  : selectedClient?.company || selectedClient?.name
+              }
               stages={watchedStages}
               taxRate={taxRate}
               taxAmount={taxAmount}
@@ -503,6 +569,56 @@ export default function ProposalBuilder({
           </aside>
         </form>
       </div>
-    </>
+
+      <ConfirmDialog
+        open={toSend !== null}
+        onOpenChange={(open) => !open && setToSend(null)}
+        title="Send this proposal?"
+        description={proposalSendDescription(
+          toSend?.title ?? "",
+          toSend?.newClient?.email ||
+            selectedClient?.email ||
+            selectedClient?.name ||
+            "your client",
+          depositPercent > 0 && !hasPaymentDetails ? DEPOSIT_NO_PAYMENT : null,
+        )}
+        confirmLabel="Send proposal"
+        pendingLabel="Sending..."
+        onConfirm={() => (toSend ? sendNow(toSend) : undefined)}
+      />
+
+      <FormActionBar isDirty={isDirty} isPending={isSubmitting || toSend !== null} cancelHref={cancelHref}>
+        {isEditing ? (
+          <CustomButton
+            type="button"
+            size="sm"
+            onClick={save}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving..." : "Save changes"}
+          </CustomButton>
+        ) : (
+          <>
+            <CustomButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={save}
+              disabled={isSubmitting}
+            >
+              Save draft
+            </CustomButton>
+            <CustomButton
+              type="button"
+              size="sm"
+              onClick={saveAndSend}
+              disabled={isSubmitting}
+            >
+              Send proposal
+            </CustomButton>
+          </>
+        )}
+      </FormActionBar>
+    </div>
   );
 }

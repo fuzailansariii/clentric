@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 
 import { getClientOptions } from "../../../clients/queries";
+import { getHasPaymentDetails } from "../../../settings/queries";
 import { getProposalById } from "../../queries";
 import ProposalBuilder, { type EditableProposal } from "../../proposal-builder";
 
@@ -13,9 +14,10 @@ export default async function EditProposalPage({
 }: EditProposalPageProps) {
   const { id } = await params;
 
-  const [proposal, clients] = await Promise.all([
+  const [proposal, clients, hasPaymentDetails] = await Promise.all([
     getProposalById(id),
     getClientOptions(),
+    getHasPaymentDetails(),
   ]);
 
   if (!proposal) {
@@ -96,6 +98,7 @@ export default async function EditProposalPage({
       clients={clients}
       proposal={editable}
       brandColor={proposal.brandColor}
+      hasPaymentDetails={hasPaymentDetails}
     />
   );
 }

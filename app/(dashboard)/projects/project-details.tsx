@@ -20,7 +20,14 @@ import { toast } from "sonner";
 import PageHeader from "@/components/dashboard/page-header";
 import DashboardContainer from "@/components/dashboard/container";
 import { DeleteDialog } from "@/components/delete-dialog";
-import { CustomButton } from "@/components/ui/custom-button";
+import { customButtonClasses } from "@/components/ui/custom-button";
+import { DetailCard } from "@/components/dashboard/detail-parts";
+import {
+  CardActions,
+  HeaderActions,
+  MoreMenu,
+  type PageAction,
+} from "@/components/dashboard/page-actions";
 import { MetricStrip, type Metric } from "@/components/ui/metric-strip";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -102,6 +109,8 @@ export function ProjectDetail({
     ...sumProjectInvoices(invoices),
   });
   const paidCount = invoices.filter((i) => i.status === "paid").length;
+  // The strip counts before tax; taxed invoices below show their full total.
+  const hasTax = invoices.some((i) => Number(i.total) !== Number(i.subTotal));
 
   const board = boardProject({
     status,
@@ -130,7 +139,7 @@ export function ProjectDetail({
         ? project.hourlyRate
           ? `${money(project.hourlyRate)}/hr`
           : "Hourly"
-        : "Fixed price",
+        : "Fixed price, before tax",
     },
     {
       label: "Invoiced",
@@ -266,6 +275,30 @@ export function ProjectDetail({
     projectId: project.id,
   }).toString()}`;
 
+  // Side card: billing. Header (the "..." menu on phones): editing and deleting.
+  const cardActions: PageAction[] = [
+    {
+      label: "New invoice",
+      kind: "primary",
+      href: newInvoiceHref,
+      icon: <PlusIcon className="size-4" />,
+    },
+  ];
+  const headerActions: PageAction[] = [
+    {
+      label: "Edit project",
+      kind: "quiet",
+      href: `/projects/${project.id}/edit`,
+      icon: <PencilIcon className="size-4" />,
+    },
+    {
+      label: "Delete project",
+      kind: "danger",
+      onClick: () => setIsDeleteOpen(true),
+      icon: <Trash2Icon className="size-4" />,
+    },
+  ];
+
   return (
     <>
       <PageHeader
@@ -290,44 +323,14 @@ export function ProjectDetail({
         }
         subtitle={`${project.clientName ?? "No client"} · ${hourly ? "Hourly" : "Fixed price"}`}
         backHref="/projects"
+        actions={<HeaderActions actions={headerActions} />}
+        mobileActions="inline"
+        mobileMenu={<MoreMenu actions={headerActions} />}
         breadcrumbs={[
           { label: "Dashboard", href: "/dashboard" },
           { label: "Projects", href: "/projects" },
           { label: project.title },
         ]}
-        actions={
-          <>
-            <Link href={`/projects/${project.id}/edit`}>
-              <CustomButton
-                type="button"
-                variant="secondary"
-                size="sm"
-                className="gap-1.5"
-              >
-                <PencilIcon className="size-3.5" /> Edit
-              </CustomButton>
-            </Link>
-            <CustomButton
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => setIsDeleteOpen(true)}
-              className="text-danger-600 hover:text-danger-600 gap-1.5"
-            >
-              <Trash2Icon className="size-3.5" /> Delete
-            </CustomButton>
-            <Link href={newInvoiceHref}>
-              <CustomButton
-                type="button"
-                variant="primary"
-                size="sm"
-                className="gap-1.5"
-              >
-                <PlusIcon className="size-3.5" /> New invoice
-              </CustomButton>
-            </Link>
-          </>
-        }
       />
 
       <DashboardContainer>
@@ -345,18 +348,32 @@ export function ProjectDetail({
                     ? "Sent"
                     : formatDaysUntilDue(deposit.daysUntilDue)}
               </span>
-              <Link href={`/invoices/${deposit.id}`}>
-                <CustomButton type="button" variant="secondary" size="sm">
-                  View invoice
-                </CustomButton>
+              <Link
+                href={`/invoices/${deposit.id}`}
+                className={customButtonClasses("secondary", "sm")}
+              >
+                View invoice
               </Link>
             </div>
           )}
 
-          <MetricStrip items={metrics} columns={6} />
+          <div className="flex flex-col gap-2">
+            <MetricStrip items={metrics} columns={6} />
+            {hasTax && (
+              <p className="text-muted-foreground text-xs">
+                Amounts above are before tax. Invoices below show their total
+                with tax.
+              </p>
+            )}
+          </div>
 
           <div className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]">
-            <div className="flex min-w-0 flex-col gap-4">
+            {/* First on narrow screens; atop the right column when wide. */}
+            <DetailCard className="@[1000px]:col-start-2 @[1000px]:row-start-1">
+              <CardActions actions={cardActions} hideOnPhone={false} />
+            </DetailCard>
+
+            <div className="flex min-w-0 flex-col gap-4 @[1000px]:col-start-1 @[1000px]:row-span-2 @[1000px]:row-start-1">
               <MilestonesPanel
                 project={{
                   id: project.id,
@@ -435,7 +452,7 @@ export function ProjectDetail({
               </section>
             </div>
 
-            <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4">
+            <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4 @[1000px]:col-start-2">
               <section className="bg-card rounded-lg border p-4 shadow-xs sm:p-4.5">
                 <h2 className="mb-3 text-sm font-semibold">Status</h2>
                 <SegmentedControl

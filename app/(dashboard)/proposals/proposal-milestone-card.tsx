@@ -31,6 +31,10 @@ const LINE = cn(
   "@[560px]:grid-cols-[minmax(0,1fr)_4.5rem_7.5rem_6.5rem_2.75rem]",
 );
 
+// Phone has no header row, so each box gets its own small label.
+const CAPTION =
+  "text-muted-foreground mb-1 block text-xs @[560px]:hidden";
+
 /**
  * One stage: name, when, description and the lines quoted under it.
  * Each card owns its own useFieldArray for `milestones.N.items`.
@@ -135,32 +139,47 @@ export default function ProposalMilestoneCard({
                 error={itemErrors?.description?.message}
               />
             </div>
-            <Field
-              {...register(`milestones.${index}.items.${itemIndex}.quantity`)}
-              aria-label={`Line ${n} quantity`}
-              inputMode="decimal"
-              placeholder="1"
-              className="text-right"
-              error={itemErrors?.quantity?.message}
-            />
-            <Field
-              {...register(`milestones.${index}.items.${itemIndex}.rate`)}
-              aria-label={`Line ${n} rate`}
-              inputMode="decimal"
-              placeholder="0"
-              prefix={currencySymbol(currency)}
-              className="text-right"
-              error={itemErrors?.rate?.message}
-            />
-            <span className="font-space pt-3 text-right text-sm font-medium tabular-nums">
-              {formatCurrency(String(amount), currency)}
-            </span>
+            <div>
+              <span aria-hidden="true" className={cn(CAPTION, "text-right")}>
+                Qty
+              </span>
+              <Field
+                {...register(`milestones.${index}.items.${itemIndex}.quantity`)}
+                aria-label={`Line ${n} quantity`}
+                inputMode="decimal"
+                placeholder="1"
+                className="text-right"
+                error={itemErrors?.quantity?.message}
+              />
+            </div>
+            <div>
+              <span aria-hidden="true" className={cn(CAPTION, "text-right")}>
+                Rate
+              </span>
+              <Field
+                {...register(`milestones.${index}.items.${itemIndex}.rate`)}
+                aria-label={`Line ${n} rate`}
+                inputMode="decimal"
+                placeholder="0"
+                prefix={currencySymbol(currency)}
+                className="text-right"
+                error={itemErrors?.rate?.message}
+              />
+            </div>
+            <div className="text-right">
+              <span aria-hidden="true" className={CAPTION}>
+                Amount
+              </span>
+              <span className="font-space flex h-11 items-center justify-end text-sm font-medium tabular-nums">
+                {formatCurrency(String(amount), currency)}
+              </span>
+            </div>
             <button
               type="button"
               onClick={() => remove(itemIndex)}
               disabled={fields.length === 1}
               aria-label={`Remove line ${n}`}
-              className="text-muted-foreground hover:text-danger-600 focus-visible:ring-ring inline-flex size-11 items-center justify-center rounded-lg transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30"
+              className="text-muted-foreground hover:text-danger-600 focus-visible:ring-ring inline-flex size-11 items-center justify-center self-end rounded-lg transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30 @[560px]:self-start"
             >
               <XIcon className="size-4" />
             </button>

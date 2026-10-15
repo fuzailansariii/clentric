@@ -18,6 +18,8 @@ import {
   type LedgerGroup,
 } from "@/components/dashboard/ledger-table";
 import { RowIconAction } from "@/components/dashboard/row-icon-action";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { invoiceSendDescription } from "@/lib/send-confirm";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { CustomButton } from "@/components/ui/custom-button";
 import {
@@ -203,17 +205,18 @@ function InvoiceRowActions({
     { onSuccess: () => router.refresh() },
   );
 
-  const send = () =>
-    startTransition(async () => {
-      await runActionWithToast(sendInvoiceAction(invoice.id), {
-        loading: "Sending invoice...",
-        success: ({ emailError }) =>
-          emailError ? `${no} marked as sent` : `${no} emailed`,
-        onSuccess: ({ emailError }) => {
-          warnNotEmailed(emailError, "invoice");
-          router.refresh();
-        },
-      });
+  // An email can't be recalled, so Send asks first and names the recipient.
+  const [confirmSend, setConfirmSend] = useState(false);
+  const send = () => setConfirmSend(true);
+  const sendNow = () =>
+    runActionWithToast(sendInvoiceAction(invoice.id), {
+      loading: "Sending invoice...",
+      success: ({ emailError }) =>
+        emailError ? `${no} marked as sent` : `${no} emailed`,
+      onSuccess: ({ emailError }) => {
+        warnNotEmailed(emailError, "invoice");
+        router.refresh();
+      },
     });
 
   const markPaid = () =>
@@ -337,6 +340,16 @@ function InvoiceRowActions({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ConfirmDialog
+        open={confirmSend}
+        onOpenChange={setConfirmSend}
+        title={`Send ${no}?`}
+        description={invoiceSendDescription(invoice.clientEmail, invoice.clientName)}
+        confirmLabel="Send invoice"
+        pendingLabel="Sending..."
+        onConfirm={sendNow}
+      />
 
       {hasOpenedDelete && (
         <DeleteDialog

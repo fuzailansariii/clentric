@@ -35,7 +35,7 @@ export function BudgetLine({
   const scale = Math.max(budget, ledger.total);
 
   const rows: [string, string, string?][] = [
-    [hourly ? "Estimate" : "Agreed price", money(budget)],
+    [hourly ? "Estimate" : "Agreed price", money(budget), "All figures before tax"],
     [
       "Already billed",
       money(billed),

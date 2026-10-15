@@ -1,7 +1,13 @@
 import { type ButtonHTMLAttributes, forwardRef } from "react";
 
 type Variant =
-  "primary" | "secondary" | "ghost" | "destructive" | "danger-outline";
+  | "primary"
+  | "secondary"
+  | "ghost"
+  | "destructive"
+  | "danger-outline"
+  | "danger-soft"
+  | "accent";
 type Size = "sm" | "md" | "lg";
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -21,6 +27,11 @@ const variantStyles: Record<Variant, string> = {
   // final, solid-red action itself.
   "danger-outline":
     "border border-destructive/60 bg-transparent text-destructive hover:bg-destructive/10",
+  // Same job, quieter: a tinted red block, e.g. Delete at the foot of a card.
+  "danger-soft": "bg-danger-600/10 text-danger-600 hover:bg-danger-600/15",
+  // The secondary hover look, always on; hover only fades it.
+  accent:
+    "bg-accent text-accent-foreground border border-border hover:opacity-80",
 };
 
 const sizeStyles: Record<Size, string> = {

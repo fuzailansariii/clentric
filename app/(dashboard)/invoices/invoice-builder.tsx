@@ -15,9 +15,11 @@ import {
 import type { ActionResult } from "@/lib/action-result";
 import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
+import { scrollToFirstError } from "@/lib/scroll-to-first-error";
 import type { ReturnTo } from "@/lib/return-to";
 import { useRouter } from "next/navigation";
 import PageHeader from "@/components/dashboard/page-header";
+import { FormActionBar } from "@/components/dashboard/form-action-bar";
 import { DetailCard } from "@/components/dashboard/detail-parts";
 import { ClientOption } from "@/components/client-combobox";
 import {
@@ -36,6 +38,7 @@ import { BudgetLine } from "./budget-line";
 import { BillToField } from "./bill-to-field";
 import InvoicePreview from "@/components/preview/invoice-preview";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { invoiceSendDescription } from "@/lib/send-confirm";
 import type { InvoiceItemUnit } from "@/src/db/schema/invoice-items";
 import DetailedInvoiceForm from "./new/detailed-invoice-form";
 import QuickInvoiceForm from "./new/quick-invoice-form";
@@ -143,6 +146,12 @@ export default function InvoiceBuilder({
 
   const router = useRouter();
 
+  // A project from a taxed proposal bills at that rate; null leaves the field alone.
+  const proposalTaxRate = (projectId: string | undefined) => {
+    const rate = Number(projects.find((p) => p.id === projectId)?.proposalTaxRate);
+    return rate > 0 ? String(rate) : null;
+  };
+
   // `any` for the context generic is the project convention for z.coerce
   // schemas (CLAUDE.md: type useForm as useForm<Input, any, Output>()).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -171,7 +180,9 @@ export default function InvoiceBuilder({
             projects.find((project) => project.id === initialProjectId)
               ?.currency ?? "USD",
           // Empty rather than "0", so the placeholder shows.
-          taxRate: defaults?.taxRate || "",
+          taxRate:
+            proposalTaxRate(initialProjectId ?? undefined) ??
+            (defaults?.taxRate || ""),
           notes: defaults?.notes ?? "",
           // On by default when opened from a fixed-price project.
           showProjectBalance:
@@ -191,7 +202,7 @@ export default function InvoiceBuilder({
   const {
     handleSubmit,
     register,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isDirty },
     reset,
     setValue,
     getValues,
@@ -296,6 +307,8 @@ export default function InvoiceBuilder({
     setValue("showProjectBalance", project?.pricing === "fixed", {
       shouldDirty: true,
     });
+    const rate = invoice ? null : proposalTaxRate(value || undefined);
+    if (rate) setValue("taxRate", rate, { shouldDirty: true });
     fillEmptyHourlyRates(
       hourlyRateFor(getValues("clientId"), value || undefined),
     );
@@ -342,7 +355,7 @@ export default function InvoiceBuilder({
     ? projectLedger({
         budget: selectedProject.budget,
         billed: selectedProject.billed,
-        thisInvoice: total,
+        thisInvoice: subtotal,
       })
     : null;
   // Not named while editing the deposit invoice itself.
@@ -409,13 +422,17 @@ export default function InvoiceBuilder({
     return ready;
   };
 
+  const showErrors = () => scrollToFirstError("invoice-form");
+
   const onSubmit = handleSubmit(async (raw: InvoiceFormOutput) => {
     setFormError("");
     const data = trimLines(raw);
 
     if (invoice) {
       // A sent invoice stays complete; only drafts may be half-written.
-      if (invoice.status !== "draft" && !readyToSend(data, false)) return;
+      if (invoice.status !== "draft" && !readyToSend(data, false)) {
+        return showErrors();
+      }
       await runActionWithToast(
         updateInvoiceAction({ ...data, invoiceId: invoice.id }),
         {
@@ -437,15 +454,21 @@ export default function InvoiceBuilder({
       },
       onError: setFormError,
     });
-  });
+  }, showErrors);
 
-  // Create & Send: create the invoice, then send it. A failed send leaves a
-  // saved draft, so it still counts as success; the toast says it wasn't sent.
+  // Valid and ready: held here while the "Send?" confirm is open.
+  const [toSend, setToSend] = useState<InvoiceFormOutput | null>(null);
+
   const onSubmitAndSend = handleSubmit(async (raw: InvoiceFormOutput) => {
     setFormError("");
     const data = trimLines(raw);
-    if (!readyToSend(data, true)) return;
+    if (readyToSend(data, true)) setToSend(data);
+    else showErrors();
+  }, showErrors);
 
+  // Create & Send: create the invoice, then send it. A failed send leaves a
+  // saved draft, so it still counts as success; the toast says it wasn't sent.
+  const sendNow = async (data: InvoiceFormOutput) => {
     const createAndSend = async (): Promise<
       ActionResult<{
         invoiceId: string;
@@ -481,10 +504,10 @@ export default function InvoiceBuilder({
       },
       onError: setFormError,
     });
-  });
+  };
 
   return (
-    <>
+    <div className="flex min-h-full flex-col">
       <PageHeader
         title={invoiceLabel ? `Edit ${invoiceLabel}` : "New invoice"}
         subtitle={
@@ -507,52 +530,11 @@ export default function InvoiceBuilder({
                 { label: "New" },
               ]
         }
-        actions={
-          <>
-            <CustomButton
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => router.push(invoicePath)}
-            >
-              Cancel
-            </CustomButton>
-            {invoice ? (
-              <CustomButton
-                type="button"
-                size="sm"
-                onClick={onSubmit}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? "Saving..." : "Save changes"}
-              </CustomButton>
-            ) : (
-              <>
-                <CustomButton
-                  type="button"
-                  variant="secondary"
-                  size="sm"
-                  onClick={onSubmit}
-                  disabled={isSubmitting}
-                >
-                  Save as Draft
-                </CustomButton>
-                <CustomButton
-                  type="button"
-                  size="sm"
-                  onClick={onSubmitAndSend}
-                  disabled={isSubmitting}
-                >
-                  Create & Send
-                </CustomButton>
-              </>
-            )}
-          </>
-        }
       />
 
       <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
         <form
+          id="invoice-form"
           onSubmit={onSubmit}
           noValidate
           className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]"
@@ -721,6 +703,52 @@ export default function InvoiceBuilder({
           }}
         />
       </div>
-    </>
+
+      <ConfirmDialog
+        open={toSend !== null}
+        onOpenChange={(open) => !open && setToSend(null)}
+        title="Send this invoice?"
+        description={invoiceSendDescription(
+          toSend?.newClient?.email ?? selectedClient?.email,
+          toSend?.newClient?.name ?? selectedClient?.name ?? "This client",
+        )}
+        confirmLabel="Create & send"
+        pendingLabel="Sending..."
+        onConfirm={() => (toSend ? sendNow(toSend) : undefined)}
+      />
+
+      <FormActionBar isDirty={isDirty} isPending={isSubmitting || toSend !== null} cancelHref={invoicePath}>
+        {invoice ? (
+          <CustomButton
+            type="button"
+            size="sm"
+            onClick={onSubmit}
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Saving..." : "Save changes"}
+          </CustomButton>
+        ) : (
+          <>
+            <CustomButton
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onSubmit}
+              disabled={isSubmitting}
+            >
+              Save as Draft
+            </CustomButton>
+            <CustomButton
+              type="button"
+              size="sm"
+              onClick={onSubmitAndSend}
+              disabled={isSubmitting}
+            >
+              Create & Send
+            </CustomButton>
+          </>
+        )}
+      </FormActionBar>
+    </div>
   );
 }

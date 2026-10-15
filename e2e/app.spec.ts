@@ -71,6 +71,10 @@ test.describe.serial("freelancer workflow", () => {
     proposalId = idFrom(page, "proposals");
 
     await page.getByRole("button", { name: "Send proposal" }).first().click();
+    // Sending asks first and names who gets the email.
+    const confirm = page.getByRole("alertdialog");
+    await expect(confirm).toContainText(`client-${run}@example.com`);
+    await confirm.getByRole("button", { name: "Send proposal" }).click();
     // Only a live proposal offers its link.
     await expect(
       page.getByRole("button", { name: "Copy client link" }).first(),
@@ -102,6 +106,7 @@ test.describe.serial("freelancer workflow", () => {
     await page.getByLabel("Description").fill(invoiceItem);
     await page.getByLabel("Amount").fill("1200");
     await page.getByRole("button", { name: "Create & Send" }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: "Create & send" }).click();
 
     await expect(page).toHaveURL(/\/invoices\/[0-9a-f-]{36}$/);
     await page.getByRole("button", { name: "Mark as paid" }).first().click();

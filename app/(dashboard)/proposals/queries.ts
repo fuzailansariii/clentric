@@ -243,6 +243,7 @@ export async function getProposalList(
           updatedAt: proposals.updatedAt,
           depositPercent: proposals.depositPercent,
           clientName: clients.name,
+          clientEmail: clients.email,
           clientHasEmail: sql<boolean>`coalesce(${clients.email}, '') <> ''`,
           milestoneCount,
           daysSinceUpdate:

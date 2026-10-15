@@ -6,8 +6,11 @@ import PageHeader from "@/components/dashboard/page-header";
 /** Shared by the page and its loading screen, so the header never jumps. */
 export function ClientsHeader({
   subtitle = "Manage your clients",
+  showNew = true,
 }: {
   subtitle?: string;
+  /** Off on an empty list: its empty state already offers the button. */
+  showNew?: boolean;
 }) {
   return (
     <PageHeader
@@ -20,13 +23,15 @@ export function ClientsHeader({
       ]}
       mobileActions="inline"
       actions={
-        <Link
-          href="/clients/new"
-          className={customButtonClasses("primary", "md", "gap-1 text-xs")}
-        >
-          <PlusIcon className="h-4 w-4" />
-          New client
-        </Link>
+        showNew ? (
+          <Link
+            href="/clients/new"
+            className={customButtonClasses("primary", "md", "gap-1 text-xs")}
+          >
+            <PlusIcon className="h-4 w-4" />
+            New client
+          </Link>
+        ) : undefined
       }
     />
   );

@@ -31,7 +31,10 @@ type PageHeaderProps = {
   badge?: ReactNode;
   backHref?: string;
   actions?: ReactNode;
-  mobileActions?: "menu" | "inline";
+  /** What phones show instead of `actions`, when they differ. */
+  mobileMenu?: ReactNode;
+  /** "menu-only": only phones show `actions` (e.g. a "..." menu); wider screens show them in the page. */
+  mobileActions?: "menu" | "inline" | "menu-only";
   breadcrumbs?: BreadcrumbItemType[];
   breadcrumbMode?: BreadcrumbMode;
   className?: string;
@@ -161,6 +164,7 @@ export default function PageHeader({
   badge,
   backHref,
   actions,
+  mobileMenu,
   breadcrumbs = [],
   breadcrumbMode = "full",
   mobileActions = "menu",
@@ -273,7 +277,9 @@ export default function PageHeader({
                   {title}
                 </h1>
 
-                {badge && <div className="min-w-0 shrink-0">{badge}</div>}
+                {badge && (
+                  <div className="min-w-0 shrink-0 max-md:hidden">{badge}</div>
+                )}
               </div>
 
               {subtitle && (
@@ -298,23 +304,27 @@ export default function PageHeader({
 
           {hasActions && (
             <>
-              {/* Desktop actions */}
-              <div className="hidden shrink-0 items-center gap-2 lg:flex">
-                {actions}
-              </div>
+              {mobileActions !== "menu-only" && (
+                <>
+                  {/* Desktop actions */}
+                  <div className="hidden shrink-0 items-center gap-2 lg:flex">
+                    {actions}
+                  </div>
 
-              {/* Tablet actions */}
-              <div className="hidden shrink-0 items-center gap-1.5 md:flex lg:hidden">
-                {actions}
-              </div>
+                  {/* Tablet actions */}
+                  <div className="hidden shrink-0 items-center gap-1.5 md:flex lg:hidden">
+                    {actions}
+                  </div>
+                </>
+              )}
 
               {/* ===================================================
                   MOBILE ACTIONS
                   =================================================== */}
 
-              {mobileActions === "inline" ? (
+              {mobileActions === "inline" || mobileActions === "menu-only" ? (
                 <div className="flex shrink-0 items-center gap-2 md:hidden">
-                  {actions}
+                  {mobileMenu ?? actions}
                 </div>
               ) : (
                 <details className="relative shrink-0 md:hidden">
@@ -344,7 +354,7 @@ export default function PageHeader({
                     ].join(" ")}
                   >
                     <div className="flex flex-col gap-1 [&_button]:w-full [&_button]:justify-start">
-                      {actions}
+                      {mobileMenu ?? actions}
                     </div>
                   </div>
                 </details>

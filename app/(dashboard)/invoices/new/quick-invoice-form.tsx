@@ -32,7 +32,8 @@ export default function QuickInvoiceForm({
           placeholder="0.00"
           prefix="$"
           inputMode="decimal"
-          error={errors.lineItems?.[0]?.rate?.message}
+          // The line's rate is shown as "Amount" here, so its errors say so too.
+          error={errors.lineItems?.[0]?.rate?.message?.replace(/^Rate\b/, "Amount")}
         />
       </div>
 

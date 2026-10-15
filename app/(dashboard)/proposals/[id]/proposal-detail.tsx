@@ -2,11 +2,23 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type ReactNode } from "react";
-import { CopyIcon, ExternalLinkIcon } from "lucide-react";
+import { useState, useTransition } from "react";
+import {
+  CopyIcon,
+  ExternalLinkIcon,
+  PencilIcon,
+  SendIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import PageHeader from "@/components/dashboard/page-header";
+import {
+  CardActions,
+  HeaderActions,
+  MoreMenu,
+  type PageAction,
+} from "@/components/dashboard/page-actions";
 import {
   DetailCard,
   Timeline,
@@ -35,11 +47,16 @@ import { cn } from "@/lib/utils";
 import {
   createProjectFromProposalAction,
   deleteProposalAction,
-  duplicateProposalAction,
   emailProposalAction,
   revokeProposalAction,
   sendProposalAction,
 } from "../actions";
+import { depositAmounts } from "@/lib/deposit-amounts";
+import {
+  DEPOSIT_NO_PAYMENT,
+  DepositPaymentWarning,
+} from "@/components/dashboard/deposit-payment-warning";
+import { proposalSendDescription } from "@/lib/send-confirm";
 import { proposalActivity, proposalStateConfig } from "../proposal-state";
 import type { ProposalDetail } from "../queries";
 
@@ -49,6 +66,10 @@ type ProposalDetailViewProps = {
   project: { id: string; title: string } | null;
   /** Null unless the proposal is out with the client. */
   emailStatus: EmailStatus | null;
+  /** False when sending now would put a deposit invoice out without how to pay. */
+  hasPaymentDetails?: boolean;
+  /** The site the client link lives on (APP_URL), the same one emails use. */
+  appUrl: string;
 };
 
 const labelClass =
@@ -61,6 +82,8 @@ export function ProposalDetailView({
   proposal,
   project,
   emailStatus,
+  hasPaymentDetails = true,
+  appUrl,
 }: ProposalDetailViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -80,9 +103,13 @@ export function ProposalDetailView({
 
   const taxRate = Number(proposal.taxRate);
   const depositPercent = Number(proposal.depositPercent);
-  const depositAmount =
-    Math.round(Number(proposal.total) * (depositPercent / 100) * 100) / 100;
+  const depositAmount = depositAmounts(
+    proposal.subtotal,
+    proposal.total,
+    depositPercent,
+  ).total;
   const clientPath = `/p/${proposal.token}`;
+  const clientUrl = `${appUrl}${clientPath}`;
   const hasEmail = Boolean(proposal.client.email?.trim());
   // True until the daily limit lifts; re-enables the button without a refresh.
   const emailBlocked = useWithinWindow(emailStatus?.blocked?.until ?? null, 0);
@@ -112,19 +139,20 @@ export function ProposalDetailView({
   ].filter((stage) => stage.items.length > 0 || stage.name);
 
   // ── Actions ──────────────────────────────────────────────────────────
-  const send = () =>
-    startTransition(async () => {
-      await runActionWithToast(sendProposalAction({ proposalId }), {
-        loading: "Sending proposal...",
-        success: ({ emailError }) =>
-          emailError
-            ? "Proposal sent - the link is live"
-            : `Proposal emailed to ${proposal.client.email}`,
-        onSuccess: ({ emailError }) => {
-          warnNotEmailed(emailError, "proposal");
-          router.refresh();
-        },
-      });
+  // An email can't be recalled, so Send asks first and names the recipient.
+  const [confirmSend, setConfirmSend] = useState(false);
+  const send = () => setConfirmSend(true);
+  const sendNow = () =>
+    runActionWithToast(sendProposalAction({ proposalId }), {
+      loading: "Sending proposal...",
+      success: ({ emailError }) =>
+        emailError
+          ? "Proposal sent - the link is live"
+          : `Proposal emailed to ${proposal.client.email}`,
+      onSuccess: ({ emailError }) => {
+        warnNotEmailed(emailError, "proposal");
+        router.refresh();
+      },
     });
 
   const emailAgain = () =>
@@ -137,7 +165,7 @@ export function ProposalDetailView({
     });
 
   const copyLink = async () => {
-    const url = `${window.location.origin}${clientPath}`;
+    const url = clientUrl;
     try {
       await navigator.clipboard.writeText(url);
       toast.success("Client link copied");
@@ -146,16 +174,6 @@ export function ProposalDetailView({
       toast.error("Could not copy automatically", { description: url });
     }
   };
-
-  const duplicate = () =>
-    startTransition(async () => {
-      await runActionWithToast(duplicateProposalAction({ proposalId }), {
-        loading: "Duplicating...",
-        success: "Draft copy created",
-        onSuccess: ({ proposalId: copyId }) =>
-          router.push(`/proposals/${copyId}`),
-      });
-    });
 
   const startProject = () =>
     startTransition(async () => {
@@ -191,61 +209,40 @@ export function ProposalDetailView({
       {label}
     </CustomButton>
   );
-  const deleteButton = button(
-    "delete",
-    "Delete",
-    () => setConfirmDelete(true),
-    "ghost",
-  );
-  const projectButton = project ? (
-    <Link
-      key="project"
-      href={`/projects/${project.id}`}
-      className={customButtonClasses("primary", "sm")}
-    >
-      View project
-    </Link>
-  ) : (
-    button("start", "Start project", startProject, "primary")
-  );
-
-  let actions: ReactNode[];
-  if (state === "draft") {
-    actions = [
-      <Link
-        key="edit"
-        href={`/proposals/${proposalId}/edit`}
-        className={customButtonClasses("secondary", "sm")}
-      >
-        Edit
-      </Link>,
-      button("dup", "Duplicate", duplicate),
-      deleteButton,
-      button(
-        "send",
-        "Send proposal",
-        send,
-        "primary",
-        hasEmail ? null : emailReason,
-      ),
-    ];
-  } else if (live) {
-    actions = [
-      button("copy", "Copy client link", copyLink),
-      button("revoke", "Revoke link", () => setConfirmRevoke(true)),
-      button("dup", "Duplicate", duplicate),
-      deleteButton,
-      button("email", "Email link again", emailAgain, "primary", emailReason),
-    ];
-  } else if (state === "accepted") {
-    actions = [
-      button("dup", "Duplicate", duplicate),
-      deleteButton,
-      projectButton,
-    ];
-  } else {
-    actions = [deleteButton, button("dup", "Duplicate", duplicate, "primary")];
-  }
+  // Side card: sending. Header (the "..." menu on phones): editing and deleting.
+  // Copy, Email again and Revoke live in the client-link card.
+  const cardActions: PageAction[] =
+    state === "draft"
+      ? [
+          {
+            label: "Send proposal",
+            kind: "primary",
+            onClick: send,
+            disabled: isPending || !hasEmail,
+            hint: hasEmail ? null : emailReason,
+            icon: <SendIcon className="size-4" />,
+          },
+        ]
+      : [];
+  const headerActions: PageAction[] = [
+    ...(state === "draft"
+      ? [
+          {
+            label: "Edit proposal",
+            kind: "quiet" as const,
+            href: `/proposals/${proposalId}/edit`,
+            icon: <PencilIcon className="size-4" />,
+          },
+        ]
+      : []),
+    {
+      label: "Delete proposal",
+      kind: "danger",
+      onClick: () => setConfirmDelete(true),
+      disabled: isPending,
+      icon: <Trash2Icon className="size-4" />,
+    },
+  ];
 
   // ── Rail content ─────────────────────────────────────────────────────
   const timeline: TimelineItem[] = [
@@ -321,7 +318,9 @@ export function ProposalDetailView({
 
   const linkBox = (
     <div className="bg-muted/40 flex min-w-0 items-center gap-2 rounded-lg border px-2.5 py-2 font-mono text-xs">
-      <span className="min-w-0 flex-1 truncate">clentric.app{clientPath}</span>
+      <span className="min-w-0 flex-1 truncate">
+        {clientUrl.replace(/^https?:\/\//, "")}
+      </span>
     </div>
   );
 
@@ -329,6 +328,9 @@ export function ProposalDetailView({
     <>
       <PageHeader
         title={proposal.title}
+        actions={<HeaderActions actions={headerActions} />}
+        mobileActions="inline"
+        mobileMenu={<MoreMenu actions={headerActions} />}
         badge={
           <StatusBadge status={config.tone} variant="soft">
             {config.label}
@@ -341,11 +343,14 @@ export function ProposalDetailView({
           { label: "Proposals", href: "/proposals" },
           { label: proposal.title },
         ]}
-        actions={<>{actions}</>}
+
       />
 
       <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
         <div className="flex flex-col gap-4">
+          {state === "draft" && depositPercent > 0 && !hasPaymentDetails && (
+            <DepositPaymentWarning />
+          )}
           {state === "accepted" && (
             <div className="bg-success-600/12 text-success-600 flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3.5 text-[13.5px]">
               <span>
@@ -595,6 +600,13 @@ export function ProposalDetailView({
                     daysSinceViewed: Number.POSITIVE_INFINITY,
                   })}
                 </p>
+                {cardActions.length > 0 && (
+                  <CardActions
+                    actions={cardActions}
+                    className="mt-4"
+                    hideOnPhone={false}
+                  />
+                )}
               </DetailCard>
 
               <DetailCard title="Client link">
@@ -668,6 +680,16 @@ export function ProposalDetailView({
                           ? `Link expires ${formatDate(proposal.expiresAt)}. Extending a link is coming later.`
                           : "This link never expires."}
                     </p>
+                    {live && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmRevoke(true)}
+                        disabled={isPending}
+                        className="text-danger-600 self-start text-[12.5px] font-medium hover:underline disabled:opacity-60"
+                      >
+                        Revoke link
+                      </button>
+                    )}
                   </div>
                 )}
               </DetailCard>
@@ -679,6 +701,20 @@ export function ProposalDetailView({
           </div>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmSend}
+        onOpenChange={setConfirmSend}
+        title="Send this proposal?"
+        description={proposalSendDescription(
+          proposal.title,
+          proposal.client.email ?? proposal.client.name,
+          depositPercent > 0 && !hasPaymentDetails ? DEPOSIT_NO_PAYMENT : null,
+        )}
+        confirmLabel="Send proposal"
+        pendingLabel="Sending..."
+        onConfirm={sendNow}
+      />
 
       <ConfirmDialog
         open={confirmRevoke}
