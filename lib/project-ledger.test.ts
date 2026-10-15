@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  balanceRows,
   invoiceProjectBalance,
   projectLedger,
   sumProjectInvoices,
@@ -51,10 +52,10 @@ describe("projectLedger", () => {
 describe("sumProjectInvoices", () => {
   it("counts sent, paid and overdue, keeps drafts apart", () => {
     const sums = sumProjectInvoices([
-      { status: "sent", total: "100.00" },
-      { status: "paid", total: "150.50" },
-      { status: "overdue", total: "49.50" },
-      { status: "draft", total: "80.00" },
+      { status: "sent", subTotal: "100.00" },
+      { status: "paid", subTotal: "150.50" },
+      { status: "overdue", subTotal: "49.50" },
+      { status: "draft", subTotal: "80.00" },
     ]);
     expect(sums).toEqual({ billed: 300, paid: 150.5, drafts: 80 });
   });
@@ -64,12 +65,18 @@ describe("invoiceProjectBalance", () => {
   it("works out what's left after this invoice", () => {
     expect(
       invoiceProjectBalance({ pricing: "fixed", budget: "1000.00", paidBefore: "100.00", thisInvoice: "300.00" }),
-    ).toEqual({ projectTotal: 1000, paidBefore: 100, thisInvoice: 300, remaining: 600 });
+    ).toEqual({ projectTotal: 1000, paidBefore: 100, thisInvoice: 300, remaining: 600, beforeTax: false });
   });
 
   it("never shows a negative remaining", () => {
     const b = invoiceProjectBalance({ pricing: "fixed", budget: "1000", paidBefore: "1000", thisInvoice: "200" });
     expect(b?.remaining).toBe(0);
+  });
+
+  it("labels the figures before tax when the invoice has tax", () => {
+    const b = invoiceProjectBalance({ pricing: "fixed", budget: "1000", paidBefore: 0, thisInvoice: "200", taxRate: "10.00" });
+    expect(b?.beforeTax).toBe(true);
+    expect(balanceRows(b!)[0][0]).toBe("Project total before tax");
   });
 
   it("is hidden for hourly projects and projects without a price", () => {

@@ -1,11 +1,26 @@
 "use client";
 
-import { useState, useTransition, type ReactNode } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { DownloadIcon, LinkIcon } from "lucide-react";
+import {
+  BellIcon,
+  CheckIcon,
+  DownloadIcon,
+  LinkIcon,
+  SendIcon,
+  PencilIcon,
+  Trash2Icon,
+  Undo2Icon,
+} from "lucide-react";
 
 import PageHeader from "@/components/dashboard/page-header";
+import {
+  CardActions,
+  HeaderActions,
+  MoreMenu,
+  type PageAction,
+} from "@/components/dashboard/page-actions";
 import {
   DetailCard,
   Timeline,
@@ -25,11 +40,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { useUndoableAction } from "@/hooks/use-undoable-action";
 import { useWithinWindow } from "@/hooks/use-within-window";
 import type { ActionResult } from "@/lib/action-result";
@@ -55,6 +65,8 @@ import {
 import type { BoardProject } from "@/lib/project-progress";
 import { balanceRows, invoiceProjectBalance } from "@/lib/project-ledger";
 import { REMINDER_SEND_DELAY_MS } from "@/lib/reminder-send-delay";
+import { invoiceSendDescription } from "@/lib/send-confirm";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { cn } from "@/lib/utils";
 import type { ClientRow } from "@/src/db/schema/clients";
@@ -62,7 +74,6 @@ import type { invoiceItems } from "@/src/db/schema/invoice-items";
 import type { invoices } from "@/src/db/schema/invoices";
 import { clientStatusConfig } from "../../clients/client-status-config";
 import { UPGRADE_HREF } from "@/components/dashboard/plan-limit-page";
-import { PDF_NEEDS_PRO } from "../invoice-list";
 import type { ProjectListItem } from "../../projects/queries";
 import {
   clearPaymentClaimAction,
@@ -155,7 +166,8 @@ export function InvoiceDetail({
           pricing: project.pricing,
           budget: project.budget,
           paidBefore: invoice.paidBeforeOnProject,
-          thisInvoice: invoice.total,
+          thisInvoice: invoice.subTotal,
+          taxRate: invoice.taxRate,
         })
       : null;
 
@@ -185,19 +197,20 @@ export function InvoiceDetail({
       });
     });
 
-  const send = () =>
-    startTransition(async () => {
-      await runActionWithToast(sendInvoiceAction(invoice.id), {
-        loading: "Sending invoice...",
-        success: ({ emailError }) =>
-          emailError
-            ? `${number} marked as sent`
-            : `${number} emailed to ${client?.email}`,
-        onSuccess: ({ emailError }) => {
-          warnNotEmailed(emailError, "invoice");
-          router.refresh();
-        },
-      });
+  // An email can't be recalled, so Send asks first and names the recipient.
+  const [confirmSend, setConfirmSend] = useState(false);
+  const send = () => setConfirmSend(true);
+  const sendNow = () =>
+    runActionWithToast(sendInvoiceAction(invoice.id), {
+      loading: "Sending invoice...",
+      success: ({ emailError }) =>
+        emailError
+          ? `${number} marked as sent`
+          : `${number} emailed to ${client?.email}`,
+      onSuccess: ({ emailError }) => {
+        warnNotEmailed(emailError, "invoice");
+        router.refresh();
+      },
     });
 
   const markPaid = () =>
@@ -226,128 +239,97 @@ export function InvoiceDetail({
   const pdfHref = `/api/invoices/${invoice.id}/pdf`;
   const editHref = `/invoices/${invoice.id}/edit`;
 
-  // ── Header actions, by status ────────────────────────────────────────
-  // An icon in the header; the phone actions menu keeps the words.
-  const pdfAction = (
-    <Tooltip key="pdf">
-      <TooltipTrigger asChild>
-        <Link
-          href={invoice.canDownloadPdf ? pdfHref : UPGRADE_HREF}
-          download={invoice.canDownloadPdf || undefined}
-          aria-label={
-            invoice.canDownloadPdf
-              ? `Download ${number} PDF`
-              : `Download ${number} PDF: ${PDF_NEEDS_PRO}`
-          }
-          className={customButtonClasses(
-            "secondary",
-            "sm",
-            "gap-1.5 whitespace-nowrap md:w-8 md:px-0!",
-          )}
-        >
-          <DownloadIcon className="size-4" />
-          <span className="md:hidden">
-            {invoice.canDownloadPdf ? "Download PDF" : "Download PDF (Pro)"}
-          </span>
-        </Link>
-      </TooltipTrigger>
-      <TooltipContent>
-        {invoice.canDownloadPdf ? "Download PDF" : `${PDF_NEEDS_PRO}. Upgrade`}
-      </TooltipContent>
-    </Tooltip>
-  );
-  const editAction = (
-    <Link
-      key="edit"
-      href={editHref}
-      className={customButtonClasses("secondary", "sm")}
-    >
-      Edit
-    </Link>
-  );
-  const deleteAction = (
-    <CustomButton
-      key="delete"
-      type="button"
-      variant="ghost"
-      size="sm"
-      onClick={() => setIsDeleteOpen(true)}
-      className="text-danger-600 hover:text-danger-600"
-    >
-      Delete
-    </CustomButton>
-  );
-  let actions: ReactNode[];
-  if (isDraft) {
-    actions = [
-      editAction,
-      pdfAction,
-      deleteAction,
-      <CustomButton
-        key="send"
-        type="button"
-        size="sm"
-        onClick={send}
-        disabled={isPending || Boolean(sendReason)}
-        title={sendReason ?? undefined}
-      >
-        Send invoice
-      </CustomButton>,
-    ];
-  } else if (isPaid) {
-    actions = [
-      pdfAction,
-      <CustomButton
-        key="revert"
-        type="button"
-        variant="secondary"
-        size="sm"
-        disabled={isPending}
-        onClick={() =>
-          run(
-            () =>
-              updateInvoiceStatusAction({
-                invoiceId: invoice.id,
-                status: "sent",
-              }),
-            {
-              loading: "Reverting to sent...",
-              success: `${number} moved back to sent`,
-            },
-          )
+  const revertToSent = () =>
+    run(
+      () =>
+        updateInvoiceStatusAction({ invoiceId: invoice.id, status: "sent" }),
+      {
+        loading: "Reverting to sent...",
+        success: `${number} moved back to sent`,
+      },
+    );
+
+  // Side card: getting paid. Header (the "..." menu on phones): editing and deleting.
+  const outstanding = state === "pending" || state === "overdue";
+  const cardActions: PageAction[] = [
+    ...(isDraft
+      ? [
+          {
+            label: "Send invoice",
+            kind: "primary" as const,
+            icon: <SendIcon className="size-4" />,
+            onClick: send,
+            disabled: isPending || Boolean(sendReason),
+            hint: sendReason,
+          },
+        ]
+      : []),
+    ...(outstanding
+      ? [
+          {
+            label: "Mark as paid",
+            kind: "primary" as const,
+            icon: <CheckIcon className="size-4" />,
+            onClick: markPaid,
+            disabled: isPending,
+          },
+          {
+            label: "Send reminder",
+            kind: "secondary" as const,
+            icon: <BellIcon className="size-4" />,
+            onClick: sendReminder,
+            disabled: isPending || Boolean(reminderReason),
+            hint:
+              reminderReason ??
+              `${emailStatus.remaining} of ${EMAIL_LIMITS.perDocumentPerDay} emails left today`,
+          },
+        ]
+      : []),
+    invoice.canDownloadPdf
+      ? {
+          label: "Download PDF",
+          kind: "quiet",
+          href: pdfHref,
+          download: true,
+          icon: <DownloadIcon className="size-4" />,
         }
-      >
-        Revert to sent
-      </CustomButton>,
-      deleteAction,
-    ];
-  } else {
-    actions = [
-      <CustomButton
-        key="remind"
-        type="button"
-        variant="secondary"
-        size="sm"
-        onClick={sendReminder}
-        disabled={isPending || Boolean(reminderReason)}
-        title={reminderReason ?? undefined}
-      >
-        Send reminder
-      </CustomButton>,
-      editAction,
-      pdfAction,
-      deleteAction,
-      <CustomButton
-        key="paid"
-        type="button"
-        size="sm"
-        onClick={markPaid}
-        disabled={isPending}
-      >
-        Mark as paid
-      </CustomButton>,
-    ];
-  }
+      : {
+          label: "Download PDF (Pro)",
+          kind: "quiet",
+          href: UPGRADE_HREF,
+          icon: <DownloadIcon className="size-4" />,
+        },
+    ...(isPaid
+      ? [
+          {
+            label: "Revert to sent",
+            kind: "quiet" as const,
+            onClick: revertToSent,
+            disabled: isPending,
+            icon: <Undo2Icon className="size-4" />,
+          },
+        ]
+      : []),
+  ];
+  const headerActions: PageAction[] = [
+    ...(isPaid
+      ? []
+      : [
+          {
+            label: "Edit invoice",
+            kind: "quiet" as const,
+            href: editHref,
+            icon: <PencilIcon className="size-4" />,
+          },
+        ]),
+    {
+      label: "Delete invoice",
+      kind: "danger",
+      onClick: () => setIsDeleteOpen(true),
+      disabled: isPending,
+      icon: <Trash2Icon className="size-4" />,
+    },
+  ];
 
   // ── Activity, oldest first ───────────────────────────────────────────
   const timeline: TimelineItem[] = [
@@ -417,6 +399,9 @@ export function InvoiceDetail({
     <>
       <PageHeader
         title={number}
+        actions={<HeaderActions actions={headerActions} />}
+        mobileActions="inline"
+        mobileMenu={<MoreMenu actions={headerActions} />}
         badge={
           <StatusBadge status={config.tone} variant="soft">
             {config.label}
@@ -429,7 +414,7 @@ export function InvoiceDetail({
           { label: "Invoices", href: "/invoices" },
           { label: number },
         ]}
-        actions={<>{actions}</>}
+
       />
 
       <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
@@ -651,7 +636,7 @@ export function InvoiceDetail({
               <div className="bg-muted/40 flex flex-wrap items-center justify-between gap-3 rounded-lg border p-4">
                 <span className="text-muted-foreground text-[13.5px]">
                   Your client won&apos;t see how to pay you. Add a bank account,
-                  UPI or PayPal.
+                  PayPal or Wise.
                 </span>
                 {/* Only a draft picks up settings changes; a sent invoice keeps its details. */}
                 {isDraft && (
@@ -694,39 +679,11 @@ export function InvoiceDetail({
               >
                 {note}
               </p>
-              {(isDraft || state === "pending" || state === "overdue") && (
-                <CustomButton
-                  type="button"
-                  onClick={isDraft ? send : markPaid}
-                  disabled={isPending || (isDraft && Boolean(sendReason))}
-                  title={(isDraft && sendReason) || undefined}
-                  className="mt-4 w-full"
-                >
-                  {isDraft ? "Send invoice" : "Mark as paid"}
-                </CustomButton>
-              )}
-              {isDraft && sendReason && (
-                <p className="text-muted-foreground mt-1.5 text-center text-xs">
-                  {sendReason}
-                </p>
-              )}
-              {(state === "pending" || state === "overdue") && (
-                <>
-                  <CustomButton
-                    type="button"
-                    variant="secondary"
-                    onClick={sendReminder}
-                    disabled={isPending || Boolean(reminderReason)}
-                    className="mt-2 w-full"
-                  >
-                    Send reminder
-                  </CustomButton>
-                  <p className="text-muted-foreground mt-1.5 text-center text-xs">
-                    {reminderReason ??
-                      `${emailStatus.remaining} of ${EMAIL_LIMITS.perDocumentPerDay} emails left today`}
-                  </p>
-                </>
-              )}
+              <CardActions
+                actions={cardActions}
+                className="mt-4"
+                hideOnPhone={false}
+              />
             </DetailCard>
 
             {state === "claimed" && (
@@ -916,6 +873,16 @@ export function InvoiceDetail({
           </aside>
         </div>
       </div>
+
+      <ConfirmDialog
+        open={confirmSend}
+        onOpenChange={setConfirmSend}
+        title={`Send ${number}?`}
+        description={invoiceSendDescription(client?.email, client?.name ?? "This client")}
+        confirmLabel="Send invoice"
+        pendingLabel="Sending..."
+        onConfirm={sendNow}
+      />
 
       <DeleteDialog
         title={`Delete ${number}?`}

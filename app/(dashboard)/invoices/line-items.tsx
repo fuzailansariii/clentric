@@ -38,6 +38,10 @@ const ROW = cn(
   "@[640px]:grid-cols-[1.25rem_minmax(0,1fr)_6.5rem_5.5rem_8rem_6.5rem_2.75rem]",
 );
 
+// Phone has no header row, so each box gets its own small label.
+const CAPTION =
+  "text-muted-foreground mb-1 block text-xs @[640px]:hidden";
+
 export default function LineItems({
   fields,
   errors,
@@ -88,44 +92,57 @@ export default function LineItems({
               />
             </div>
 
-            <Controller
-              control={control}
-              name={`lineItems.${index}.unit`}
-              render={({ field: unitField }) => (
-                <Select
-                  value={unitField.value ?? "item"}
-                  onValueChange={(value) =>
-                    onUnitChange(index, value as InvoiceItemUnit)
-                  }
-                >
-                  <SelectTrigger
-                    aria-label={`Line ${n} unit`}
-                    className="h-11! w-full"
+            <div>
+              <span aria-hidden="true" className={CAPTION}>
+                Unit
+              </span>
+              <Controller
+                control={control}
+                name={`lineItems.${index}.unit`}
+                render={({ field: unitField }) => (
+                  <Select
+                    value={unitField.value ?? "item"}
+                    onValueChange={(value) =>
+                      onUnitChange(index, value as InvoiceItemUnit)
+                    }
                   >
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {lineItemUnitOptions.map((option) => (
-                      <SelectItem key={option.value} value={option.value}>
-                        {option.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
+                    <SelectTrigger
+                      aria-label={`Line ${n} unit`}
+                      className="h-11! w-full"
+                    >
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {lineItemUnitOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
 
             {/* Quantity: placeholder follows the unit ("Hours", "Days") */}
-            <Field
-              {...register(`lineItems.${index}.quantity`)}
-              aria-label={`Line ${n} ${unitCopy.quantityLabel.toLowerCase()}`}
-              inputMode="decimal"
-              placeholder={unitCopy.quantityLabel}
-              className="text-right"
-              error={errors.lineItems?.[index]?.quantity?.message}
-            />
+            <div>
+              <span aria-hidden="true" className={cn(CAPTION, "text-right")}>
+                {unitCopy.quantityLabel}
+              </span>
+              <Field
+                {...register(`lineItems.${index}.quantity`)}
+                aria-label={`Line ${n} ${unitCopy.quantityLabel.toLowerCase()}`}
+                inputMode="decimal"
+                placeholder={unitCopy.quantityLabel}
+                className="text-right"
+                error={errors.lineItems?.[index]?.quantity?.message}
+              />
+            </div>
 
             <div className="col-start-1 row-start-3 @[640px]:col-start-auto @[640px]:row-start-auto">
+              <span aria-hidden="true" className={cn(CAPTION, "text-right")}>
+                Rate
+              </span>
               <Field
                 {...register(`lineItems.${index}.rate`)}
                 aria-label={`Line ${n} rate`}
@@ -138,15 +155,20 @@ export default function LineItems({
               />
             </div>
 
-            <span className="font-space col-start-2 row-start-3 pt-3 text-right text-sm font-medium tabular-nums @[640px]:col-start-auto @[640px]:row-start-auto">
-              {formatCurrency(String(amount))}
-            </span>
+            <div className="col-start-2 row-start-3 text-right @[640px]:col-start-auto @[640px]:row-start-auto">
+              <span aria-hidden="true" className={CAPTION}>
+                Amount
+              </span>
+              <span className="font-space flex h-11 items-center justify-end text-sm font-medium tabular-nums">
+                {formatCurrency(String(amount))}
+              </span>
+            </div>
 
             <button
               type="button"
               onClick={() => remove(index)}
               disabled={fields.length === 1}
-              className="text-muted-foreground hover:text-danger-600 focus-visible:ring-ring col-start-3 row-start-2 inline-flex size-11 items-center justify-center rounded-lg transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30 @[640px]:col-start-auto @[640px]:row-start-auto"
+              className="text-muted-foreground hover:text-danger-600 focus-visible:ring-ring col-start-3 row-start-2 inline-flex size-11 items-center justify-center self-end rounded-lg transition-colors focus-visible:ring-2 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-30 @[640px]:col-start-auto @[640px]:row-start-auto @[640px]:self-start"
               aria-label={`Remove line ${n}`}
             >
               <XIcon className="size-4" />

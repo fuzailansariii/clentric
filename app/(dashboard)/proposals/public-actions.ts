@@ -17,6 +17,7 @@ import { invoiceItems } from "@/src/db/schema/invoice-items";
 import { invoices } from "@/src/db/schema/invoices";
 import { clients } from "@/src/db/schema/clients";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
+import { depositAmounts } from "@/lib/deposit-amounts";
 import { proposals } from "@/src/db/schema/proposals";
 import { users } from "@/src/db/schema/users";
 
@@ -102,8 +103,9 @@ async function createDepositInvoice(
     id: string;
     userId: string;
     clientId: string;
-    title: string;
+    subtotal: string;
     total: string;
+    taxRate: string;
     currency: string;
     depositPercent: string;
   },
@@ -111,9 +113,8 @@ async function createDepositInvoice(
   const percent = Number(proposal.depositPercent);
   if (!(percent > 0)) return null;
 
-  const amount =
-    Math.round(Number(proposal.total) * (percent / 100) * 100) / 100;
-  if (!(amount > 0)) return null;
+  const amount = depositAmounts(proposal.subtotal, proposal.total, percent);
+  if (!(amount.total > 0)) return null;
 
   const [owner] = await tx
     .select({
@@ -121,6 +122,7 @@ async function createDepositInvoice(
       // Numbered and noted like any other new invoice.
       invoicePrefix: users.invoicePrefix,
       defaultInvoiceNotes: users.defaultInvoiceNotes,
+      paymentTermsDays: users.paymentTermsDays,
     })
     .from(users)
     .where(eq(users.id, proposal.userId))
@@ -129,9 +131,9 @@ async function createDepositInvoice(
   const invoiceNumber = await getNextInvoiceNumber(tx, proposal.userId);
 
   const issueDate = new Date();
-  // The proposal itself carries no payment terms, so the deposit falls due a
-  // week out. Freelancers can edit the invoice afterwards.
-  const dueDate = new Date(issueDate.getTime() + 7 * 86_400_000);
+  // Due on the freelancer's own payment terms (Settings), like their other invoices.
+  const termsDays = owner?.paymentTermsDays ?? 14;
+  const dueDate = new Date(issueDate.getTime() + termsDays * 86_400_000);
   const asDateString = (date: Date) => date.toISOString().slice(0, 10);
 
   const [invoice] = await tx
@@ -141,10 +143,10 @@ async function createDepositInvoice(
       clientId: proposal.clientId,
       invoiceNumber,
       currency: proposal.currency,
-      subTotal: amount.toFixed(2),
-      taxRate: "0",
-      taxAmount: "0",
-      total: amount.toFixed(2),
+      subTotal: amount.subTotal.toFixed(2),
+      taxRate: proposal.taxRate,
+      taxAmount: amount.taxAmount.toFixed(2),
+      total: amount.total.toFixed(2),
       issueDate: asDateString(issueDate),
       dueDate: asDateString(dueDate),
       status: "sent",
@@ -165,10 +167,11 @@ async function createDepositInvoice(
 
   await tx.insert(invoiceItems).values({
     invoiceId: invoice.id,
-    description: `Deposit (${percent}%) - ${proposal.title}`,
+    // The project title already prints above the lines.
+    description: `Deposit (${percent}%)`,
     quantity: "1",
-    rate: amount.toFixed(2),
-    amount: amount.toFixed(2),
+    rate: amount.subTotal.toFixed(2),
+    amount: amount.subTotal.toFixed(2),
     sortOrder: 0,
   });
 
@@ -249,7 +252,9 @@ export async function respondProposalAction(
           clientId: proposals.clientId,
           title: proposals.title,
           content: proposals.content,
+          subtotal: proposals.subtotal,
           total: proposals.total,
+          taxRate: proposals.taxRate,
           currency: proposals.currency,
           depositPercent: proposals.depositPercent,
           deliveryDays: proposals.deliveryDays,
@@ -277,13 +282,12 @@ export async function respondProposalAction(
       }
 
       const percent = Number(accepted.depositPercent);
-      const amount =
-        Math.round(Number(accepted.total) * (percent / 100) * 100) / 100;
 
       // Read back from the invoice just raised, so the page shows the same
       // methods the invoice (and its PDF) will print.
       const [deposit] = await tx
         .select({
+          total: invoices.total,
           issuerSnapshot: invoices.issuerSnapshot,
           paymentDetails: invoices.paymentDetails,
           invoiceNumber: invoices.invoiceNumber,
@@ -302,7 +306,7 @@ export async function respondProposalAction(
         data: {
           response,
           deposit: {
-            amount: amount.toFixed(2),
+            amount: deposit?.total ?? "0.00",
             percent,
             payment: resolvePayment(
               deposit?.issuerSnapshot,

@@ -2,20 +2,40 @@ import { z } from "zod";
 import { CURRENCY_CODES } from "@/lib/currency-options";
 import { clientIdSchema } from "../clients/schema";
 import { projectIdSchema } from "../projects/schema";
+import {
+  LINE_TOO_LARGE,
+  MAX_MONEY,
+  MAX_QUANTITY,
+  NOT_A_NUMBER,
+  QUANTITY_TOO_LARGE,
+  RATE_TOO_LARGE,
+  lineWithinLimit,
+} from "@/lib/money-limits";
 import { invoiceItemUnitEnum as invoiceItemUnitPgEnum } from "@/src/db/schema/invoice-items";
 
 /** Drafts may be half-written: a blank description or a 0 rate is checked only on Send. */
-export const invoiceLineSchema = z.object({
-  description: z
-    .string()
-    .trim()
-    .max(2000, "Keep the description under 2000 characters"),
-  quantity: z.coerce.number().positive("Quantity must be greater than 0"),
-  rate: z.coerce.number().min(0, "Rate cannot be negative"),
-  unit: z.enum(invoiceItemUnitPgEnum.enumValues).default("item"),
-  /** The project milestone this line bills ("Invoice stage N"). */
-  milestoneId: z.uuid().optional(),
-});
+export const invoiceLineSchema = z
+  .object({
+    description: z
+      .string()
+      .trim()
+      .max(2000, "Keep the description under 2000 characters"),
+    quantity: z.coerce
+      .number({ error: NOT_A_NUMBER })
+      .positive("Quantity must be greater than 0")
+      .max(MAX_QUANTITY, QUANTITY_TOO_LARGE),
+    rate: z.coerce
+      .number({ error: NOT_A_NUMBER })
+      .min(0, "Rate cannot be negative")
+      .max(MAX_MONEY, RATE_TOO_LARGE),
+    unit: z.enum(invoiceItemUnitPgEnum.enumValues).default("item"),
+    /** The project milestone this line bills ("Invoice stage N"). */
+    milestoneId: z.uuid().optional(),
+  })
+  .refine((line) => lineWithinLimit(line.quantity, line.rate), {
+    message: LINE_TOO_LARGE,
+    path: ["rate"],
+  });
 
 export const invoiceIdSchema = z.uuid();
 const invoiceDateSchema = z.iso.date();
@@ -40,9 +60,9 @@ export const invoiceObjectSchema = z.object({
     .refine((value) => CURRENCY_CODES.includes(value), "Pick a currency")
     .default("USD"),
   taxRate: z.coerce
-    .number()
+    .number({ error: NOT_A_NUMBER })
     .min(0, "Tax rate cannot be negative")
-    .max(100, "Tax rate cannot be exceed 100"),
+    .max(100, "Tax rate can't be more than 100"),
   lineItems: z
     .array(invoiceLineSchema)
     .min(1, "At least one line item is required"),

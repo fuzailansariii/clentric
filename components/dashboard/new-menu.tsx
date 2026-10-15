@@ -21,13 +21,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 
-type NewMenuItem = {
+export type NewMenuItem = {
   label: string;
   href: string;
   icon: LucideIcon;
 };
 
-const items: NewMenuItem[] = [
+const ALL_ITEMS: NewMenuItem[] = [
   { label: "New Client", href: "/clients/new", icon: UserPlus },
   { label: "New Proposal", href: "/proposals/new", icon: FileText },
   { label: "New Invoice", href: "/invoices/new", icon: Receipt },
@@ -36,9 +36,15 @@ const items: NewMenuItem[] = [
 type NewMenuProps = {
   variant?: "button" | "icon";
   className?: string;
+  /** What can be created here; everything by default. */
+  items?: NewMenuItem[];
 };
 
-export function NewMenu({ variant = "button", className }: NewMenuProps) {
+export function NewMenu({
+  variant = "button",
+  className,
+  items = ALL_ITEMS,
+}: NewMenuProps) {
   const [open, setOpen] = useState(false);
 
   return (

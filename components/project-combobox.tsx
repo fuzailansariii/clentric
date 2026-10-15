@@ -15,6 +15,8 @@ export type ProjectOption = {
   budget?: string;
   billed?: string;
   deposit?: { invoiceId: string; label: string } | null;
+  /** Tax rate of the proposal the project came from; prefills new invoices. */
+  proposalTaxRate?: string | null;
 };
 
 type ProjectComboboxProps = {

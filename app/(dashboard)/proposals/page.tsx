@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/format-currency";
 import { ProposalList } from "./proposal-list";
 import { ProposalsHeader } from "./proposals-header";
 import { getProposalList } from "./queries";
+import { getHasPaymentDetails } from "../settings/queries";
 
 type ProposalsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
@@ -18,7 +19,10 @@ export default async function ProposalsPage({
   searchParams,
 }: ProposalsPageProps) {
   const params = await searchParams;
-  const list = await getProposalList(params);
+  const [list, hasPaymentDetails] = await Promise.all([
+    getProposalList(params),
+    getHasPaymentDetails(),
+  ]);
   const search = typeof params.search === "string" ? params.search : "";
   const { strip, counts } = list;
   const isEmpty = counts.all === 0 && !search;
@@ -27,6 +31,7 @@ export default async function ProposalsPage({
   return (
     <>
       <ProposalsHeader
+        showNew={!isEmpty}
         subtitle={
           isEmpty
             ? "Nothing here yet"
@@ -99,7 +104,11 @@ export default async function ProposalsPage({
                 clearHref="/proposals"
               />
             ) : (
-              <ProposalList proposals={list.proposals} groups={list.groups} />
+              <ProposalList
+                proposals={list.proposals}
+                groups={list.groups}
+                hasPaymentDetails={hasPaymentDetails}
+              />
             )}
 
             <DataTablePagination

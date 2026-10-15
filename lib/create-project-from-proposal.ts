@@ -14,7 +14,8 @@ export type ProposalForProject = {
   clientId: string;
   title: string;
   content: string | null;
-  total: string;
+  /** Before tax: the project's budget, on the same basis as its milestones. */
+  subtotal: string;
   currency: string;
   depositInvoiceId: string | null;
   deliveryDays: number | null;
@@ -67,8 +68,8 @@ export async function createProjectFromProposal(
       clientId: proposal.clientId,
       title: proposal.title,
       description: proposal.content,
-      // budget is NOT NULL on this table; a proposal always carries a total.
-      budget: proposal.total,
+      // Before tax, like the milestones and the deposit; invoices add their own tax.
+      budget: proposal.subtotal,
       currency: proposal.currency,
       status: started ? "in_progress" : "not_started",
       deadline: started ? deadlineFromToday(proposal.deliveryDays) : null,

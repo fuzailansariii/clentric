@@ -20,6 +20,9 @@ import {
   type LedgerGroup,
 } from "@/components/dashboard/ledger-table";
 import { RowIconAction } from "@/components/dashboard/row-icon-action";
+import { ConfirmDialog } from "@/components/confirm-dialog";
+import { DEPOSIT_NO_PAYMENT } from "@/components/dashboard/deposit-payment-warning";
+import { proposalSendDescription } from "@/lib/send-confirm";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { CustomButton } from "@/components/ui/custom-button";
 import {
@@ -172,9 +175,12 @@ function proposalGroup(p: ProposalListRow) {
 export function ProposalList({
   proposals,
   groups,
+  hasPaymentDetails = true,
 }: {
   proposals: ProposalListRow[];
   groups: LedgerGroup[];
+  /** False when a deposit invoice would go out without how to pay. */
+  hasPaymentDetails?: boolean;
 }) {
   return (
     <LedgerTable
@@ -186,35 +192,44 @@ export function ProposalList({
       getKey={(p) => p.id}
       getHref={(p) => `/proposals/${p.id}`}
       getLabel={(p) => `Open ${p.title}`}
-      actions={(p) => <ProposalRowActions proposal={p} />}
+      actions={(p) => (
+        <ProposalRowActions proposal={p} hasPaymentDetails={hasPaymentDetails} />
+      )}
     />
   );
 }
 
-function ProposalRowActions({ proposal: p }: { proposal: ProposalListRow }) {
+function ProposalRowActions({
+  proposal: p,
+  hasPaymentDetails,
+}: {
+  proposal: ProposalListRow;
+  hasPaymentDetails: boolean;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [hasOpenedDelete, setHasOpenedDelete] = useState(false);
+  const [confirmSend, setConfirmSend] = useState(false);
   const state = p.state;
   const working = isPending ? "Working..." : null;
   const noEmail = p.clientHasEmail
     ? null
     : "Add an email address to this client first";
 
-  const send = () =>
-    startTransition(async () => {
-      await runActionWithToast(sendProposalAction({ proposalId: p.id }), {
-        loading: "Sending proposal...",
-        success: ({ emailError }) =>
-          emailError
-            ? "Proposal sent - the link is live"
-            : "Proposal emailed to your client",
-        onSuccess: ({ emailError }) => {
-          warnNotEmailed(emailError, "proposal");
-          router.refresh();
-        },
-      });
+  // An email can't be recalled, so Send asks first and names the recipient.
+  const send = () => setConfirmSend(true);
+  const sendNow = () =>
+    runActionWithToast(sendProposalAction({ proposalId: p.id }), {
+      loading: "Sending proposal...",
+      success: ({ emailError }) =>
+        emailError
+          ? "Proposal sent - the link is live"
+          : "Proposal emailed to your client",
+      onSuccess: ({ emailError }) => {
+        warnNotEmailed(emailError, "proposal");
+        router.refresh();
+      },
     });
 
   const emailAgain = () =>
@@ -374,6 +389,22 @@ function ProposalRowActions({ proposal: p }: { proposal: ProposalListRow }) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <ConfirmDialog
+        open={confirmSend}
+        onOpenChange={setConfirmSend}
+        title="Send this proposal?"
+        description={proposalSendDescription(
+          p.title,
+          p.clientEmail ?? p.clientName,
+          Number(p.depositPercent) > 0 && !hasPaymentDetails
+            ? DEPOSIT_NO_PAYMENT
+            : null,
+        )}
+        confirmLabel="Send proposal"
+        pendingLabel="Sending..."
+        onConfirm={sendNow}
+      />
 
       {hasOpenedDelete && (
         <DeleteDialog

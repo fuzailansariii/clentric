@@ -21,7 +21,10 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
 
   return (
     <>
-      <ProjectsHeader subtitle={subtitle} />
+      <ProjectsHeader
+        subtitle={subtitle}
+        showNew={board.tabCounts.all > 0 || searching}
+      />
 
       <DashboardContainer>
         <div className="flex flex-col gap-5">
