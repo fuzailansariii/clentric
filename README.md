@@ -43,8 +43,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run test:e2e` | End-to-end tests (Playwright) against the dev server |
 | `E2E_PROD=1 E2E_BASE_URL=http://localhost:3100 npm run test:e2e` | End-to-end tests against a fresh production build on port 3100 |
 | `npx playwright show-report` | Open the last end-to-end report (screenshots and traces on failure) |
-| `npm run grant add friend@x.com 2027-01-01 beta tester` | Free Pro for an email, works before sign-up (date and note optional). `npm run grant revoke <email>`, `npm run grant list` |
-| `npm run invite add friend@x.com [note]` | Beta invite: only invited emails can create an account. `npm run invite remove <email>`, `npm run invite list` |
+| `npm run grant add friend@x.com [YYYY-MM-DD] [invite] [note]` | Free Pro for an email, works before sign-up (date and note optional). `invite` also emails them a sign-up link. `npm run grant revoke <email>`, `npm run grant list` |
+| `npm run invite add friend@x.com [note]` | Invite list, only used when sign-up is switched to invite-only (see below). `npm run invite remove <email>`, `npm run invite list` |
 | `npm run db:check` | Read-only security check of the database in `.env` (RLS, grants, sign-up trigger, invite hook, purge job) |
 
 ## Tests
@@ -64,10 +64,8 @@ npx drizzle-kit migrate                    # apply pending migrations
 
 Apply migrations only with `drizzle-kit migrate`, so its records stay in sync. On a new Supabase project, `migrate` alone builds the full database (RLS, triggers, invite hook, purge job); run `npm run db:check` afterwards. Never run `drizzle-kit push`: it doesn't know about RLS policies.
 
-The beta invite hook also has to be switched on in Supabase: **Auth → Hooks → Before User Created → Postgres → `public.hook_beta_invite_only`**.
+Sign-up is open to everyone. The invite-only check exists in the database but is off; it only runs when switched on in Supabase under **Auth → Hooks → Before User Created**.
 
 ## Project docs
 
 - `CLAUDE.md` / `AGENTS.md` — coding rules for this project.
-- `docs/production-readiness-report.md` — current state, open issues and the path to launch.
-- `docs/beta-launch-checklist.md` — step-by-step production setup for the beta.
