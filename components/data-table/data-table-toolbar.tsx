@@ -3,6 +3,7 @@
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
 import { SearchIcon } from "lucide-react";
+import { MotionConfig, motion } from "motion/react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
@@ -108,43 +109,45 @@ export function DataTableToolbar({
 
         {/* Status tabs with counts. They scroll sideways on mobile instead
             of wrapping into a grid. */}
-        {filters.map((filter) => {
-          const currentValue = searchParams.get(filter.key) ?? "";
+        <MotionConfig reducedMotion="user">
+          {filters.map((filter) => {
+            const currentValue = searchParams.get(filter.key) ?? "";
 
-          return (
-            <div
-              key={filter.key}
-              role="group"
-              aria-label={filter.label}
-              className="flex min-w-0 scrollbar-none gap-1.5 overflow-x-auto @[640px]:gap-0.5 [&::-webkit-scrollbar]:hidden"
-            >
-              <FilterTab
-                label="All"
-                count={filter.allCount}
-                active={!currentValue}
-                onClick={() => updateParams({ [filter.key]: null })}
-              />
+            return (
+              <div
+                key={filter.key}
+                role="group"
+                aria-label={filter.label}
+                className="flex min-w-0 scrollbar-none gap-1.5 overflow-x-auto @[640px]:gap-0.5 [&::-webkit-scrollbar]:hidden"
+              >
+                <FilterTab
+                  label="All"
+                  count={filter.allCount}
+                  active={!currentValue}
+                  onClick={() => updateParams({ [filter.key]: null })}
+                />
 
-              {filter.options.map((option) => {
-                const isActive = currentValue === option.value;
+                {filter.options.map((option) => {
+                  const isActive = currentValue === option.value;
 
-                return (
-                  <FilterTab
-                    key={option.value}
-                    label={option.label}
-                    count={option.count}
-                    active={isActive}
-                    onClick={() =>
-                      updateParams({
-                        [filter.key]: isActive ? null : option.value,
-                      })
-                    }
-                  />
-                );
-              })}
-            </div>
-          );
-        })}
+                  return (
+                    <FilterTab
+                      key={option.value}
+                      label={option.label}
+                      count={option.count}
+                      active={isActive}
+                      onClick={() =>
+                        updateParams({
+                          [filter.key]: isActive ? null : option.value,
+                        })
+                      }
+                    />
+                  );
+                })}
+              </div>
+            );
+          })}
+        </MotionConfig>
       </div>
     </div>
   );
@@ -162,10 +165,12 @@ function FilterTab({
   onClick: () => void;
 }) {
   return (
-    <button
+    <motion.button
       type="button"
       aria-pressed={active}
       onClick={onClick}
+      whileTap={{ scale: 0.96 }}
+      transition={{ type: "spring", stiffness: 500, damping: 30 }}
       className={cn(
         "focus-visible:ring-ring inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-[13px] whitespace-nowrap transition-colors outline-none focus-visible:ring-2",
         "@[640px]:h-7 @[640px]:px-2.5",
@@ -187,6 +192,6 @@ function FilterTab({
           {count}
         </span>
       )}
-    </button>
+    </motion.button>
   );
 }
