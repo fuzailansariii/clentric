@@ -8,7 +8,7 @@ import {
   updateInvoiceStatusSchema,
 } from "./schema";
 import { AppError, logError } from "@/lib/errors";
-import { requireUser } from "@/lib/current-user";
+import { requireWriter } from "@/lib/write-limit";
 import { db } from "@/src/db";
 import { getNextInvoiceNumber } from "@/lib/get-next-invoice-number";
 import { invoices } from "@/src/db/schema/invoices";
@@ -84,7 +84,7 @@ export async function createInvoiceAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const itemsWithAmounts = parsed.data.lineItems.map((item) => ({
       ...item,
@@ -269,7 +269,7 @@ export async function updateInvoiceAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const itemsWithAmounts = parsed.data.lineItems.map((item) => ({
       ...item,
@@ -445,7 +445,7 @@ export async function updateInvoiceStatusAction(
     if (!parsed.success) {
       return { success: false, error: parsed.error.issues[0].message };
     }
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [existingInvoice] = await db
       .select({ status: invoices.status })
@@ -526,7 +526,7 @@ export async function sendInvoiceAction(
       return { success: false, error: "Invalid invoice ID." };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [invoice] = await db
       .select({
@@ -625,7 +625,7 @@ export async function sendReminderAction(
       return { success: false, error: "Invalid invoice ID." };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [invoice] = await db
       .select({
@@ -708,7 +708,7 @@ export async function markInvoicePaidAction(
       return { success: false, error: "Invalid invoice ID." };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [updated] = await db
       .update(invoices)
@@ -798,7 +798,7 @@ export async function deleteInvoiceAction(
       return { success: false, error: "Invalid invoice ID." };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [updated] = await db
       .update(invoices)
@@ -841,7 +841,7 @@ export async function clearPaymentClaimAction(
       return { success: false, error: "Invalid invoice ID." };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [updated] = await db
       .update(invoices)
@@ -890,7 +890,7 @@ export async function linkInvoiceProjectAction(
       return { success: false, error: "Invalid invoice or project." };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     // The project check lives in the write itself: it must be this user's,
     // not deleted, and belong to the invoice's own client.
