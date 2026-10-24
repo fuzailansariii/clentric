@@ -2,8 +2,20 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import type { FieldValues, UseFormReturn } from "react-hook-form";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { CustomButton } from "@/components/ui/custom-button";
+
+/** After a save: mark the form clean, then go, so the leave guard stays off on the way out. */
+export function useLeaveAfterSave<T extends FieldValues>(
+  form: Pick<UseFormReturn<T>, "reset" | "getValues">,
+) {
+  const router = useRouter();
+  return (href: string) => {
+    form.reset(form.getValues());
+    router.push(href);
+  };
+}
 
 /**
  * The save buttons of a new/edit page, pinned to the bottom of the content

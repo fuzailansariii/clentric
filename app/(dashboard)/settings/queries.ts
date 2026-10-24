@@ -106,11 +106,13 @@ export async function getHasPaymentDetails(): Promise<boolean> {
 
     const [row] = await db
       .select({
+        // Matches on the user id value: single-table selects leave column names
+        // unqualified, so comparing to users.id would hit the inner table's id.
         hasDetails: sql<boolean>`(
           coalesce(btrim(${users.paymentDetails}), '') <> ''
           or exists (
             select 1 from ${userPaymentMethods}
-            where ${userPaymentMethods.userId} = ${users.id}
+            where ${userPaymentMethods.userId} = ${user.id}
               and ${userPaymentMethods.showOnInvoices}
               and ${userPaymentMethods.deletedAt} is null
           )

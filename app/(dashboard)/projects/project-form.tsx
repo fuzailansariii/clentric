@@ -13,7 +13,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { PlusIcon, XIcon } from "lucide-react";
 
 import PageHeader from "@/components/dashboard/page-header";
-import { FormActionBar } from "@/components/dashboard/form-action-bar";
+import {
+  FormActionBar,
+  useLeaveAfterSave,
+} from "@/components/dashboard/form-action-bar";
 import DashboardContainer from "@/components/dashboard/container";
 import { ClientCombobox, type ClientOption } from "@/components/client-combobox";
 import { DatePickerField } from "@/components/date-picker-field";
@@ -116,6 +119,8 @@ export function ProjectForm({
     handleSubmit,
     register,
     control,
+    reset,
+    getValues,
     formState: { errors, isSubmitting, isDirty },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } = useForm<ProjectFormInput, any, ProjectInput>({
@@ -139,13 +144,15 @@ export function ProjectForm({
   const rows = useFieldArray({ control, name: "milestones", keyName: "key" });
   const hourly = useWatch({ control, name: "pricing" }) === "hourly";
 
+  const leave = useLeaveAfterSave({ reset, getValues });
+
   const onSubmit = handleSubmit(async (data) => {
     setFormError(null);
     const onError = (message: string) => {
       if (message !== NO_CHANGE_MESSAGE) setFormError(message);
     };
     const open = (id: string) => {
-      router.push(`/projects/${id}`);
+      leave(`/projects/${id}`);
       router.refresh();
     };
 

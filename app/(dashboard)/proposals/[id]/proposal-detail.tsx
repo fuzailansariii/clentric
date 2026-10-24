@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
   CopyIcon,
+  CopyPlusIcon,
   ExternalLinkIcon,
   PencilIcon,
   SendIcon,
@@ -47,6 +48,7 @@ import { cn } from "@/lib/utils";
 import {
   createProjectFromProposalAction,
   deleteProposalAction,
+  duplicateProposalAction,
   emailProposalAction,
   revokeProposalAction,
   sendProposalAction,
@@ -187,6 +189,16 @@ export function ProposalDetailView({
       );
     });
 
+  const duplicate = () =>
+    startTransition(async () => {
+      await runActionWithToast(duplicateProposalAction({ proposalId }), {
+        loading: "Duplicating...",
+        success: "Draft copy created",
+        onSuccess: ({ proposalId: copyId }) =>
+          router.push(`/proposals/${copyId}`),
+      });
+    });
+
   const button = (
     key: string,
     label: string,
@@ -209,8 +221,14 @@ export function ProposalDetailView({
       {label}
     </CustomButton>
   );
-  // Side card: sending. Header (the "..." menu on phones): editing and deleting.
+  // Side card: the next step (send a draft, copy a closed one). Header: the rest.
   // Copy, Email again and Revoke live in the client-link card.
+  const duplicateAction = {
+    label: "Duplicate proposal",
+    onClick: duplicate,
+    disabled: isPending,
+    icon: <CopyPlusIcon className="size-4" />,
+  };
   const cardActions: PageAction[] =
     state === "draft"
       ? [
@@ -223,7 +241,9 @@ export function ProposalDetailView({
             icon: <SendIcon className="size-4" />,
           },
         ]
-      : [];
+      : closed
+        ? [{ ...duplicateAction, kind: "primary" }]
+        : [];
   const headerActions: PageAction[] = [
     ...(state === "draft"
       ? [
@@ -235,6 +255,7 @@ export function ProposalDetailView({
           },
         ]
       : []),
+    ...(closed ? [] : [{ ...duplicateAction, kind: "quiet" as const }]),
     {
       label: "Delete proposal",
       kind: "danger",
