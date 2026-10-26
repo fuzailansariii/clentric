@@ -7,6 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useIsCurrentPage } from "@/hooks/use-is-current-page";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { useInDrawer } from "./sidebar-provider";
 
 type NavItem = {
   label: string;
@@ -32,6 +33,7 @@ export function SidebarNavLink({
   const showBadge = badge !== undefined && badge.count > 0;
   const pathname = usePathname();
   const isCurrentPage = useIsCurrentPage();
+  const inDrawer = useInDrawer();
   const Icon = item.icon;
   const activePrefix = item.activePrefix ?? item.href;
   const isActive =
@@ -60,9 +62,14 @@ export function SidebarNavLink({
       className={cn(
         "text-sidebar-foreground relative flex items-center gap-3 rounded-lg px-3 py-2.5 font-sans text-sm",
         isCollapsed && "justify-center px-0",
-        isActive
-          ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
-          : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
+        // Drawer: ink pill like the app's segmented controls.
+        inDrawer
+          ? isActive
+            ? "bg-foreground text-background font-medium"
+            : "text-foreground active:bg-sidebar-accent font-medium"
+          : isActive
+            ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
+            : "text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground",
       )}
     >
       <Icon size={18} className="shrink-0" />
@@ -82,7 +89,9 @@ export function SidebarNavLink({
               "ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-medium tabular-nums",
               badge.tone === "danger"
                 ? "bg-danger-600/15 text-danger-600"
-                : "bg-foreground/8 text-muted-foreground",
+                : inDrawer && isActive
+                  ? "bg-background/20 text-background"
+                  : "bg-foreground/8 text-muted-foreground",
             )}
           >
             {badge.count}

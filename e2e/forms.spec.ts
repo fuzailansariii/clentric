@@ -53,4 +53,41 @@ test("a proposal can be written for someone not saved yet", async ({ page }) => 
   // The client link shows the site it really lives on, the one emails use.
   const host = new URL(process.env.APP_URL ?? "https://clentric.app").host;
   await expect(page.getByText(`${host}/p/`).first()).toBeVisible();
+
+  // Duplicate from the detail page opens the new draft copy.
+  const sentUrl = page.url();
+  await page.getByRole("button", { name: "Duplicate proposal" }).click();
+  await expect(page).not.toHaveURL(sentUrl);
+  await expect(page).toHaveURL(/\/proposals\/[0-9a-f-]{36}$/);
+  await expect(page.getByRole("button", { name: "Send proposal" }).first()).toBeVisible();
+});
+
+test("after a save, the leave guard stays off while the next page loads", async ({
+  page,
+}) => {
+  await page.goto("/clients/new");
+  await page.getByLabel("Name").fill(`E2E Saved ${run}`);
+  await expect(page.getByRole("status").getByText("Unsaved changes")).toBeVisible();
+
+  // Records "Unsaved changes" coming back after it went away for the save.
+  await page.evaluate(() => {
+    const w = window as unknown as { cameBack: boolean };
+    w.cameBack = false;
+    let cleared = false;
+    const showing = () =>
+      [...document.querySelectorAll('[role="status"]')].some((el) =>
+        el.textContent?.includes("Unsaved changes"),
+      );
+    new MutationObserver(() => {
+      if (!showing()) cleared = true;
+      else if (cleared) w.cameBack = true;
+    }).observe(document.body, { subtree: true, childList: true, characterData: true });
+  });
+
+  await page.getByRole("button", { name: "Save client" }).click();
+  await expect(page).toHaveURL(/\/clients\/[0-9a-f-]{36}$/);
+  expect(
+    await page.evaluate(() => (window as unknown as { cameBack: boolean }).cameBack),
+  ).toBe(false);
+  await expect(page.getByRole("alertdialog")).toHaveCount(0);
 });

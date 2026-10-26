@@ -59,6 +59,10 @@ test("a taxed proposal's deposit and project agree before tax", async ({
     });
     const clientPage = await client.newPage();
     await clientPage.goto(`/p/${token}`);
+    // Link previews in chat apps must not show the project or the client.
+    await expect(clientPage).toHaveTitle(/Proposal/);
+    expect(await clientPage.title()).not.toContain(proposalTitle);
+    expect(await clientPage.title()).not.toContain(clientName);
     await clientPage
       .getByRole("button", { name: /Accept proposal|deposit to begin/ })
       .click();
@@ -104,9 +108,30 @@ test("a taxed proposal's deposit and project agree before tax", async ({
       page.getByText("Amounts above are before tax", { exact: false }),
     ).toBeVisible();
 
-    // A new invoice on this project starts at the proposal's 10% tax.
-    await page.goto(`/invoices/new?clientId=${clientId}&projectId=${row.projectId}`);
-    await expect(page.getByLabel("Tax rate")).toHaveValue("10");
+    // The account's own default, from an invoice with no project.
+    const plain = await page.context().newPage();
+    await plain.goto("/invoices/new");
+    const defaultTax = await plain.getByLabel("Tax rate").inputValue();
+    await plain.close();
+
+    // A new invoice on this project starts at the proposal's 10% tax...
+    const newInvoice = `/invoices/new?clientId=${clientId}&projectId=${row.projectId}`;
+    await page.goto(newInvoice);
+    const tax = page.getByLabel("Tax rate");
+    await expect(tax).toHaveValue("10");
+    // ...and goes back to the default once the project goes away.
+    await page.getByRole("button", { name: "Bill someone new" }).click();
+    await expect(tax).toHaveValue(defaultTax);
+
+    // A rate the user typed stays, even one equal to the project's.
+    const typed = await page.context().newPage();
+    await typed.goto(newInvoice);
+    const typedTax = typed.getByLabel("Tax rate");
+    await expect(typedTax).toHaveValue("10");
+    await typedTax.fill("10");
+    await typed.getByRole("button", { name: "Bill someone new" }).click();
+    await expect(typedTax).toHaveValue("10");
+    await typed.close();
   } finally {
     await sql.end();
   }

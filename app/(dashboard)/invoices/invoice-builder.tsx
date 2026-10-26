@@ -17,9 +17,11 @@ import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { scrollToFirstError } from "@/lib/scroll-to-first-error";
 import type { ReturnTo } from "@/lib/return-to";
-import { useRouter } from "next/navigation";
 import PageHeader from "@/components/dashboard/page-header";
-import { FormActionBar } from "@/components/dashboard/form-action-bar";
+import {
+  FormActionBar,
+  useLeaveAfterSave,
+} from "@/components/dashboard/form-action-bar";
 import { DetailCard } from "@/components/dashboard/detail-parts";
 import { ClientOption } from "@/components/client-combobox";
 import {
@@ -144,13 +146,14 @@ export default function InvoiceBuilder({
     !invoice && isTerm(termDays) ? (String(termDays) as Term) : null,
   );
 
-  const router = useRouter();
-
   // A project from a taxed proposal bills at that rate; null leaves the field alone.
   const proposalTaxRate = (projectId: string | undefined) => {
     const rate = Number(projects.find((p) => p.id === projectId)?.proposalTaxRate);
     return rate > 0 ? String(rate) : null;
   };
+  // What the tax field starts at for a project: its proposal's rate, else the default.
+  const autoTaxRate = (projectId: string | undefined) =>
+    proposalTaxRate(projectId) ?? (defaults?.taxRate || "");
 
   // `any` for the context generic is the project convention for z.coerce
   // schemas (CLAUDE.md: type useForm as useForm<Input, any, Output>()).
@@ -180,9 +183,7 @@ export default function InvoiceBuilder({
             projects.find((project) => project.id === initialProjectId)
               ?.currency ?? "USD",
           // Empty rather than "0", so the placeholder shows.
-          taxRate:
-            proposalTaxRate(initialProjectId ?? undefined) ??
-            (defaults?.taxRate || ""),
+          taxRate: autoTaxRate(initialProjectId ?? undefined),
           notes: defaults?.notes ?? "",
           // On by default when opened from a fixed-price project.
           showProjectBalance:
@@ -277,11 +278,23 @@ export default function InvoiceBuilder({
     });
   };
 
+  // Tax follows the project until the user types in the field; then it's theirs.
+  const [taxTyped, setTaxTyped] = useState(false);
+  const followProjectTax = (projectId: string | undefined) => {
+    if (invoice || taxTyped) return;
+    setValue("taxRate", autoTaxRate(projectId), { shouldDirty: true });
+  };
+
+  const clearProject = () => {
+    followProjectTax(undefined);
+    setValue("projectId", undefined, { shouldDirty: true });
+  };
+
   const toggleBillNew = (next: boolean) => {
     setBillNew(next);
     if (next) {
       setValue("clientId", "");
-      setValue("projectId", undefined);
+      clearProject();
       setValue("newClient", { name: "", email: "" });
     } else {
       unregister("newClient");
@@ -294,7 +307,7 @@ export default function InvoiceBuilder({
   ) => {
     onChange(value);
     // Changing the client clears the project.
-    setValue("projectId", undefined, { shouldDirty: true });
+    clearProject();
     fillEmptyHourlyRates(hourlyRateFor(value, undefined));
   };
 
@@ -307,8 +320,7 @@ export default function InvoiceBuilder({
     setValue("showProjectBalance", project?.pricing === "fixed", {
       shouldDirty: true,
     });
-    const rate = invoice ? null : proposalTaxRate(value || undefined);
-    if (rate) setValue("taxRate", rate, { shouldDirty: true });
+    followProjectTax(value || undefined);
     fillEmptyHourlyRates(
       hourlyRateFor(getValues("clientId"), value || undefined),
     );
@@ -424,6 +436,8 @@ export default function InvoiceBuilder({
 
   const showErrors = () => scrollToFirstError("invoice-form");
 
+  const leave = useLeaveAfterSave({ reset, getValues });
+
   const onSubmit = handleSubmit(async (raw: InvoiceFormOutput) => {
     setFormError("");
     const data = trimLines(raw);
@@ -438,7 +452,7 @@ export default function InvoiceBuilder({
         {
           loading: "Saving invoice...",
           success: "Changes saved",
-          onSuccess: () => router.push(`/invoices/${invoice.id}`),
+          onSuccess: () => leave(`/invoices/${invoice.id}`),
           onError: setFormError,
         },
       );
@@ -448,10 +462,7 @@ export default function InvoiceBuilder({
     await runActionWithToast(createInvoiceAction(data), {
       loading: "Saving draft...",
       success: "Saved as draft",
-      onSuccess: ({ invoiceId }) => {
-        router.push(returnTo ?? `/invoices/${invoiceId}`);
-        reset();
-      },
+      onSuccess: ({ invoiceId }) => leave(returnTo ?? `/invoices/${invoiceId}`),
       onError: setFormError,
     });
   }, showErrors);
@@ -499,8 +510,7 @@ export default function InvoiceBuilder({
             : "Invoice created and emailed to your client.",
       onSuccess: ({ invoiceId, sent, emailError }) => {
         warnNotEmailed(emailError, "invoice");
-        router.push(sent && returnTo ? returnTo : `/invoices/${invoiceId}`);
-        reset();
+        leave(sent && returnTo ? returnTo : `/invoices/${invoiceId}`);
       },
       onError: setFormError,
     });
@@ -536,6 +546,11 @@ export default function InvoiceBuilder({
         <form
           id="invoice-form"
           onSubmit={onSubmit}
+          onInput={(event) => {
+            if ((event.target as HTMLInputElement).name === "taxRate") {
+              setTaxTyped(true);
+            }
+          }}
           noValidate
           className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]"
         >

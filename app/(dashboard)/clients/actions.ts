@@ -1,5 +1,5 @@
 "use server";
-import { requireUser } from "@/lib/current-user";
+import { requireWriter } from "@/lib/write-limit";
 import { clientIdSchema, clientSchema } from "./schema";
 import { AppError, logError } from "@/lib/errors";
 import { revalidatePath } from "next/cache";
@@ -43,7 +43,7 @@ export async function createClientAction(
   }
 
   try {
-    const user = await requireUser();
+    const user = await requireWriter();
     const limits = await planLimitsFor(user.id);
     const [created] = await db.transaction(async (tx) => {
       await assertWithinPlan(tx, user.id, limits, ["clients"]);
@@ -104,7 +104,7 @@ export async function updateClientAction(
     }
 
     // get user
-    const user = await requireUser();
+    const user = await requireWriter();
 
     // DB call
     const updatedClient = await db
@@ -147,7 +147,7 @@ export async function deleteClientAction(
       throw new AppError("VALIDATION_ERROR", "Invalid client ID.");
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
     const id = parsedClientId.data;
 
     // Work that would be stranded without its client. Finished work

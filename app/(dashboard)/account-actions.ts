@@ -7,7 +7,8 @@ import { billing, getEffectivePlan } from "@/lib/billing";
 import { and, eq, gt, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
-import { requireSignedInUser, requireUser } from "@/lib/current-user";
+import { requireSignedInUser } from "@/lib/current-user";
+import { requireWriter } from "@/lib/write-limit";
 import { ACCOUNT_DELETION_GRACE_DAYS } from "@/lib/account-deletion";
 import { logError } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
@@ -28,7 +29,7 @@ export async function requestAccountDeletionAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     // Exact match: no trimming or case-folding, so what the user confirmed
     // is exactly what the dialog showed them.

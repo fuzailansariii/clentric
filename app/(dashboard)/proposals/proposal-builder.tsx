@@ -3,11 +3,13 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { useState, type ChangeEvent } from "react";
-import { useRouter } from "next/navigation";
 import { depositAmounts } from "@/lib/deposit-amounts";
 import { PlusIcon } from "lucide-react";
 import PageHeader from "@/components/dashboard/page-header";
-import { FormActionBar } from "@/components/dashboard/form-action-bar";
+import {
+  FormActionBar,
+  useLeaveAfterSave,
+} from "@/components/dashboard/form-action-bar";
 import {
   DEPOSIT_NO_PAYMENT,
   DepositPaymentWarning,
@@ -122,7 +124,6 @@ export default function ProposalBuilder({
   hasPaymentDetails = true,
   newClientBlocked = null,
 }: ProposalBuilderProps) {
-  const router = useRouter();
   const isEditing = Boolean(proposal);
   const startDeposit =
     proposal?.depositPercent ?? defaults?.depositPercent ?? 0;
@@ -172,8 +173,12 @@ export default function ProposalBuilder({
     setValue,
     setError,
     unregister,
+    reset,
+    getValues,
     formState: { errors, isSubmitting, isDirty },
   } = form;
+
+  const leave = useLeaveAfterSave({ reset, getValues });
 
   const toggleNew = (next: boolean) => {
     setIsNew(next);
@@ -225,7 +230,7 @@ export default function ProposalBuilder({
         {
           loading: "Saving changes...",
           success: "Changes saved",
-          onSuccess: () => router.push(`/proposals/${proposal.id}`),
+          onSuccess: () => leave(`/proposals/${proposal.id}`),
         },
       );
       return;
@@ -235,7 +240,7 @@ export default function ProposalBuilder({
       loading: "Saving draft...",
       success: "Draft saved",
       onSuccess: ({ proposalId }) =>
-        router.push(returnTo ?? `/proposals/${proposalId}`),
+        leave(returnTo ?? `/proposals/${proposalId}`),
     });
   }, showErrors);
 
@@ -293,7 +298,7 @@ export default function ProposalBuilder({
           : "Proposal emailed to your client",
       onSuccess: ({ proposalId, emailError }) => {
         warnNotEmailed(emailError, "proposal");
-        router.push(returnTo ?? `/proposals/${proposalId}`);
+        leave(returnTo ?? `/proposals/${proposalId}`);
       },
     });
   };

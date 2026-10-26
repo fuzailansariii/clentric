@@ -5,7 +5,7 @@ import {
   projectIdSchema,
   projectSchema,
 } from "./schema";
-import { requireUser } from "@/lib/current-user";
+import { requireWriter } from "@/lib/write-limit";
 import { db } from "@/src/db";
 import { clients } from "@/src/db/schema/clients";
 import { and, eq, inArray, isNull, notInArray, sql } from "drizzle-orm";
@@ -100,7 +100,7 @@ export async function createProjectAction(
       };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
     const {
       clientId,
       milestones: milestoneRows = [],
@@ -250,7 +250,7 @@ export async function updateProjectAction(
       };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     // Completing stamps the delivered date once; any other status clears it.
     const completedAt =
@@ -310,7 +310,7 @@ export async function deleteProjectAction(
       throw new AppError("VALIDATION_ERROR", "Invalid project ID.");
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [deleted] = await db
       .update(projects)

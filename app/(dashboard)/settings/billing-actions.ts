@@ -4,7 +4,7 @@ import { and, eq, isNull, lt, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import type { ActionResult } from "@/lib/action-result";
 import { billing, billingEnforced, billingEnv, getEffectivePlan } from "@/lib/billing";
-import { requireUser } from "@/lib/current-user";
+import { requireWriter } from "@/lib/write-limit";
 import { logError } from "@/lib/errors";
 import { db } from "@/src/db";
 import { subscriptions } from "@/src/db/schema/subscriptions";
@@ -25,7 +25,7 @@ export async function startCheckoutAction(
     const parsed = checkoutSchema.safeParse(input);
     if (!parsed.success) return { success: false, error: "Pick monthly or yearly." };
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     if (!billingEnforced()) {
       return { success: false, error: "Everything is free during the beta, so there's nothing to buy yet." };
@@ -119,7 +119,7 @@ export async function startCheckoutAction(
 /** Link to the payment provider's portal: card, invoices, cancel. */
 export async function manageBillingAction(): Promise<ActionResult<{ url: string }>> {
   try {
-    const user = await requireUser();
+    const user = await requireWriter();
     const state = await getEffectivePlan(user.id);
     const customerId = state.row?.customerId;
     if (!customerId) {

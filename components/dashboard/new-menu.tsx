@@ -34,16 +34,20 @@ const ALL_ITEMS: NewMenuItem[] = [
 ];
 
 type NewMenuProps = {
-  variant?: "button" | "icon";
+  /** "row": a nav-style row with a round + icon, for the mobile drawer. */
+  variant?: "button" | "icon" | "row";
   className?: string;
   /** What can be created here; everything by default. */
   items?: NewMenuItem[];
+  /** Runs when an item is picked, e.g. to close the drawer. */
+  onNavigate?: () => void;
 };
 
 export function NewMenu({
   variant = "button",
   className,
   items = ALL_ITEMS,
+  onNavigate,
 }: NewMenuProps) {
   const [open, setOpen] = useState(false);
 
@@ -54,6 +58,20 @@ export function NewMenu({
           <TopBarButton aria-label="Create new" className={className}>
             <TurningPlus open={open} className="size-5" />
           </TopBarButton>
+        ) : variant === "row" ? (
+          <button
+            type="button"
+            className={cn(
+              "hover:bg-sidebar-accent/50 data-[state=open]:bg-sidebar-accent/50 focus-visible:ring-ring flex w-full cursor-pointer items-center gap-1.75 rounded-lg px-3 py-2 font-sans text-sm font-medium focus-visible:ring-2 focus-visible:outline-none",
+              className,
+            )}
+          >
+            {/* Centred on the 18px link icons below it. */}
+            <span className="bg-primary text-primary-foreground -ml-1.25 flex size-7 items-center justify-center rounded-full">
+              <TurningPlus open={open} className="size-4" />
+            </span>
+            New
+          </button>
         ) : (
           <CustomButton size="sm" className={cn("gap-1.5", className)}>
             <TurningPlus open={open} className="size-4" />
@@ -62,11 +80,16 @@ export function NewMenu({
         )}
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" sideOffset={6} className="w-52 p-1.5">
+      <DropdownMenuContent
+        align={variant === "row" ? "start" : "end"}
+        sideOffset={6}
+        className="w-52 p-1.5"
+      >
         {items.map(({ label, href, icon: Icon }) => (
           <DropdownMenuItem
             key={href}
             asChild
+            onSelect={onNavigate}
             className="focus:bg-sidebar-accent/50 cursor-pointer gap-1.5 px-2 py-1.5"
           >
             <Link href={href}>

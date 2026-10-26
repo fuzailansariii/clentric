@@ -1,13 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import PageHeader from "@/components/dashboard/page-header";
 import { DetailCard } from "@/components/dashboard/detail-parts";
-import { FormActionBar } from "@/components/dashboard/form-action-bar";
+import {
+  FormActionBar,
+  useLeaveAfterSave,
+} from "@/components/dashboard/form-action-bar";
 import ClientPreview from "@/components/preview/client-preview";
 import { CountryCombobox } from "@/components/ui/country-combobox";
 import { CustomButton } from "@/components/ui/custom-button";
@@ -42,7 +44,6 @@ export function ClientForm({
   /** Set when opened from the dashboard's setup steps. */
   returnTo?: string | null;
 }) {
-  const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const phoneFieldRef = useRef<PhoneFieldHandle>(null);
   const backHref = client ? `/clients/${client.id}` : (returnTo ?? "/clients");
@@ -52,6 +53,8 @@ export function ClientForm({
     register,
     control,
     setValue,
+    reset,
+    getValues,
     formState: { errors, isSubmitting, isDirty },
   } = useForm<ClientInput>({
     resolver: zodResolver(clientSchema),
@@ -84,6 +87,8 @@ export function ClientForm({
     name: ["name", "company", "email", "status", "hourlyRate"],
   });
 
+  const leave = useLeaveAfterSave({ reset, getValues });
+
   const onSubmit = handleSubmit(async (data) => {
     setFormError(null);
     const onError = (message: string) => {
@@ -93,7 +98,7 @@ export function ClientForm({
       await runActionWithToast(updateClientAction(client.id, data), {
         loading: "Saving changes...",
         success: "Changes saved",
-        onSuccess: () => router.push(`/clients/${client.id}`),
+        onSuccess: () => leave(`/clients/${client.id}`),
         onError,
       });
       return;
@@ -101,8 +106,7 @@ export function ClientForm({
     await runActionWithToast(createClientAction(data), {
       loading: "Saving client...",
       success: `${data.name} added`,
-      onSuccess: ({ clientId }) =>
-        router.push(returnTo ?? `/clients/${clientId}`),
+      onSuccess: ({ clientId }) => leave(returnTo ?? `/clients/${clientId}`),
       onError,
     });
   });
