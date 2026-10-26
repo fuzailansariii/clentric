@@ -13,6 +13,34 @@ export function useEnterInitial(): "hidden" | false {
   return useHydrated() ? "hidden" : false;
 }
 
+/**
+ * A row in an editable list (line items, stages): rises in when added and
+ * slides into place when a row above it is removed. No exit animation: the
+ * form tracks rows by index, so a removed row must leave at once.
+ */
+export function RiseRow({
+  className,
+  children,
+}: {
+  className?: string;
+  children: ReactNode;
+}) {
+  const initial = useEnterInitial();
+  return (
+    <MotionConfig reducedMotion="user">
+      <motion.div
+        layout="position"
+        variants={rise}
+        initial={initial}
+        animate="show"
+        className={className}
+      >
+        {children}
+      </motion.div>
+    </MotionConfig>
+  );
+}
+
 /** Fades and rises its children in; `index` staggers siblings. */
 export function Rise({
   index = 0,

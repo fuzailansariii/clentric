@@ -1,5 +1,9 @@
 "use client";
 
+import { MotionConfig, motion } from "motion/react";
+import { RiseRow, useEnterInitial } from "@/components/ui/rise";
+import { rise } from "@/lib/motion";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { useState, type ChangeEvent } from "react";
@@ -179,6 +183,7 @@ export default function ProposalBuilder({
   } = form;
 
   const leave = useLeaveAfterSave({ reset, getValues });
+  const enter = useEnterInitial();
 
   const toggleNew = (next: boolean) => {
     setIsNew(next);
@@ -326,253 +331,272 @@ export default function ProposalBuilder({
       />
 
       <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
-        <form
-          id="proposal-form"
-          onSubmit={save}
-          noValidate
-          className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]"
-        >
-          <div className="flex min-w-0 flex-col gap-4">
-            <DetailCard title="Proposal" className="@container">
-              <div className="grid gap-4 @[560px]:grid-cols-2">
-                <div className={canAddNew ? "@[560px]:col-span-2" : undefined}>
-                  <Field
-                    {...register("title")}
-                    label="Title"
-                    placeholder="e.g. Website redesign"
-                    error={errors.title?.message}
-                  />
-                </div>
-                {canAddNew && (
-                  <SegmentedControl
-                    label="Client"
-                    options={WHO}
-                    value={isNew ? "new" : "saved"}
-                    onChange={(value) => toggleNew(value === "new")}
-                    className="justify-self-start @[560px]:col-span-2"
-                  />
-                )}
-                {isNew ? (
-                  <>
+        <MotionConfig reducedMotion="user">
+          <form
+            id="proposal-form"
+            onSubmit={save}
+            noValidate
+            className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]"
+          >
+            <motion.div
+              custom={0}
+              variants={rise}
+              initial={enter}
+              animate="show"
+              className="flex min-w-0 flex-col gap-4"
+            >
+              <DetailCard title="Proposal" className="@container">
+                <div className="grid gap-4 @[560px]:grid-cols-2">
+                  <div
+                    className={canAddNew ? "@[560px]:col-span-2" : undefined}
+                  >
                     <Field
-                      {...register("newClient.name")}
-                      label="Client name"
-                      placeholder="Person or business"
-                      error={
-                        errors.newClient?.name?.message ??
-                        errors.clientId?.message
-                      }
+                      {...register("title")}
+                      label="Title"
+                      placeholder="e.g. Website redesign"
+                      error={errors.title?.message}
                     />
-                    <div className="flex flex-col gap-1">
+                  </div>
+                  {canAddNew && (
+                    <SegmentedControl
+                      label="Client"
+                      options={WHO}
+                      value={isNew ? "new" : "saved"}
+                      onChange={(value) => toggleNew(value === "new")}
+                      className="justify-self-start @[560px]:col-span-2"
+                    />
+                  )}
+                  {isNew ? (
+                    <>
                       <Field
-                        {...register("newClient.email")}
-                        type="email"
-                        label={
-                          <>
-                            Client email{" "}
-                            <span className="font-normal opacity-70">
-                              optional
-                            </span>
-                          </>
+                        {...register("newClient.name")}
+                        label="Client name"
+                        placeholder="Person or business"
+                        error={
+                          errors.newClient?.name?.message ??
+                          errors.clientId?.message
                         }
-                        placeholder="name@company.com"
-                        error={errors.newClient?.email?.message}
                       />
-                      <span className="text-muted-foreground text-xs">
-                        Saved as a new client. Needed to email the proposal.
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <Controller
-                    control={control}
-                    name="clientId"
-                    render={({ field }) => (
-                      <ClientCombobox
-                        clients={clients}
-                        value={field.value ?? ""}
-                        onChange={field.onChange}
-                        error={errors.clientId?.message}
+                      <div className="flex flex-col gap-1">
+                        <Field
+                          {...register("newClient.email")}
+                          type="email"
+                          label={
+                            <>
+                              Client email{" "}
+                              <span className="font-normal opacity-70">
+                                optional
+                              </span>
+                            </>
+                          }
+                          placeholder="name@company.com"
+                          error={errors.newClient?.email?.message}
+                        />
+                        <span className="text-muted-foreground text-xs">
+                          Saved as a new client. Needed to email the proposal.
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <Controller
+                      control={control}
+                      name="clientId"
+                      render={({ field }) => (
+                        <ClientCombobox
+                          clients={clients}
+                          value={field.value ?? ""}
+                          onChange={field.onChange}
+                          error={errors.clientId?.message}
+                        />
+                      )}
+                    />
+                  )}
+                  {!proposal && newClientBlocked && (
+                    <p className="text-muted-foreground text-xs @[560px]:col-span-2">
+                      Adding someone new adds a client. {newClientBlocked}
+                    </p>
+                  )}
+                  <div className="@[560px]:col-span-2">
+                    <Field
+                      {...register("content")}
+                      multiline
+                      rows={4}
+                      label={
+                        <>
+                          Summary{" "}
+                          <span className="font-normal opacity-70">
+                            optional
+                          </span>
+                        </>
+                      }
+                      placeholder="What the work covers and what you need from them"
+                      error={errors.content?.message}
+                    />
+                  </div>
+                </div>
+              </DetailCard>
+
+              <DetailCard title="Scope and price">
+                <div className="flex flex-col gap-3">
+                  {stageFields.map((field, index) => (
+                    <RiseRow key={field.id}>
+                      <ProposalMilestoneCard
+                        index={index}
+                        control={control}
+                        register={register}
+                        errors={errors}
+                        currency={currency}
+                        canRemove={stageFields.length > 1}
+                        onRemove={() => removeStage(index)}
                       />
-                    )}
-                  />
-                )}
-                {!proposal && newClientBlocked && (
-                  <p className="text-muted-foreground text-xs @[560px]:col-span-2">
-                    Adding someone new adds a client. {newClientBlocked}
+                    </RiseRow>
+                  ))}
+                </div>
+                {(errors.milestones?.message ||
+                  errors.milestones?.root?.message) && (
+                  <p className="text-danger-600 mt-2 text-xs">
+                    {errors.milestones?.message ??
+                      errors.milestones?.root?.message}
                   </p>
                 )}
-                <div className="@[560px]:col-span-2">
+                <CustomButton
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => appendStage(BLANK_STAGE)}
+                  className="mt-3 gap-1.5"
+                >
+                  <PlusIcon className="size-4" />
+                  Add stage
+                </CustomButton>
+              </DetailCard>
+
+              <DetailCard title="Terms" className="@container">
+                <div className="grid gap-4 @[560px]:grid-cols-2">
                   <Field
-                    {...register("content")}
-                    multiline
-                    rows={4}
-                    label={
-                      <>
-                        Summary{" "}
-                        <span className="font-normal opacity-70">optional</span>
-                      </>
-                    }
-                    placeholder="What the work covers and what you need from them"
-                    error={errors.content?.message}
+                    {...register("taxRate")}
+                    label="Tax rate"
+                    inputMode="decimal"
+                    placeholder="0"
+                    suffix="%"
+                    error={errors.taxRate?.message}
                   />
-                </div>
-              </div>
-            </DetailCard>
-
-            <DetailCard title="Scope and price">
-              <div className="flex flex-col gap-3">
-                {stageFields.map((field, index) => (
-                  <ProposalMilestoneCard
-                    key={field.id}
-                    index={index}
-                    control={control}
-                    register={register}
-                    errors={errors}
-                    currency={currency}
-                    canRemove={stageFields.length > 1}
-                    onRemove={() => removeStage(index)}
-                  />
-                ))}
-              </div>
-              {(errors.milestones?.message ||
-                errors.milestones?.root?.message) && (
-                <p className="text-danger-600 mt-2 text-xs">
-                  {errors.milestones?.message ??
-                    errors.milestones?.root?.message}
-                </p>
-              )}
-              <CustomButton
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => appendStage(BLANK_STAGE)}
-                className="mt-3 gap-1.5"
-              >
-                <PlusIcon className="size-4" />
-                Add stage
-              </CustomButton>
-            </DetailCard>
-
-            <DetailCard title="Terms" className="@container">
-              <div className="grid gap-4 @[560px]:grid-cols-2">
-                <Field
-                  {...register("taxRate")}
-                  label="Tax rate"
-                  inputMode="decimal"
-                  placeholder="0"
-                  suffix="%"
-                  error={errors.taxRate?.message}
-                />
-                <div className="flex flex-col gap-1">
-                  <Field
-                    {...register("deliveryDays")}
-                    label="Delivery time"
-                    inputMode="numeric"
-                    placeholder="e.g. 30"
-                    suffix="days"
-                    error={errors.deliveryDays?.message}
-                  />
-                  <span className="text-muted-foreground text-xs">
-                    Sets the project deadline when it starts
-                  </span>
-                </div>
-
-                <div className="@[560px]:col-span-2">
-                  <span className="text-muted-foreground mb-1.5 block text-[13px] font-medium">
-                    Deposit
-                  </span>
-                  <div className="flex flex-wrap items-start gap-2">
-                    <SegmentedControl
-                      label="Deposit"
-                      options={DEPOSITS}
-                      value={
-                        customDeposit
-                          ? ("" as "0")
-                          : (String(depositPercent) as "0")
-                      }
-                      onChange={(value) => {
-                        setCustomDeposit(false);
-                        setValue("depositPercent", Number(value), {
-                          shouldDirty: true,
-                          shouldValidate: true,
-                        });
-                      }}
-                      itemClassName="h-9 px-3 text-[13px]"
+                  <div className="flex flex-col gap-1">
+                    <Field
+                      {...register("deliveryDays")}
+                      label="Delivery time"
+                      inputMode="numeric"
+                      placeholder="e.g. 30"
+                      suffix="days"
+                      error={errors.deliveryDays?.message}
                     />
-                    <div className="w-32">
-                      <Field
-                        aria-label="Custom deposit"
-                        inputMode="decimal"
-                        placeholder="Custom"
-                        suffix="%"
+                    <span className="text-muted-foreground text-xs">
+                      Sets the project deadline when it starts
+                    </span>
+                  </div>
+
+                  <div className="@[560px]:col-span-2">
+                    <span className="text-muted-foreground mb-1.5 block text-[13px] font-medium">
+                      Deposit
+                    </span>
+                    <div className="flex flex-wrap items-start gap-2">
+                      <SegmentedControl
+                        label="Deposit"
+                        options={DEPOSITS}
                         value={
-                          customDeposit ? String(watchedDeposit ?? "") : ""
+                          customDeposit
+                            ? ("" as "0")
+                            : (String(depositPercent) as "0")
                         }
-                        onChange={(event: ChangeEvent<HTMLInputElement>) => {
-                          // Typing switches to a custom deposit.
-                          setCustomDeposit(true);
-                          setValue("depositPercent", event.target.value, {
+                        onChange={(value) => {
+                          setCustomDeposit(false);
+                          setValue("depositPercent", Number(value), {
                             shouldDirty: true,
                             shouldValidate: true,
                           });
                         }}
-                        error={errors.depositPercent?.message}
+                        itemClassName="h-9 px-3 text-[13px]"
                       />
-                    </div>
-                  </div>
-                  {depositPercent > 0 && !hasPaymentDetails && (
-                    <DepositPaymentWarning className="mt-3" />
-                  )}
-                </div>
-
-                <div className="@[560px]:col-span-2">
-                  <span className="text-muted-foreground mb-1.5 block text-[13px] font-medium">
-                    Link expires
-                  </span>
-                  <Controller
-                    control={control}
-                    name="expiresInDays"
-                    render={({ field }) => {
-                      const days = Number(field.value ?? EXPIRY_DEFAULT_DAYS);
-                      return (
-                        <SegmentedControl
-                          label="Link expires"
-                          options={expiryOptionsWith(days)}
-                          value={String(days)}
-                          onChange={(value) => field.onChange(Number(value))}
-                          className="flex w-full flex-wrap @[560px]:inline-flex @[560px]:w-auto"
-                          itemClassName="h-9 px-3 text-[13px]"
+                      <div className="w-32">
+                        <Field
+                          aria-label="Custom deposit"
+                          inputMode="decimal"
+                          placeholder="Custom"
+                          suffix="%"
+                          value={
+                            customDeposit ? String(watchedDeposit ?? "") : ""
+                          }
+                          onChange={(event: ChangeEvent<HTMLInputElement>) => {
+                            // Typing switches to a custom deposit.
+                            setCustomDeposit(true);
+                            setValue("depositPercent", event.target.value, {
+                              shouldDirty: true,
+                              shouldValidate: true,
+                            });
+                          }}
+                          error={errors.depositPercent?.message}
                         />
-                      );
-                    }}
-                  />
-                </div>
-              </div>
-            </DetailCard>
-          </div>
+                      </div>
+                    </div>
+                    {depositPercent > 0 && !hasPaymentDetails && (
+                      <DepositPaymentWarning className="mt-3" />
+                    )}
+                  </div>
 
-          <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4">
-            <ProposalPreview
-              title={watchedTitle}
-              clientName={
-                isNew
-                  ? newClientName?.trim() || undefined
-                  : selectedClient?.company || selectedClient?.name
-              }
-              stages={watchedStages}
-              taxRate={taxRate}
-              taxAmount={taxAmount}
-              total={total}
-              expiresInDays={Number(watchedExpiry ?? EXPIRY_DEFAULT_DAYS)}
-              depositPercent={depositPercent}
-              depositAmount={depositAmount}
-              deliveryDays={Number(watchedDelivery) || 0}
-              currency={currency}
-              brand={resolveBrandColor(brandColor)}
-            />
-          </aside>
-        </form>
+                  <div className="@[560px]:col-span-2">
+                    <span className="text-muted-foreground mb-1.5 block text-[13px] font-medium">
+                      Link expires
+                    </span>
+                    <Controller
+                      control={control}
+                      name="expiresInDays"
+                      render={({ field }) => {
+                        const days = Number(field.value ?? EXPIRY_DEFAULT_DAYS);
+                        return (
+                          <SegmentedControl
+                            label="Link expires"
+                            options={expiryOptionsWith(days)}
+                            value={String(days)}
+                            onChange={(value) => field.onChange(Number(value))}
+                            className="flex w-full flex-wrap @[560px]:inline-flex @[560px]:w-auto"
+                            itemClassName="h-9 px-3 text-[13px]"
+                          />
+                        );
+                      }}
+                    />
+                  </div>
+                </div>
+              </DetailCard>
+            </motion.div>
+
+            <motion.aside
+              custom={1}
+              variants={rise}
+              initial={enter}
+              animate="show"
+              className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4"
+            >
+              <ProposalPreview
+                title={watchedTitle}
+                clientName={
+                  isNew
+                    ? newClientName?.trim() || undefined
+                    : selectedClient?.company || selectedClient?.name
+                }
+                stages={watchedStages}
+                taxRate={taxRate}
+                taxAmount={taxAmount}
+                total={total}
+                expiresInDays={Number(watchedExpiry ?? EXPIRY_DEFAULT_DAYS)}
+                depositPercent={depositPercent}
+                depositAmount={depositAmount}
+                deliveryDays={Number(watchedDelivery) || 0}
+                currency={currency}
+                brand={resolveBrandColor(brandColor)}
+              />
+            </motion.aside>
+          </form>
+        </MotionConfig>
       </div>
 
       <ConfirmDialog

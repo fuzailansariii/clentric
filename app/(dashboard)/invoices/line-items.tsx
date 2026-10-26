@@ -7,6 +7,7 @@ import {
   type FieldArrayWithId,
 } from "react-hook-form";
 import { XIcon } from "lucide-react";
+import { RiseRow } from "@/components/ui/rise";
 import { InvoiceFormInput } from "./schema";
 import { Field } from "@/components/ui/input";
 import {
@@ -39,8 +40,7 @@ const ROW = cn(
 );
 
 // Phone has no header row, so each box gets its own small label.
-const CAPTION =
-  "text-muted-foreground mb-1 block text-xs @[640px]:hidden";
+const CAPTION = "text-muted-foreground mb-1 block text-xs @[640px]:hidden";
 
 export default function LineItems({
   fields,
@@ -78,7 +78,7 @@ export default function LineItems({
         const n = index + 1;
 
         return (
-          <div key={field.id} className={cn(ROW, "border-t py-2.5")}>
+          <RiseRow key={field.id} className={cn(ROW, "border-t py-2.5")}>
             <span className="text-muted-foreground font-space hidden pt-3 text-xs tabular-nums @[640px]:block">
               {n}
             </span>
@@ -173,7 +173,7 @@ export default function LineItems({
             >
               <XIcon className="size-4" />
             </button>
-          </div>
+          </RiseRow>
         );
       })}
     </div>
