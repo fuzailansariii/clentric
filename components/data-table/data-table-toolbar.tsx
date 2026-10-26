@@ -175,7 +175,7 @@ function FilterTab({
         "focus-visible:ring-ring inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border px-3 text-[13px] whitespace-nowrap transition-colors outline-none focus-visible:ring-2",
         "@[640px]:h-7 @[640px]:px-2.5",
         active
-          ? "bg-foreground text-background @[640px]:bg-secondary @[640px]:text-foreground @[640px]:border-border border-transparent font-medium"
+          ? "bg-primary/10 dark:bg-primary/15 text-primary border-primary/30 @[640px]:bg-secondary @[640px]:text-foreground @[640px]:border-border font-medium"
           : "border-border bg-card text-muted-foreground hover:text-foreground @[640px]:hover:bg-secondary/60 @[640px]:border-transparent @[640px]:bg-transparent",
       )}
     >
@@ -185,7 +185,7 @@ function FilterTab({
           className={cn(
             "text-xs tabular-nums",
             active
-              ? "text-background/65 @[640px]:text-muted-foreground"
+              ? "text-primary/70 @[640px]:text-muted-foreground"
               : "text-muted-foreground/70",
           )}
         >

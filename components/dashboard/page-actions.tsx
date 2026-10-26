@@ -16,7 +16,8 @@ import { cn } from "@/lib/utils";
 /** One action on a detail page, drawn as a card on wider screens and a menu on phones. */
 export type PageAction = {
   label: string;
-  kind: "primary" | "secondary" | "quiet" | "danger";
+  /** "success": the green main button, only for money coming in (Mark as paid). */
+  kind: "primary" | "success" | "secondary" | "quiet" | "danger";
   icon?: ReactNode;
   onClick?: () => void;
   href?: string;
@@ -84,7 +85,10 @@ export function CardActions({
   /** False when phones have no other place for these (no header menu copy). */
   hideOnPhone?: boolean;
 }) {
-  const main = actions.filter((a) => a.kind === "primary" || a.kind === "secondary");
+  const main = actions.filter(
+    (a) =>
+      a.kind === "primary" || a.kind === "success" || a.kind === "secondary",
+  );
   const quiet = actions.filter((a) => a.kind === "quiet");
   const danger = actions.filter((a) => a.kind === "danger");
 
@@ -97,7 +101,11 @@ export function CardActions({
               <ActionControl
                 action={action}
                 className={customButtonClasses(
-                  action.kind === "primary" ? "primary" : "secondary",
+                  action.kind === "success"
+                    ? "success"
+                    : action.kind === "primary"
+                      ? "primary"
+                      : "secondary",
                   "md",
                   "w-full gap-1.5",
                 )}
@@ -154,7 +162,7 @@ export function HeaderActions({ actions }: { actions: PageAction[] }) {
 
 /** The same actions in the header's "..." menu on phones; Delete last, after a divider. */
 export function MoreMenu({ actions }: { actions: PageAction[] }) {
-  const order = ["primary", "secondary", "quiet", "danger"] as const;
+  const order = ["primary", "success", "secondary", "quiet", "danger"] as const;
   const sorted = order.flatMap((kind) => actions.filter((a) => a.kind === kind));
   const itemClass = "focus:bg-sidebar-accent/50 cursor-pointer gap-2 px-2 py-2";
 

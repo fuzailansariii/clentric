@@ -1,5 +1,9 @@
 "use client";
 
+import { MotionConfig, motion } from "motion/react";
+import { useEnterInitial } from "@/components/ui/rise";
+import { rise } from "@/lib/motion";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
@@ -89,6 +93,7 @@ export function ProposalDetailView({
 }: ProposalDetailViewProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const enter = useEnterInitial();
   const [confirmRevoke, setConfirmRevoke] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -364,7 +369,6 @@ export function ProposalDetailView({
           { label: "Proposals", href: "/proposals" },
           { label: proposal.title },
         ]}
-
       />
 
       <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
@@ -406,320 +410,335 @@ export function ProposalDetailView({
             </div>
           )}
 
-          <div className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]">
-            {/* ── The document, as the client sees it ───────────────── */}
-            <article
-              aria-label="Proposal"
-              className="bg-card order-2 min-w-0 overflow-hidden rounded-lg border shadow-xs @[1000px]:order-none"
-            >
-              <div className="h-1" style={{ background: brand }} />
-              <div className="flex flex-col gap-6 p-5 @[560px]:p-8">
-                <div className="flex min-w-0 items-center gap-3">
-                  {proposal.logoSrc ? (
-                    <BrandLogo
-                      src={proposal.logoSrc}
-                      name={issuer.title}
-                      className="h-10"
-                    />
-                  ) : (
-                    <AvatarInitials
-                      name={issuer.title}
-                      shape="square"
-                      variant="accent"
-                      className="shrink-0"
-                    />
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-[15px] font-semibold wrap-anywhere">
-                      {issuer.title}
-                    </p>
-                    {issuer.lines.length > 0 && (
-                      <p className="text-muted-foreground text-[12.5px] wrap-anywhere">
-                        {issuer.lines.slice(0, 2).join(" · ")}
-                      </p>
+          <MotionConfig reducedMotion="user">
+            <div className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]">
+              {/* ── The document, as the client sees it ───────────────── */}
+              <motion.article
+                custom={0}
+                variants={rise}
+                initial={enter}
+                animate="show"
+                aria-label="Proposal"
+                className="bg-card order-2 min-w-0 overflow-hidden rounded-lg border shadow-xs @[1000px]:order-none"
+              >
+                <div className="h-1" style={{ background: brand }} />
+                <div className="flex flex-col gap-6 p-5 @[560px]:p-8">
+                  <div className="flex min-w-0 items-center gap-3">
+                    {proposal.logoSrc ? (
+                      <BrandLogo
+                        src={proposal.logoSrc}
+                        name={issuer.title}
+                        className="h-10"
+                      />
+                    ) : (
+                      <AvatarInitials
+                        name={issuer.title}
+                        shape="square"
+                        variant="accent"
+                        className="shrink-0"
+                      />
                     )}
-                  </div>
-                </div>
-
-                <div>
-                  <p
-                    className="text-[11px] font-semibold tracking-[0.12em] uppercase"
-                    style={{ color: brand }}
-                  >
-                    Proposal
-                  </p>
-                  <h2 className="font-space mt-1.5 text-[22px] leading-tight font-semibold tracking-tight text-balance @[560px]:text-[30px]">
-                    {proposal.title}
-                  </h2>
-                  <p className="text-muted-foreground mt-2 text-sm">
-                    Prepared for{" "}
-                    {proposal.client.company || proposal.client.name} ·{" "}
-                    {formatDate(proposal.createdAt)}
-                  </p>
-                </div>
-
-                {proposal.content?.trim() && (
-                  <div>
-                    <p className={labelClass}>Summary</p>
-                    <p className="mt-1.5 text-sm leading-relaxed text-pretty whitespace-pre-line">
-                      {proposal.content}
-                    </p>
-                  </div>
-                )}
-
-                {stages.map((stage) => {
-                  const subtotal = stage.items.reduce(
-                    (sum, item) => sum + Number(item.amount),
-                    0,
-                  );
-                  return (
-                    <section key={stage.id}>
-                      {stage.name && (
-                        <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
-                          <h3 className="font-space text-base font-semibold">
-                            {stage.name}
-                          </h3>
-                          {stage.timeframe && (
-                            <span className="text-muted-foreground text-[13px]">
-                              {stage.timeframe}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                      {stage.description && (
-                        <p className="text-muted-foreground mb-2 text-[13.5px] text-pretty whitespace-pre-line">
-                          {stage.description}
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-semibold wrap-anywhere">
+                        {issuer.title}
+                      </p>
+                      {issuer.lines.length > 0 && (
+                        <p className="text-muted-foreground text-[12.5px] wrap-anywhere">
+                          {issuer.lines.slice(0, 2).join(" · ")}
                         </p>
                       )}
-                      <table className="w-full table-fixed border-collapse text-sm">
-                        <thead>
-                          <tr className="border-b">
-                            <th className={cn(labelClass, "py-2 text-left")}>
-                              Description
-                            </th>
-                            <th
-                              className={cn(
-                                labelClass,
-                                "hidden w-16 py-2 text-right @[560px]:table-cell",
-                              )}
-                            >
-                              Qty
-                            </th>
-                            <th
-                              className={cn(
-                                labelClass,
-                                "hidden w-26 py-2 text-right @[560px]:table-cell",
-                              )}
-                            >
-                              Rate
-                            </th>
-                            <th
-                              className={cn(labelClass, "w-26 py-2 text-right")}
-                            >
-                              Amount
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {stage.items.map((item) => (
-                            <tr key={item.id} className="border-b">
-                              <td className="py-2.5 pr-3 align-top wrap-anywhere">
-                                {item.description}
-                                <span className="text-muted-foreground block text-xs @[560px]:hidden">
-                                  {qty.format(Number(item.quantity))} ×{" "}
-                                  {money(item.rate)}
-                                </span>
-                              </td>
-                              <td className="font-space hidden py-2.5 text-right align-top tabular-nums @[560px]:table-cell">
-                                {qty.format(Number(item.quantity))}
-                              </td>
-                              <td className="font-space hidden py-2.5 text-right align-top tabular-nums @[560px]:table-cell">
-                                {money(item.rate)}
-                              </td>
-                              <td className="font-space py-2.5 text-right align-top font-medium tabular-nums">
-                                {money(item.amount)}
-                              </td>
-                            </tr>
-                          ))}
-                          {stage.name && (
-                            <tr>
-                              <td
-                                colSpan={4}
-                                className="text-muted-foreground pt-2 text-right text-[13px]"
-                              >
-                                Stage subtotal{" "}
-                                <span className="font-space text-foreground font-medium tabular-nums">
-                                  {money(subtotal)}
-                                </span>
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </section>
-                  );
-                })}
-
-                <dl className="ml-auto w-full max-w-80 text-[13.5px]">
-                  <div className="flex justify-between gap-6 py-1">
-                    <dt className="text-muted-foreground">Subtotal</dt>
-                    <dd className="font-space tabular-nums">
-                      {money(proposal.subtotal)}
-                    </dd>
-                  </div>
-                  {taxRate > 0 && (
-                    <div className="flex justify-between gap-6 py-1">
-                      <dt className="text-muted-foreground">
-                        Tax ({formatPercent(taxRate)}%)
-                      </dt>
-                      <dd className="font-space tabular-nums">
-                        {money(proposal.tax)}
-                      </dd>
                     </div>
-                  )}
-                  <div className="mt-1.5 flex items-baseline justify-between gap-6 border-t pt-2.5 font-semibold">
-                    <dt>Total</dt>
-                    <dd className="font-space text-xl font-medium tabular-nums">
-                      {money(proposal.total)}
-                    </dd>
                   </div>
-                  {depositPercent > 0 && (
-                    <div
-                      className="flex justify-between gap-6 pt-2 font-medium"
+
+                  <div>
+                    <p
+                      className="text-[11px] font-semibold tracking-[0.12em] uppercase"
                       style={{ color: brand }}
                     >
-                      <dt>
-                        Deposit to begin ({formatPercent(depositPercent)}%)
-                      </dt>
-                      <dd className="font-space tabular-nums">
-                        {money(depositAmount)}
-                      </dd>
+                      Proposal
+                    </p>
+                    <h2 className="font-space mt-1.5 text-[22px] leading-tight font-semibold tracking-tight text-balance @[560px]:text-[30px]">
+                      {proposal.title}
+                    </h2>
+                    <p className="text-muted-foreground mt-2 text-sm">
+                      Prepared for{" "}
+                      {proposal.client.company || proposal.client.name} ·{" "}
+                      {formatDate(proposal.createdAt)}
+                    </p>
+                  </div>
+
+                  {proposal.content?.trim() && (
+                    <div>
+                      <p className={labelClass}>Summary</p>
+                      <p className="mt-1.5 text-sm leading-relaxed text-pretty whitespace-pre-line">
+                        {proposal.content}
+                      </p>
                     </div>
                   )}
-                  {proposal.deliveryDays ? (
-                    <div className="text-muted-foreground flex justify-between gap-6 pt-1">
-                      <dt>Delivery time</dt>
-                      <dd>{plural(proposal.deliveryDays, "day")}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </div>
-            </article>
 
-            {/* ── The rail (first on narrow screens) ─────────────────── */}
-            <aside className="order-1 flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4 @[1000px]:order-none">
-              <DetailCard>
-                <p className="text-muted-foreground text-[12.5px]">Value</p>
-                <p className="font-space mt-0.5 text-[32px] leading-tight font-medium tracking-tight tabular-nums">
-                  {money(proposal.total)}
-                </p>
-                <p className="text-muted-foreground mt-1 text-[13px]">
-                  {/* No day counts here (they'd read the clock in render): dates only. */}
-                  {proposalActivity(state, {
-                    ...proposal,
-                    daysSinceUpdate: Number.POSITIVE_INFINITY,
-                    daysSinceViewed: Number.POSITIVE_INFINITY,
-                  })}
-                </p>
-                {cardActions.length > 0 && (
-                  <CardActions
-                    actions={cardActions}
-                    className="mt-4"
-                    hideOnPhone={false}
-                  />
-                )}
-              </DetailCard>
-
-              <DetailCard title="Client link">
-                {state === "draft" ? (
-                  <p className="text-muted-foreground text-[13.5px]">
-                    A private link is created when you send this proposal.
-                  </p>
-                ) : closed ? (
-                  <p className="text-muted-foreground text-[13.5px]">
-                    {state === "declined"
-                      ? "Declined, so the link is closed. Duplicate it to send a new version."
-                      : state === "revoked"
-                        ? "You revoked this link, so it no longer opens."
-                        : "This link expired before your client replied."}
-                  </p>
-                ) : (
-                  <div className="flex flex-col gap-2">
-                    {linkBox}
-                    <div className="flex flex-wrap gap-2">
-                      <CustomButton
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={copyLink}
-                        className="gap-1.5"
-                      >
-                        <CopyIcon className="size-3.5" />
-                        Copy client link
-                      </CustomButton>
-                      <a
-                        href={clientPath}
-                        target="_blank"
-                        rel="noreferrer"
-                        className={customButtonClasses(
-                          "ghost",
-                          "sm",
-                          "gap-1.5",
+                  {stages.map((stage) => {
+                    const subtotal = stage.items.reduce(
+                      (sum, item) => sum + Number(item.amount),
+                      0,
+                    );
+                    return (
+                      <section key={stage.id}>
+                        {stage.name && (
+                          <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
+                            <h3 className="font-space text-base font-semibold">
+                              {stage.name}
+                            </h3>
+                            {stage.timeframe && (
+                              <span className="text-muted-foreground text-[13px]">
+                                {stage.timeframe}
+                              </span>
+                            )}
+                          </div>
                         )}
-                      >
-                        <ExternalLinkIcon className="size-3.5" />
-                        Open client page
-                      </a>
+                        {stage.description && (
+                          <p className="text-muted-foreground mb-2 text-[13.5px] text-pretty whitespace-pre-line">
+                            {stage.description}
+                          </p>
+                        )}
+                        <table className="w-full table-fixed border-collapse text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className={cn(labelClass, "py-2 text-left")}>
+                                Description
+                              </th>
+                              <th
+                                className={cn(
+                                  labelClass,
+                                  "hidden w-16 py-2 text-right @[560px]:table-cell",
+                                )}
+                              >
+                                Qty
+                              </th>
+                              <th
+                                className={cn(
+                                  labelClass,
+                                  "hidden w-26 py-2 text-right @[560px]:table-cell",
+                                )}
+                              >
+                                Rate
+                              </th>
+                              <th
+                                className={cn(
+                                  labelClass,
+                                  "w-26 py-2 text-right",
+                                )}
+                              >
+                                Amount
+                              </th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {stage.items.map((item) => (
+                              <tr key={item.id} className="border-b">
+                                <td className="py-2.5 pr-3 align-top wrap-anywhere">
+                                  {item.description}
+                                  <span className="text-muted-foreground block text-xs @[560px]:hidden">
+                                    {qty.format(Number(item.quantity))} ×{" "}
+                                    {money(item.rate)}
+                                  </span>
+                                </td>
+                                <td className="font-space hidden py-2.5 text-right align-top tabular-nums @[560px]:table-cell">
+                                  {qty.format(Number(item.quantity))}
+                                </td>
+                                <td className="font-space hidden py-2.5 text-right align-top tabular-nums @[560px]:table-cell">
+                                  {money(item.rate)}
+                                </td>
+                                <td className="font-space py-2.5 text-right align-top font-medium tabular-nums">
+                                  {money(item.amount)}
+                                </td>
+                              </tr>
+                            ))}
+                            {stage.name && (
+                              <tr>
+                                <td
+                                  colSpan={4}
+                                  className="text-muted-foreground pt-2 text-right text-[13px]"
+                                >
+                                  Stage subtotal{" "}
+                                  <span className="font-space text-foreground font-medium tabular-nums">
+                                    {money(subtotal)}
+                                  </span>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </section>
+                    );
+                  })}
+
+                  <dl className="ml-auto w-full max-w-80 text-[13.5px]">
+                    <div className="flex justify-between gap-6 py-1">
+                      <dt className="text-muted-foreground">Subtotal</dt>
+                      <dd className="font-space tabular-nums">
+                        {money(proposal.subtotal)}
+                      </dd>
                     </div>
-                    {live && (
-                      <>
+                    {taxRate > 0 && (
+                      <div className="flex justify-between gap-6 py-1">
+                        <dt className="text-muted-foreground">
+                          Tax ({formatPercent(taxRate)}%)
+                        </dt>
+                        <dd className="font-space tabular-nums">
+                          {money(proposal.tax)}
+                        </dd>
+                      </div>
+                    )}
+                    <div className="mt-1.5 flex items-baseline justify-between gap-6 border-t pt-2.5 font-semibold">
+                      <dt>Total</dt>
+                      <dd className="font-space text-xl font-medium tabular-nums">
+                        {money(proposal.total)}
+                      </dd>
+                    </div>
+                    {depositPercent > 0 && (
+                      <div
+                        className="flex justify-between gap-6 pt-2 font-medium"
+                        style={{ color: brand }}
+                      >
+                        <dt>
+                          Deposit to begin ({formatPercent(depositPercent)}%)
+                        </dt>
+                        <dd className="font-space tabular-nums">
+                          {money(depositAmount)}
+                        </dd>
+                      </div>
+                    )}
+                    {proposal.deliveryDays ? (
+                      <div className="text-muted-foreground flex justify-between gap-6 pt-1">
+                        <dt>Delivery time</dt>
+                        <dd>{plural(proposal.deliveryDays, "day")}</dd>
+                      </div>
+                    ) : null}
+                  </dl>
+                </div>
+              </motion.article>
+
+              {/* ── The rail (first on narrow screens) ─────────────────── */}
+              <motion.aside
+                custom={1}
+                variants={rise}
+                initial={enter}
+                animate="show"
+                className="order-1 flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4 @[1000px]:order-none"
+              >
+                <DetailCard>
+                  <p className="text-muted-foreground text-[12.5px]">Value</p>
+                  <p className="font-space mt-0.5 text-[32px] leading-tight font-medium tracking-tight tabular-nums">
+                    {money(proposal.total)}
+                  </p>
+                  <p className="text-muted-foreground mt-1 text-[13px]">
+                    {/* No day counts here (they'd read the clock in render): dates only. */}
+                    {proposalActivity(state, {
+                      ...proposal,
+                      daysSinceUpdate: Number.POSITIVE_INFINITY,
+                      daysSinceViewed: Number.POSITIVE_INFINITY,
+                    })}
+                  </p>
+                  {cardActions.length > 0 && (
+                    <CardActions
+                      actions={cardActions}
+                      className="mt-4"
+                      hideOnPhone={false}
+                    />
+                  )}
+                </DetailCard>
+
+                <DetailCard title="Client link">
+                  {state === "draft" ? (
+                    <p className="text-muted-foreground text-[13.5px]">
+                      A private link is created when you send this proposal.
+                    </p>
+                  ) : closed ? (
+                    <p className="text-muted-foreground text-[13.5px]">
+                      {state === "declined"
+                        ? "Declined, so the link is closed. Duplicate it to send a new version."
+                        : state === "revoked"
+                          ? "You revoked this link, so it no longer opens."
+                          : "This link expired before your client replied."}
+                    </p>
+                  ) : (
+                    <div className="flex flex-col gap-2">
+                      {linkBox}
+                      <div className="flex flex-wrap gap-2">
                         <CustomButton
                           type="button"
-                          onClick={emailAgain}
-                          disabled={isPending || Boolean(emailReason)}
-                          className="mt-1 w-full"
+                          variant="secondary"
+                          size="sm"
+                          onClick={copyLink}
+                          className="gap-1.5"
                         >
-                          Email link again
+                          <CopyIcon className="size-3.5" />
+                          Copy client link
                         </CustomButton>
-                        <p className="text-muted-foreground text-center text-xs">
-                          {emailReason ??
-                            `${emailStatus?.remaining ?? 0} of ${EMAIL_LIMITS.perDocumentPerDay} emails left today`}
-                        </p>
-                      </>
-                    )}
-                    <p
-                      className={cn(
-                        "text-[12.5px]",
-                        state === "expiring"
-                          ? "text-warning-600"
-                          : "text-muted-foreground",
+                        <a
+                          href={clientPath}
+                          target="_blank"
+                          rel="noreferrer"
+                          className={customButtonClasses(
+                            "ghost",
+                            "sm",
+                            "gap-1.5",
+                          )}
+                        >
+                          <ExternalLinkIcon className="size-3.5" />
+                          Open client page
+                        </a>
+                      </div>
+                      {live && (
+                        <>
+                          <CustomButton
+                            type="button"
+                            onClick={emailAgain}
+                            disabled={isPending || Boolean(emailReason)}
+                            className="mt-1 w-full"
+                          >
+                            Email link again
+                          </CustomButton>
+                          <p className="text-muted-foreground text-center text-xs">
+                            {emailReason ??
+                              `${emailStatus?.remaining ?? 0} of ${EMAIL_LIMITS.perDocumentPerDay} emails left today`}
+                          </p>
+                        </>
                       )}
-                    >
-                      {state === "accepted"
-                        ? "Your client can still open it to see what they agreed."
-                        : proposal.expiresAt
-                          ? `Link expires ${formatDate(proposal.expiresAt)}. Extending a link is coming later.`
-                          : "This link never expires."}
-                    </p>
-                    {live && (
-                      <button
-                        type="button"
-                        onClick={() => setConfirmRevoke(true)}
-                        disabled={isPending}
-                        className="text-danger-600 self-start text-[12.5px] font-medium hover:underline disabled:opacity-60"
+                      <p
+                        className={cn(
+                          "text-[12.5px]",
+                          state === "expiring"
+                            ? "text-warning-600"
+                            : "text-muted-foreground",
+                        )}
                       >
-                        Revoke link
-                      </button>
-                    )}
-                  </div>
-                )}
-              </DetailCard>
+                        {state === "accepted"
+                          ? "Your client can still open it to see what they agreed."
+                          : proposal.expiresAt
+                            ? `Link expires ${formatDate(proposal.expiresAt)}. Extending a link is coming later.`
+                            : "This link never expires."}
+                      </p>
+                      {live && (
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRevoke(true)}
+                          disabled={isPending}
+                          className="text-danger-600 self-start text-[12.5px] font-medium hover:underline disabled:opacity-60"
+                        >
+                          Revoke link
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </DetailCard>
 
-              <DetailCard title="Activity">
-                <Timeline items={timeline} />
-              </DetailCard>
-            </aside>
-          </div>
+                <DetailCard title="Activity">
+                  <Timeline items={timeline} />
+                </DetailCard>
+              </motion.aside>
+            </div>
+          </MotionConfig>
         </div>
       </div>
 

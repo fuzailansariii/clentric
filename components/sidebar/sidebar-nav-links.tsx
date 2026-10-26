@@ -62,10 +62,10 @@ export function SidebarNavLink({
       className={cn(
         "text-sidebar-foreground relative flex items-center gap-3 rounded-lg px-3 py-2.5 font-sans text-sm",
         isCollapsed && "justify-center px-0",
-        // Drawer: ink pill like the app's segmented controls.
+        // Drawer: the current page is a filled brand-blue row.
         inDrawer
           ? isActive
-            ? "bg-foreground text-background font-medium"
+            ? "bg-primary-solid text-primary-solid-foreground font-medium"
             : "text-foreground active:bg-sidebar-accent font-medium"
           : isActive
             ? "bg-sidebar-accent text-sidebar-accent-foreground font-medium"
@@ -90,7 +90,7 @@ export function SidebarNavLink({
               badge.tone === "danger"
                 ? "bg-danger-600/15 text-danger-600"
                 : inDrawer && isActive
-                  ? "bg-background/20 text-background"
+                  ? "bg-white/20 text-white"
                   : "bg-foreground/8 text-muted-foreground",
             )}
           >

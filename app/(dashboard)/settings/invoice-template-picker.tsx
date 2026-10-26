@@ -69,7 +69,7 @@ export function InvoiceTemplatePicker({
                 className={cn(
                   "mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border",
                   isSelected
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? "border-primary bg-primary-solid text-primary-solid-foreground"
                     : "border-border",
                 )}
               >
