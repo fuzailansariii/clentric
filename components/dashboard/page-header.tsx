@@ -33,8 +33,11 @@ type PageHeaderProps = {
   actions?: ReactNode;
   /** What phones show instead of `actions`, when they differ. */
   mobileMenu?: ReactNode;
-  /** "menu-only": only phones show `actions` (e.g. a "..." menu); wider screens show them in the page. */
-  mobileActions?: "menu" | "inline" | "menu-only";
+  /**
+   * "menu-only": only phones show `actions` (e.g. a "..." menu); wider screens show them in the page.
+   * "none": phones show no actions, e.g. a "New" button the top bar's + already covers.
+   */
+  mobileActions?: "menu" | "inline" | "menu-only" | "none";
   breadcrumbs?: BreadcrumbItemType[];
   breadcrumbMode?: BreadcrumbMode;
   className?: string;
@@ -322,7 +325,8 @@ export default function PageHeader({
                   MOBILE ACTIONS
                   =================================================== */}
 
-              {mobileActions === "inline" || mobileActions === "menu-only" ? (
+              {mobileActions === "none" ? null : mobileActions === "inline" ||
+                mobileActions === "menu-only" ? (
                 <div className="flex shrink-0 items-center gap-2 md:hidden">
                   {mobileMenu ?? actions}
                 </div>

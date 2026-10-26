@@ -4,7 +4,7 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { ActionResult } from "@/lib/action-result";
-import { requireUser } from "@/lib/current-user";
+import { requireWriter } from "@/lib/write-limit";
 import { AppError, isUniqueViolation, logError } from "@/lib/errors";
 import { isRateLimited } from "@/lib/rate-limit";
 import { db } from "@/src/db";
@@ -376,7 +376,7 @@ export async function createProposalAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     // Money is computed here and only here — a client-sent total is never
     // trusted. Rounded per line first so the stored figures add up exactly
@@ -578,7 +578,7 @@ export async function sendProposalAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [row] = await db
       .update(proposals)
@@ -645,7 +645,7 @@ export async function emailProposalAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
     await emailProposal({
       userId: user.id,
       proposalId: parsed.data.proposalId,
@@ -679,7 +679,7 @@ export async function revokeProposalAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [row] = await db
       .update(proposals)
@@ -732,7 +732,7 @@ export async function duplicateProposalAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
     const limits = await planLimitsFor(user.id);
 
     const created = await db.transaction(async (tx) => {
@@ -879,7 +879,7 @@ export async function createProjectFromProposalAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
     const limits = await planLimitsFor(user.id);
 
     const projectId = await db.transaction(async (tx) => {
@@ -984,7 +984,7 @@ export async function updateProposalAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     // Same money rules as create: computed here, never trusted from input.
     const milestonesWithAmounts = parsed.data.milestones.map((milestone) => ({
@@ -1149,7 +1149,7 @@ export async function deleteProposalAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [row] = await db
       .update(proposals)

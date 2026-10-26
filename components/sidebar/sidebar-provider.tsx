@@ -57,6 +57,19 @@ export function SidebarProvider({
   );
 }
 
+// Inside the mobile drawer, sidebar parts ignore the desktop collapsed state.
+const inDrawerContext = createContext(false);
+
+export function InDrawer({ children }: { children: ReactNode }) {
+  return (
+    <inDrawerContext.Provider value={true}>{children}</inDrawerContext.Provider>
+  );
+}
+
+export function useInDrawer() {
+  return useContext(inDrawerContext);
+}
+
 export function useSidebar() {
   const ctx = useContext(sidebarContext);
   if (!ctx) throw new Error("useSidebar must be used within SidebarProvider");

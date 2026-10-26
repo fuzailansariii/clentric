@@ -298,7 +298,7 @@ export default function PrivacyPolicyPage() {
           We use only what the service needs to work. There are no advertising
           or analytics cookies, so there is nothing to opt out of.
           {LEGAL.analyticsTool
-            ? ` We also set cookies for ${LEGAL.analyticsTool}, which we use to measure how the site is used.`
+            ? ` ${LEGAL.analyticsTool} counts page visits without cookies and without identifying you.`
             : ""}
         </p>
         {/* Phones: one card per item; the four-column table needs width. */}

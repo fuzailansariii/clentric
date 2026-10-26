@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { and, eq, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import type { ActionResult } from "@/lib/action-result";
-import { requireUser } from "@/lib/current-user";
+import { requireWriter } from "@/lib/write-limit";
 import { getPlanFeatures } from "@/lib/billing";
 import { logError } from "@/lib/errors";
 import { db } from "@/src/db";
@@ -45,7 +45,7 @@ export async function updateProfileAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [row] = await db
       .update(users)
@@ -82,7 +82,7 @@ export async function updateBusinessAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     // Blank means "not set": stored as null so documents skip the line.
     const blankToNull = (value: string) => value.trim() || null;
@@ -127,7 +127,7 @@ export async function updateBrandingAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
     const { customBranding } = await getPlanFeatures(user.id);
     const { brandColor, testimonialQuote, testimonialAuthor } = parsed.data;
 
@@ -171,7 +171,7 @@ export async function uploadLogoAction(
     const sizeError = logoSizeError(file.size);
     if (sizeError) return { success: false, error: sizeError };
 
-    const user = await requireUser();
+    const user = await requireWriter();
     if (!(await getPlanFeatures(user.id)).customBranding) {
       return { success: false, error: LOGO_NEEDS_PRO };
     }
@@ -255,7 +255,7 @@ export async function uploadLogoAction(
 
 export async function removeLogoAction(): Promise<ActionResult> {
   try {
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [current] = await db
       .select({ fileId: users.logoFileId })
@@ -306,7 +306,7 @@ export async function updateInvoiceTemplateAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [row] = await db
       .update(users)
@@ -350,7 +350,7 @@ export async function upsertPaymentMethodAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
     const { type, showOnInvoices } = parsed.data;
 
     // Store only the chosen type's fields; everything else is cleared, so a
@@ -413,7 +413,7 @@ export async function setPaymentMethodVisibilityAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
     const { type, show } = parsed.data;
 
     // Switching on needs every field the method uses. The WHERE enforces
@@ -463,7 +463,7 @@ export async function updatePaymentInstructionsAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [row] = await db
       .update(users)

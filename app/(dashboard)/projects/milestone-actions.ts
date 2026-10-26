@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import type { ActionResult } from "@/lib/action-result";
 import { logActivity, removeActivity } from "@/lib/activity";
-import { requireUser } from "@/lib/current-user";
+import { requireWriter } from "@/lib/write-limit";
 import { AppError, logError } from "@/lib/errors";
 import { db } from "@/src/db";
 import { milestones } from "@/src/db/schema/milestones";
@@ -47,7 +47,7 @@ export async function createMilestoneAction(
       return { success: false, error: parsed.error.issues[0].message };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const { title } = parsed.data;
     const dueDate = parsed.data.dueDate || null;
@@ -143,7 +143,7 @@ export async function updateMilestoneAction(
       return { success: false, error: "No change to save." };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [updated] = await db
       .update(milestones)
@@ -191,7 +191,7 @@ export async function setMilestoneStatusAction(
       return { success: false, error: "Invalid milestone status." };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [updated] = await db
       .update(milestones)
@@ -244,7 +244,7 @@ export async function deleteMilestoneAction(
       return { success: false, error: "Invalid milestone ID." };
     }
 
-    const user = await requireUser();
+    const user = await requireWriter();
 
     const [deleted] = await db
       .delete(milestones)

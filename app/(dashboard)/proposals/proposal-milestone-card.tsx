@@ -9,6 +9,7 @@ import {
 } from "react-hook-form";
 import { PlusIcon, Trash2Icon, XIcon } from "lucide-react";
 import { CustomButton } from "@/components/ui/custom-button";
+import { RiseRow } from "@/components/ui/rise";
 import { Field } from "@/components/ui/input";
 import { currencySymbol, formatCurrency } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
@@ -32,8 +33,7 @@ const LINE = cn(
 );
 
 // Phone has no header row, so each box gets its own small label.
-const CAPTION =
-  "text-muted-foreground mb-1 block text-xs @[560px]:hidden";
+const CAPTION = "text-muted-foreground mb-1 block text-xs @[560px]:hidden";
 
 /**
  * One stage: name, when, description and the lines quoted under it.
@@ -94,7 +94,7 @@ export default function ProposalMilestoneCard({
       </div>
 
       {named && (
-        <div className="mt-2">
+        <RiseRow className="mt-2">
           <Field
             {...register(`milestones.${index}.description`)}
             multiline
@@ -103,7 +103,7 @@ export default function ProposalMilestoneCard({
             placeholder="What this stage covers (optional)"
             error={stageErrors?.description?.message}
           />
-        </div>
+        </RiseRow>
       )}
 
       <div
@@ -128,7 +128,7 @@ export default function ProposalMilestoneCard({
         const n = itemIndex + 1;
 
         return (
-          <div key={field.id} className={cn(LINE, "border-t py-2")}>
+          <RiseRow key={field.id} className={cn(LINE, "border-t py-2")}>
             <div className="col-span-4 @[560px]:col-span-1">
               <Field
                 {...register(
@@ -183,7 +183,7 @@ export default function ProposalMilestoneCard({
             >
               <XIcon className="size-4" />
             </button>
-          </div>
+          </RiseRow>
         );
       })}
 

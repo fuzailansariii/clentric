@@ -58,8 +58,8 @@ export function SegmentedControl<T extends string>({
                 "group/seg relative inline-flex h-10 cursor-pointer items-center gap-2 px-4 text-sm font-medium whitespace-nowrap transition-colors duration-200",
                 variant === "track" ? "rounded-md" : "rounded-lg",
                 variant === "chips" &&
-                  (on ? "border-foreground border" : "bg-card border"),
-                on ? "text-background" : "text-foreground",
+                  (on ? "border-primary/30 border" : "bg-card border"),
+                on ? "text-primary" : "text-foreground",
                 itemClassName,
               )}
             >
@@ -67,7 +67,7 @@ export function SegmentedControl<T extends string>({
                 <motion.span
                   layoutId={`${id}-pill`}
                   aria-hidden="true"
-                  className="bg-foreground absolute inset-0 rounded-[inherit]"
+                  className="bg-primary/10 ring-primary/30 dark:bg-primary/15 absolute inset-0 rounded-[inherit] ring-1 ring-inset"
                   transition={{ type: "spring", bounce: 0.18, duration: 0.5 }}
                 />
               )}

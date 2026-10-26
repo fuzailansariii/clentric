@@ -21,7 +21,8 @@ export function ProposalsHeader({
         { label: "Dashboard", href: "/dashboard" },
         { label: "Proposals" },
       ]}
-      mobileActions="inline"
+      // Phones create from the top bar's + button.
+      mobileActions="none"
       actions={
         showNew ? (
           <Link

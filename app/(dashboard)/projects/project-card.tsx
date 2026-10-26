@@ -138,7 +138,7 @@ export function ProjectCard({ project }: { project: ProjectBoardCard }) {
         {invoiceHref && (
           <Link
             href={invoiceHref}
-            className="bg-primary text-primary-foreground focus-visible:ring-ring relative z-10 inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-medium transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
+            className="bg-primary-solid text-primary-solid-foreground focus-visible:ring-ring relative z-10 inline-flex h-8 items-center rounded-lg px-3 text-[13px] font-medium transition-opacity hover:opacity-90 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none"
           >
             {invoiceLabel}
           </Link>

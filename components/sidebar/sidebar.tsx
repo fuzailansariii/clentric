@@ -11,7 +11,7 @@ import {
   Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSidebar } from "./sidebar-provider";
+import { InDrawer, useSidebar } from "./sidebar-provider";
 import { MobileDrawer } from "../mobile-drawer";
 import { SidebarNavLink, type NavBadge } from "./sidebar-nav-links";
 import { ReactNode } from "react";
@@ -20,7 +20,7 @@ import { DEFAULT_SETTINGS_HREF } from "@/app/(dashboard)/settings/sections";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 type SidebarProps = {
-  /** Desktop-only account section; on mobile the topbar avatar covers it. */
+  /** Account section, at the bottom of the desktop sidebar and the mobile drawer. */
   footer?: ReactNode;
   counts?: { openProposals: number; overdueInvoices: number };
 };
@@ -112,27 +112,24 @@ export default function Sidebar({ footer, counts }: SidebarProps) {
       </aside>
 
       {/* ================= Mobile Sidebar ================= */}
-      {/* The account menu lives on the topbar avatar instead. */}
+      {/* Settings lives in the account menu; "New" is the top bar's + button. */}
       <MobileDrawer
         open={isMobileOpen}
         onClose={closeMobile}
-        header={<DashboardLogoLink variant="brand" onClick={closeMobile} />}
-        footer={EXTRA_ITEMS.map((item) => (
-          <SidebarNavLink key={item.href} item={item} onClick={closeMobile} />
-        ))}
+        header={<DashboardLogoLink onClick={closeMobile} />}
+        bottom={footer && <InDrawer>{footer}</InDrawer>}
       >
-        <SidebarNavLink item={HOME_ITEM} onClick={closeMobile} />
-        <h2 className="text-muted-foreground mt-4 mb-1.5 ml-3 font-sans text-xs font-medium">
-          Workspace
-        </h2>
-        {WORKSPACE_ITEMS.map((item) => (
-          <SidebarNavLink
-            key={item.href}
-            item={item}
-            onClick={closeMobile}
-            badge={badges[item.href]}
-          />
-        ))}
+        <InDrawer>
+          <SidebarNavLink item={HOME_ITEM} onClick={closeMobile} />
+          {WORKSPACE_ITEMS.map((item) => (
+            <SidebarNavLink
+              key={item.href}
+              item={item}
+              onClick={closeMobile}
+              badge={badges[item.href]}
+            />
+          ))}
+        </InDrawer>
       </MobileDrawer>
     </>
   );

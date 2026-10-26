@@ -5,6 +5,7 @@ import { useState } from "react";
 import { MotionConfig, motion } from "motion/react";
 import {
   FileText,
+  FolderKanban,
   Plus,
   Receipt,
   UserPlus,
@@ -30,6 +31,7 @@ export type NewMenuItem = {
 const ALL_ITEMS: NewMenuItem[] = [
   { label: "New Client", href: "/clients/new", icon: UserPlus },
   { label: "New Proposal", href: "/proposals/new", icon: FileText },
+  { label: "New Project", href: "/projects/new", icon: FolderKanban },
   { label: "New Invoice", href: "/invoices/new", icon: Receipt },
 ];
 

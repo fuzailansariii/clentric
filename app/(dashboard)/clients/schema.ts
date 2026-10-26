@@ -11,17 +11,20 @@ export const clientSchema = z.object({
   company: z.string().trim().max(100).optional(),
   country: z.string().length(2, "Select a country").optional(),
   notes: z.string().trim().max(2000).optional(),
-  status: clientStatusEnum,
+  // Only archiving is set by hand; everything else is worked out (client-state.ts).
+  status: clientStatusEnum.optional(),
   hourlyRate: hourlyRateSchema,
 });
 
 export const clientIdSchema = z.uuid();
 
-/** The clients page: chip, status select, search and paging. */
+/** The clients page: tab, search and paging. */
 export const clientListParamsSchema = z.object({
   search: z.string().trim().max(200).optional(),
-  view: z.enum(["owes", "active", "idle"]).optional().catch(undefined),
-  status: clientStatusEnum.optional().catch(undefined),
+  view: z
+    .enum(["owes", "in_progress", "quiet", "archived"])
+    .optional()
+    .catch(undefined),
   page: z.coerce.number().int().min(1).catch(1),
   pageSize: z.coerce.number().int().min(1).max(100).catch(20),
 });

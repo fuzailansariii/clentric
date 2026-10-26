@@ -1,4 +1,8 @@
 "use client";
+
+import { MotionConfig, motion } from "motion/react";
+import { useEnterInitial } from "@/components/ui/rise";
+import { rise } from "@/lib/motion";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
@@ -17,9 +21,11 @@ import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { scrollToFirstError } from "@/lib/scroll-to-first-error";
 import type { ReturnTo } from "@/lib/return-to";
-import { useRouter } from "next/navigation";
 import PageHeader from "@/components/dashboard/page-header";
-import { FormActionBar } from "@/components/dashboard/form-action-bar";
+import {
+  FormActionBar,
+  useLeaveAfterSave,
+} from "@/components/dashboard/form-action-bar";
 import { DetailCard } from "@/components/dashboard/detail-parts";
 import { ClientOption } from "@/components/client-combobox";
 import {
@@ -144,13 +150,14 @@ export default function InvoiceBuilder({
     !invoice && isTerm(termDays) ? (String(termDays) as Term) : null,
   );
 
-  const router = useRouter();
-
   // A project from a taxed proposal bills at that rate; null leaves the field alone.
   const proposalTaxRate = (projectId: string | undefined) => {
     const rate = Number(projects.find((p) => p.id === projectId)?.proposalTaxRate);
     return rate > 0 ? String(rate) : null;
   };
+  // What the tax field starts at for a project: its proposal's rate, else the default.
+  const autoTaxRate = (projectId: string | undefined) =>
+    proposalTaxRate(projectId) ?? (defaults?.taxRate || "");
 
   // `any` for the context generic is the project convention for z.coerce
   // schemas (CLAUDE.md: type useForm as useForm<Input, any, Output>()).
@@ -180,9 +187,7 @@ export default function InvoiceBuilder({
             projects.find((project) => project.id === initialProjectId)
               ?.currency ?? "USD",
           // Empty rather than "0", so the placeholder shows.
-          taxRate:
-            proposalTaxRate(initialProjectId ?? undefined) ??
-            (defaults?.taxRate || ""),
+          taxRate: autoTaxRate(initialProjectId ?? undefined),
           notes: defaults?.notes ?? "",
           // On by default when opened from a fixed-price project.
           showProjectBalance:
@@ -277,11 +282,23 @@ export default function InvoiceBuilder({
     });
   };
 
+  // Tax follows the project until the user types in the field; then it's theirs.
+  const [taxTyped, setTaxTyped] = useState(false);
+  const followProjectTax = (projectId: string | undefined) => {
+    if (invoice || taxTyped) return;
+    setValue("taxRate", autoTaxRate(projectId), { shouldDirty: true });
+  };
+
+  const clearProject = () => {
+    followProjectTax(undefined);
+    setValue("projectId", undefined, { shouldDirty: true });
+  };
+
   const toggleBillNew = (next: boolean) => {
     setBillNew(next);
     if (next) {
       setValue("clientId", "");
-      setValue("projectId", undefined);
+      clearProject();
       setValue("newClient", { name: "", email: "" });
     } else {
       unregister("newClient");
@@ -294,7 +311,7 @@ export default function InvoiceBuilder({
   ) => {
     onChange(value);
     // Changing the client clears the project.
-    setValue("projectId", undefined, { shouldDirty: true });
+    clearProject();
     fillEmptyHourlyRates(hourlyRateFor(value, undefined));
   };
 
@@ -307,8 +324,7 @@ export default function InvoiceBuilder({
     setValue("showProjectBalance", project?.pricing === "fixed", {
       shouldDirty: true,
     });
-    const rate = invoice ? null : proposalTaxRate(value || undefined);
-    if (rate) setValue("taxRate", rate, { shouldDirty: true });
+    followProjectTax(value || undefined);
     fillEmptyHourlyRates(
       hourlyRateFor(getValues("clientId"), value || undefined),
     );
@@ -424,6 +440,9 @@ export default function InvoiceBuilder({
 
   const showErrors = () => scrollToFirstError("invoice-form");
 
+  const leave = useLeaveAfterSave({ reset, getValues });
+  const enter = useEnterInitial();
+
   const onSubmit = handleSubmit(async (raw: InvoiceFormOutput) => {
     setFormError("");
     const data = trimLines(raw);
@@ -438,7 +457,7 @@ export default function InvoiceBuilder({
         {
           loading: "Saving invoice...",
           success: "Changes saved",
-          onSuccess: () => router.push(`/invoices/${invoice.id}`),
+          onSuccess: () => leave(`/invoices/${invoice.id}`),
           onError: setFormError,
         },
       );
@@ -448,10 +467,7 @@ export default function InvoiceBuilder({
     await runActionWithToast(createInvoiceAction(data), {
       loading: "Saving draft...",
       success: "Saved as draft",
-      onSuccess: ({ invoiceId }) => {
-        router.push(returnTo ?? `/invoices/${invoiceId}`);
-        reset();
-      },
+      onSuccess: ({ invoiceId }) => leave(returnTo ?? `/invoices/${invoiceId}`),
       onError: setFormError,
     });
   }, showErrors);
@@ -499,8 +515,7 @@ export default function InvoiceBuilder({
             : "Invoice created and emailed to your client.",
       onSuccess: ({ invoiceId, sent, emailError }) => {
         warnNotEmailed(emailError, "invoice");
-        router.push(sent && returnTo ? returnTo : `/invoices/${invoiceId}`);
-        reset();
+        leave(sent && returnTo ? returnTo : `/invoices/${invoiceId}`);
       },
       onError: setFormError,
     });
@@ -533,162 +548,189 @@ export default function InvoiceBuilder({
       />
 
       <div className="@container px-2 py-5 sm:px-3 md:px-5 lg:px-10">
-        <form
-          id="invoice-form"
-          onSubmit={onSubmit}
-          noValidate
-          className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]"
-        >
-          <div className="flex min-w-0 flex-col gap-4">
-            {formError && (
-              <p className="bg-danger-600/12 text-danger-600 rounded-lg px-4 py-3 text-sm">
-                {formError}
-              </p>
-            )}
-
-            <DetailCard
-              title="Bill to"
-              aside={
-                <SegmentedControl
-                  label="Invoice type"
-                  options={MODES}
-                  value={mode}
-                  onChange={changeMode}
-                  itemClassName="h-8 px-3 text-[13px]"
-                />
+        <MotionConfig reducedMotion="user">
+          <form
+            id="invoice-form"
+            onSubmit={onSubmit}
+            onInput={(event) => {
+              if ((event.target as HTMLInputElement).name === "taxRate") {
+                setTaxTyped(true);
               }
-              className="@container"
+            }}
+            noValidate
+            className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]"
+          >
+            <motion.div
+              custom={0}
+              variants={rise}
+              initial={enter}
+              animate="show"
+              className="flex min-w-0 flex-col gap-4"
             >
-              <div className="grid gap-4 @[560px]:grid-cols-2">
-                <BillToField
-                  control={control}
-                  register={register}
-                  errors={errors}
-                  clients={clients}
-                  onClientChange={handleClientChange}
-                  isNew={billNew}
-                  onToggleNew={invoice ? null : toggleBillNew}
-                  newBlocked={newClientBlocked}
-                />
+              {formError && (
+                <p className="bg-danger-600/12 text-danger-600 rounded-lg px-4 py-3 text-sm">
+                  {formError}
+                </p>
+              )}
 
-                <Controller
-                  control={control}
-                  name="projectId"
-                  render={({ field }) => (
-                    <ProjectCombobox
-                      projects={filteredProjects}
-                      value={field.value ?? ""}
-                      onChange={(value) =>
-                        handleProjectChange(field.onChange, value)
-                      }
-                      disabled={billNew || !selectedClientId}
-                      error={errors.projectId?.message}
-                    />
-                  )}
-                />
+              <DetailCard
+                title="Bill to"
+                aside={
+                  <SegmentedControl
+                    label="Invoice type"
+                    options={MODES}
+                    value={mode}
+                    onChange={changeMode}
+                    itemClassName="h-8 px-3 text-[13px]"
+                  />
+                }
+                className="@container"
+              >
+                <div className="grid gap-4 @[560px]:grid-cols-2">
+                  <BillToField
+                    control={control}
+                    register={register}
+                    errors={errors}
+                    clients={clients}
+                    onClientChange={handleClientChange}
+                    isNew={billNew}
+                    onToggleNew={invoice ? null : toggleBillNew}
+                    newBlocked={newClientBlocked}
+                  />
 
-                {mode === "detailed" && (
                   <Controller
                     control={control}
-                    name="issueDate"
+                    name="projectId"
                     render={({ field }) => (
-                      <DatePickerField
-                        label="Issue date"
-                        value={field.value}
-                        onChange={(value) => {
-                          field.onChange(value);
-                          if (term) applyTerm(term, value);
-                        }}
-                        error={errors.issueDate?.message}
+                      <ProjectCombobox
+                        projects={filteredProjects}
+                        value={field.value ?? ""}
+                        onChange={(value) =>
+                          handleProjectChange(field.onChange, value)
+                        }
+                        disabled={billNew || !selectedClientId}
+                        error={errors.projectId?.message}
                       />
                     )}
                   />
-                )}
 
-                <Controller
-                  control={control}
-                  name="dueDate"
-                  render={({ field }) => (
-                    <DatePickerField
-                      label="Due date"
-                      value={field.value}
-                      onChange={(value) => {
-                        setTerm(null);
-                        field.onChange(value);
-                      }}
-                      error={errors.dueDate?.message}
-                      disablePast
+                  {mode === "detailed" && (
+                    <Controller
+                      control={control}
+                      name="issueDate"
+                      render={({ field }) => (
+                        <DatePickerField
+                          label="Issue date"
+                          value={field.value}
+                          onChange={(value) => {
+                            field.onChange(value);
+                            if (term) applyTerm(term, value);
+                          }}
+                          error={errors.issueDate?.message}
+                        />
+                      )}
                     />
                   )}
-                />
 
-                <div className="@[560px]:col-span-2">
-                  <SegmentedControl
-                    label="Payment terms"
-                    options={TERMS}
-                    value={term ?? ("" as Term)}
-                    onChange={(value) => applyTerm(value)}
-                    className="grid w-full grid-cols-2 @[560px]:inline-flex @[560px]:w-auto"
-                    itemClassName="h-9 justify-center px-3 text-[13px]"
+                  <Controller
+                    control={control}
+                    name="dueDate"
+                    render={({ field }) => (
+                      <DatePickerField
+                        label="Due date"
+                        value={field.value}
+                        onChange={(value) => {
+                          setTerm(null);
+                          field.onChange(value);
+                        }}
+                        error={errors.dueDate?.message}
+                        disablePast
+                      />
+                    )}
                   />
+
+                  <div className="@[560px]:col-span-2">
+                    <SegmentedControl
+                      label="Payment terms"
+                      options={TERMS}
+                      value={term ?? ("" as Term)}
+                      onChange={(value) => applyTerm(value)}
+                      className="grid w-full grid-cols-2 @[560px]:inline-flex @[560px]:w-auto"
+                      itemClassName="h-9 justify-center px-3 text-[13px]"
+                    />
+                  </div>
                 </div>
-              </div>
-            </DetailCard>
+              </DetailCard>
 
-            {mode === "quick" ? (
-              <QuickInvoiceForm register={register} errors={errors} />
-            ) : (
-              <DetailedInvoiceForm
-                control={control}
-                register={register}
-                errors={errors}
-                fields={fields}
-                watchedLineItems={watchedLineItems}
-                append={append}
-                remove={remove}
-                onUnitChange={handleUnitChange}
-                hourlyRateHint={hourlyRateHint}
-              />
-            )}
-          </div>
+              {/* Switching Quick and Detailed fades the new form in. */}
+              <motion.div
+                key={mode}
+                variants={rise}
+                initial={enter}
+                animate="show"
+              >
+                {mode === "quick" ? (
+                  <QuickInvoiceForm register={register} errors={errors} />
+                ) : (
+                  <DetailedInvoiceForm
+                    control={control}
+                    register={register}
+                    errors={errors}
+                    fields={fields}
+                    watchedLineItems={watchedLineItems}
+                    append={append}
+                    remove={remove}
+                    onUnitChange={handleUnitChange}
+                    hourlyRateHint={hourlyRateHint}
+                  />
+                )}
+              </motion.div>
+            </motion.div>
 
-          <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4">
-            {selectedProject && ledger && ledger.budget !== null && (
-              <BudgetLine
-                projectTitle={selectedProject.title}
-                currency={selectedProject.currency}
-                pricing={selectedProject.pricing}
-                balance={
-                  selectedProject.pricing === "hourly"
-                    ? undefined
-                    : {
-                        checked: Boolean(showProjectBalance),
-                        onChange: (checked) =>
-                          setValue("showProjectBalance", checked, {
-                            shouldDirty: true,
-                          }),
-                      }
+            <motion.aside
+              custom={1}
+              variants={rise}
+              initial={enter}
+              animate="show"
+              className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4"
+            >
+              {selectedProject && ledger && ledger.budget !== null && (
+                <BudgetLine
+                  projectTitle={selectedProject.title}
+                  currency={selectedProject.currency}
+                  pricing={selectedProject.pricing}
+                  balance={
+                    selectedProject.pricing === "hourly"
+                      ? undefined
+                      : {
+                          checked: Boolean(showProjectBalance),
+                          onChange: (checked) =>
+                            setValue("showProjectBalance", checked, {
+                              shouldDirty: true,
+                            }),
+                        }
+                  }
+                  ledger={{ ...ledger, budget: ledger.budget }}
+                  depositLabel={depositLabel}
+                />
+              )}
+              <InvoicePreview
+                issuerName={issuerName}
+                numberLabel={invoiceLabel ?? defaults?.nextNumberLabel ?? "New"}
+                projectName={selectedProject?.title}
+                clientName={
+                  billNew ? newClientName || undefined : selectedClient?.name
                 }
-                ledger={{ ...ledger, budget: ledger.budget }}
-                depositLabel={depositLabel}
+                dueDate={watchedDueDate}
+                lines={watchedLineItems}
+                subTotal={subtotal}
+                taxRate={taxRate}
+                taxAmount={taxAmount}
+                total={total}
               />
-            )}
-            <InvoicePreview
-              issuerName={issuerName}
-              numberLabel={invoiceLabel ?? defaults?.nextNumberLabel ?? "New"}
-              projectName={selectedProject?.title}
-              clientName={
-                billNew ? newClientName || undefined : selectedClient?.name
-              }
-              dueDate={watchedDueDate}
-              lines={watchedLineItems}
-              subTotal={subtotal}
-              taxRate={taxRate}
-              taxAmount={taxAmount}
-              total={total}
-            />
-          </aside>
-        </form>
+            </motion.aside>
+          </form>
+        </MotionConfig>
 
         <ConfirmDialog
           open={showQuickConfirm}

@@ -13,6 +13,8 @@ type MobileDrawerProps = {
   side?: "left" | "right";
   /** Pinned to the bottom; the children scroll above it on short screens. */
   footer?: ReactNode;
+  /** Edge to edge under the footer, e.g. an account card with its own padding. */
+  bottom?: ReactNode;
   children: ReactNode;
 };
 
@@ -22,6 +24,7 @@ export function MobileDrawer({
   header,
   side = "left",
   footer,
+  bottom,
   children,
 }: MobileDrawerProps) {
   useEffect(() => {
@@ -53,10 +56,8 @@ export function MobileDrawer({
 
       <aside
         className={cn(
-          "bg-background absolute inset-y-0 flex w-[min(18.75rem,85vw)] flex-col shadow-xl transition-transform duration-300 ease-out",
-          side === "left"
-            ? "left-0 rounded-r-md border-r"
-            : "right-0 rounded-l-md border-l",
+          "bg-card absolute inset-y-0 flex w-[min(20rem,85vw)] flex-col shadow-xl transition-transform duration-300 ease-out",
+          side === "left" ? "left-0 dark:border-r" : "right-0 dark:border-l",
           open
             ? "translate-x-0"
             : side === "left"
@@ -64,7 +65,7 @@ export function MobileDrawer({
               : "translate-x-full",
         )}
       >
-        <div className="flex h-14 shrink-0 items-center justify-between border-b px-4">
+        <div className="flex h-14 shrink-0 items-center justify-between pr-2 pl-6">
           {header}
           <CustomButton
             variant="ghost"
@@ -76,13 +77,14 @@ export function MobileDrawer({
           </CustomButton>
         </div>
 
-        <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-5">
+        <nav className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-3">
           {children}
         </nav>
 
         {footer && (
           <div className="flex shrink-0 flex-col gap-1 px-3 pb-2">{footer}</div>
         )}
+        {bottom && <div className="shrink-0">{bottom}</div>}
       </aside>
     </div>
   );

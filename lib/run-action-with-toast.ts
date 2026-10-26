@@ -19,16 +19,18 @@ export async function runActionWithToast<T = void>(
 
   toast.promise(settled, {
     loading,
-    success: (data) => {
-      onSuccess?.(data as T);
-      return typeof success === "function" ? success(data as T) : success;
-    },
+    success: (data) =>
+      typeof success === "function" ? success(data as T) : success,
     error: (err: Error) => err.message,
   });
 
+  let data: T;
   try {
-    await settled;
+    data = await settled;
   } catch (err) {
     onError?.((err as Error).message);
+    return;
   }
+  // Here, not in the toast: callers can rely on it running before this returns.
+  onSuccess?.(data);
 }

@@ -14,6 +14,7 @@ import {
 import { RowIconAction } from "@/components/dashboard/row-icon-action";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { AvatarInitials } from "@/components/ui/avatar-initials";
+import { StatusBadge } from "@/components/ui/status-badge";
 import { CustomButton } from "@/components/ui/custom-button";
 import {
   DropdownMenu,
@@ -22,13 +23,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format-currency";
 import { formatShortDate } from "@/lib/format-due";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { cn } from "@/lib/utils";
 import { deleteClientAction } from "./actions";
-import { clientStatusConfig } from "./client-status-config";
+import { setClientArchived } from "./archive-client";
+import { clientActivity, clientStateConfig } from "./client-state";
 import type { ClientListRow } from "./queries";
 
 const COLUMNS: LedgerColumn<ClientListRow>[] = [
@@ -56,20 +57,21 @@ const COLUMNS: LedgerColumn<ClientListRow>[] = [
     ),
   },
   {
-    key: "work",
-    header: "Active work",
-    maxWidth: "10rem",
+    key: "activity",
+    header: "Activity",
+    maxWidth: "14rem",
     phone: "detail",
     cell: (c) => (
       <LedgerCell
-        main={
-          c.activeProjects
-            ? `${c.activeProjects} project${c.activeProjects === 1 ? "" : "s"}`
-            : "None"
-        }
+        main={clientActivity(c.state, c)}
         mainClassName={cn(
           "text-[13px]",
-          !c.activeProjects && "text-muted-foreground",
+          c.state === "overdue"
+            ? "text-danger-600"
+            : (c.state === "new" ||
+                c.state === "quiet" ||
+                c.state === "archived") &&
+                "text-muted-foreground",
         )}
       />
     ),
@@ -118,14 +120,27 @@ const COLUMNS: LedgerColumn<ClientListRow>[] = [
         main={formatCurrency(c.owes)}
         mainClassName={cn(
           "font-space font-medium tabular-nums",
-          c.late
+          c.overdueInvoices
             ? "text-danger-600"
             : Number(c.owes)
               ? "text-foreground"
               : "text-muted-foreground",
         )}
-        sub={c.late ? "Overdue" : null}
-        subClassName="text-danger-600"
+        sub={
+          c.overdueInvoices ? (
+            "Overdue"
+          ) : (
+            // "Settled" only once something was billed; never-billed shows nothing.
+            <span className="@[700px]:hidden">
+              {Number(c.owes)
+                ? "Owes you"
+                : Number(c.lifetime)
+                  ? "Settled"
+                  : null}
+            </span>
+          )
+        }
+        subClassName={cn(c.overdueInvoices > 0 && "text-danger-600")}
       />
     ),
   },
@@ -134,9 +149,9 @@ const COLUMNS: LedgerColumn<ClientListRow>[] = [
     header: "Status",
     phone: "status",
     cell: (c) => {
-      const config = clientStatusConfig[c.status];
+      const config = clientStateConfig[c.state];
       return (
-        <StatusBadge status={config.variant} variant="soft">
+        <StatusBadge status={config.tone} variant="soft">
           {config.label}
         </StatusBadge>
       );
@@ -156,8 +171,8 @@ export function ClientList({
       rows={clients}
       columns={COLUMNS}
       groups={groups}
-      getGroup={(c) => c.status}
-      getAccent={(c) => (c.late ? "danger" : null)}
+      getGroup={(c) => c.state}
+      getAccent={(c) => (c.state === "overdue" ? "danger" : null)}
       getKey={(c) => c.id}
       getHref={(c) => `/clients/${c.id}`}
       getLabel={(c) => `Open ${c.name}`}
@@ -205,6 +220,13 @@ function ClientRowActions({ client }: { client: ClientListRow }) {
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link href={`/clients/${client.id}/edit`}>Edit</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            onClick={() =>
+              void setClientArchived(client, client.state !== "archived")
+            }
+          >
+            {client.state === "archived" ? "Restore client" : "Archive client"}
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem

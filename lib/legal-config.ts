@@ -162,7 +162,7 @@ export const LEGAL = {
   /** Error monitoring is disclosed exactly when it runs: with a DSN set at build time. */
   sentryIsLive: Boolean(process.env.NEXT_PUBLIC_SENTRY_DSN),
   /** Name of the analytics tool in use, or null when there is none. */
-  analyticsTool: null as string | null,
+  analyticsTool: "Vercel Web Analytics" as string | null,
 
   /** Routes, so links stay consistent across pages and the footer. */
   routes: {

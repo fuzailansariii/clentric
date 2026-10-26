@@ -1,7 +1,8 @@
 "use client";
 import { ArrowUp, ChevronsUpDown } from "lucide-react";
 import Link from "next/link";
-import { useSidebar } from "./sidebar-provider";
+import { cn } from "@/lib/utils";
+import { useInDrawer, useSidebar } from "./sidebar-provider";
 import { useIsCurrentPage } from "@/hooks/use-is-current-page";
 import { AvatarInitials } from "../ui/avatar-initials";
 import { DropdownMenu, DropdownMenuTrigger } from "../ui/dropdown-menu";
@@ -27,7 +28,9 @@ export default function SidebarFooter({
   plan,
   onLogoutClick,
 }: SidebarFooterProps) {
-  const { isCollapsed } = useSidebar();
+  const { isCollapsed: collapsedState, closeMobile } = useSidebar();
+  const inDrawer = useInDrawer();
+  const isCollapsed = collapsedState && !inDrawer;
   const isCurrentPage = useIsCurrentPage();
 
   // Collapsed: the avatar itself opens the account menu, so Profile,
@@ -64,9 +67,21 @@ export default function SidebarFooter({
   }
 
   return (
-    <div className="relative w-full border-t px-3 py-3">
-      <div className="flex w-full items-center gap-2 rounded-md p-1">
-        <AvatarInitials name={user.name} />
+    <div
+      className={cn("relative w-full px-3 py-3", !inDrawer && "border-t")}
+    >
+      <div
+        className={cn(
+          "flex w-full items-center gap-2 rounded-md p-1",
+          // Drawer: the whole row is the menu button, like a phone app.
+          inDrawer &&
+            "has-data-[state=open]:bg-sidebar-accent active:bg-sidebar-accent/60 relative gap-3 rounded-lg p-2",
+        )}
+      >
+        <AvatarInitials
+          name={user.name}
+          shape={inDrawer ? "circle" : "square"}
+        />
 
         <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 text-left">
           <span className="truncate font-sans text-sm">{user.name}</span>
@@ -81,9 +96,10 @@ export default function SidebarFooter({
                 href={BILLING_HREF}
                 onClick={(event) => {
                   if (isCurrentPage(BILLING_HREF)) event.preventDefault();
+                  closeMobile();
                 }}
                 aria-label="Upgrade to Pro"
-                className="flex cursor-pointer items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-600 hover:bg-amber-500/15 dark:text-amber-500"
+                className="relative z-10 flex cursor-pointer items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-600 hover:bg-amber-500/15 dark:text-amber-500"
               >
                 <ArrowUp size={12} />
                 <span>Pro</span>
@@ -92,17 +108,26 @@ export default function SidebarFooter({
           </div>
         </div>
 
+        {inDrawer && (
+          <ChevronsUpDown size={16} className="text-muted-foreground shrink-0" />
+        )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button
               type="button"
               aria-label="Account menu"
-              className="hover:bg-sidebar-accent/80 data-[state=open]:bg-sidebar-accent/80 cursor-pointer rounded-xl p-3"
+              className={
+                inDrawer
+                  ? "focus-visible:ring-ring absolute inset-0 cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:outline-none"
+                  : "hover:bg-sidebar-accent/80 data-[state=open]:bg-sidebar-accent/80 cursor-pointer rounded-xl p-3"
+              }
             >
-              <ChevronsUpDown
-                size={14}
-                className="text-muted-foreground shrink-0"
-              />
+              {!inDrawer && (
+                <ChevronsUpDown
+                  size={14}
+                  className="text-muted-foreground shrink-0"
+                />
+              )}
             </button>
           </DropdownMenuTrigger>
           <AccountMenuContent

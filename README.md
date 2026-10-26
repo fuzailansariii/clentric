@@ -2,7 +2,7 @@
 
 Workspace for freelancers: clients, proposals clients accept online, projects with milestones, invoices with PDF, and a dashboard that shows what needs attention.
 
-**Stack:** Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Supabase (Auth + Postgres) · Drizzle ORM · Vitest · Playwright
+**Stack:** Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Motion · Supabase (Auth + Postgres) · Drizzle ORM · Upstash Redis · Vercel Analytics · Vitest · Playwright
 
 ## Getting started
 
@@ -29,6 +29,8 @@ Open [http://localhost:3000](http://localhost:3000).
 | `BILLING_ENFORCED` | `true` turns paid plans on. Anything else = beta: everyone gets Pro, upgrade buttons hidden |
 | `NEXT_PUBLIC_SENTRY_DSN` | Error monitoring. Unset = Sentry off (local dev). `NEXT_PUBLIC_SENTRY_ENVIRONMENT` optional (e.g. `production`) |
 | `SENTRY_ORG`, `SENTRY_PROJECT`, `SENTRY_AUTH_TOKEN` | Host build only: uploads source maps so errors show real file names |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Optional. Per-user rate limit on writes (Upstash Redis). Unset = no limit (local dev) |
+| `CRON_SECRET` | Host only: Vercel sends it to the daily `/api/cron/keepalive` job, which refuses calls without it |
 | `SUPABASE_SERVICE_ROLE_KEY` | **End-to-end tests only.** Never use it in app code or a `NEXT_PUBLIC_` variable |
 
 `.env*` files are gitignored.

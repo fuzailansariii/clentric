@@ -1,9 +1,15 @@
+"use client";
+
 import Link from "next/link";
 import type { CSSProperties, ReactNode } from "react";
+import { ChevronRightIcon } from "lucide-react";
+import { MotionConfig, motion, type Variants } from "motion/react";
 import { formatCurrency } from "@/lib/format-currency";
+import { rise } from "@/lib/motion";
+import { useEnterInitial } from "@/components/ui/rise";
 import { cn } from "@/lib/utils";
 
-/** Where a column sits in the phone card: title | money | ⋮, then detail | status. */
+/** Where a column sits in the phone card: title | money, then status | detail | actions. */
 type PhoneRole = "title" | "money" | "detail" | "status";
 
 export type LedgerColumn<T> = {
@@ -65,9 +71,16 @@ function tracks<T>(columns: LedgerColumn<T>[], sizes: string[]) {
 // across rows and the only spare width goes to the fill column.
 const ROW = cn(
   "relative",
-  "@max-[699px]:grid @max-[699px]:grid-cols-[minmax(0,1fr)_auto_auto] @max-[699px]:gap-x-3 @max-[699px]:gap-y-2 @max-[699px]:[grid-template-areas:'title_money_act'_'detail_status_status']",
+  "@max-[699px]:grid @max-[699px]:grid-cols-[auto_minmax(0,1fr)_auto] @max-[699px]:items-center @max-[699px]:gap-x-3 @max-[699px]:gap-y-3 @max-[699px]:[grid-template-areas:'title_title_money'_'status_detail_act']",
   "@[700px]:col-span-full @[700px]:grid @[700px]:grid-cols-subgrid @[700px]:items-center",
 );
+
+// Rows rise in one after another; rows a filter brings in animate the same way.
+const arrow: Variants = {
+  hidden: { opacity: 0, x: -4 },
+  show: { opacity: 0, x: -4 },
+  hover: { opacity: 1, x: 0, transition: { duration: 0.15 } },
+};
 
 /**
  * The list table every workspace page uses: a tinted header, rows grouped by
@@ -98,6 +111,7 @@ export function LedgerTable<T>({
   getGroup?: (row: T) => string;
   getAccent?: (row: T) => LedgerAccent;
 }) {
+  const enter = useEnterInitial();
   const style = {
     "--cols-md": tracks(columns, ["md"]),
     "--cols-lg": tracks(columns, ["md", "lg"]),
@@ -110,14 +124,14 @@ export function LedgerTable<T>({
       column.align === "right" && "text-right",
       column.phone ? PHONE_AREA[column.phone] : SHOW[column.show ?? "md"],
       column.phone && column.show && column.show !== "md" && SHOW[column.show],
-      column.phone === "status" && "@max-[699px]:justify-self-end",
-      column.phone === "money" && "@max-[699px]:text-right",
+      column.phone === "money" &&
+        "@max-[699px]:self-start @max-[699px]:text-right",
       column.phone === "detail" && "@max-[699px]:text-left",
     );
   const cellStyle = (column: LedgerColumn<T>) =>
     column.maxWidth ? { maxWidth: column.maxWidth } : undefined;
 
-  const sections =
+  const grouped =
     groups && getGroup
       ? groups
           .map((group) => ({
@@ -126,12 +140,22 @@ export function LedgerTable<T>({
           }))
           .filter((section) => section.rows.length > 0)
       : [{ group: null, rows }];
+  // Each section's first row's place on the page, for the stagger.
+  const sections = grouped.map((section, i) => ({
+    ...section,
+    start: grouped.slice(0, i).reduce((sum, s) => sum + s.rows.length, 0),
+  }));
 
-  const renderRow = (row: T) => {
+  const renderRow = (row: T, index: number) => {
     const accent = getAccent?.(row) ?? null;
     return (
-      <li
+      <motion.li
         key={getKey(row)}
+        custom={index}
+        variants={rise}
+        initial={enter}
+        animate="show"
+        whileHover="hover"
         className={cn(
           ROW,
           "bg-card rounded-lg border p-3.5 shadow-xs transition-colors",
@@ -156,63 +180,78 @@ export function LedgerTable<T>({
         ))}
         <div className="relative z-10 flex items-center justify-end gap-0.5 @max-[699px]:[grid-area:act]">
           {actions(row)}
+          <motion.span
+            aria-hidden="true"
+            variants={arrow}
+            className="text-muted-foreground pointer-events-none hidden @[700px]:block"
+          >
+            <ChevronRightIcon className="size-4" />
+          </motion.span>
         </div>
-      </li>
+      </motion.li>
     );
   };
 
   return (
-    <div className="@container" style={style}>
-      <div className="@[700px]:bg-card flex flex-col gap-2 @[700px]:grid @[700px]:grid-cols-(--cols-md) @[700px]:gap-x-6 @[700px]:gap-y-0 @[700px]:overflow-hidden @[700px]:rounded-lg @[700px]:border @[700px]:shadow-xs @[1000px]:grid-cols-(--cols-lg) @[1240px]:grid-cols-(--cols-xl)">
-        <div
-          aria-hidden="true"
-          className={cn(
-            ROW,
-            "text-muted-foreground bg-secondary/60 hidden h-10 px-4 text-[11px] font-medium tracking-[0.06em] uppercase @max-[699px]:hidden @[700px]:grid",
-          )}
-        >
-          {columns.map((column) => (
-            <span
-              key={column.key}
-              style={cellStyle(column)}
-              className={cn(
-                SHOW[column.show ?? "md"],
-                "truncate",
-                column.align === "right" && "text-right",
-              )}
-            >
-              {column.header}
-            </span>
-          ))}
-          <span />
-        </div>
-
-        {sections.map(({ group, rows: sectionRows }) => (
-          <section
-            key={group?.key ?? "all"}
-            aria-label={group ? `${group.label}, ${group.count}` : undefined}
-            className="flex flex-col gap-2 @[700px]:col-span-full @[700px]:grid @[700px]:grid-cols-subgrid @[700px]:gap-x-6 @[700px]:gap-y-0"
-          >
-            {group && (
-              <div className="flex items-baseline justify-between gap-3 px-1 pt-2 @[700px]:col-span-full @[700px]:border-t @[700px]:px-4 @[700px]:pt-3.5 @[700px]:pb-1.5">
-                <h3 className="text-[13px] font-semibold">
-                  {group.label}
-                  <span className="text-muted-foreground font-space ml-1.5 text-xs font-normal tabular-nums">
-                    {group.count}
-                  </span>
-                </h3>
-                <span className="text-muted-foreground font-space text-[13px] tabular-nums">
-                  {formatCurrency(group.sum)}
-                </span>
-              </div>
+    <MotionConfig reducedMotion="user">
+      <div className="@container" style={style}>
+        <div className="@[700px]:bg-card flex flex-col gap-2 @[700px]:grid @[700px]:grid-cols-(--cols-md) @[700px]:gap-x-6 @[700px]:gap-y-0 @[700px]:overflow-hidden @[700px]:rounded-lg @[700px]:border @[700px]:shadow-xs @[1000px]:grid-cols-(--cols-lg) @[1240px]:grid-cols-(--cols-xl)">
+          <div
+            aria-hidden="true"
+            className={cn(
+              ROW,
+              "text-muted-foreground bg-secondary/60 hidden h-10 px-4 text-[11px] font-medium tracking-[0.06em] uppercase @max-[699px]:hidden @[700px]:grid",
             )}
-            <ul className="flex flex-col gap-2 @[700px]:col-span-full @[700px]:grid @[700px]:grid-cols-subgrid @[700px]:gap-x-6 @[700px]:gap-y-0">
-              {sectionRows.map(renderRow)}
-            </ul>
-          </section>
-        ))}
+          >
+            {columns.map((column) => (
+              <span
+                key={column.key}
+                style={cellStyle(column)}
+                className={cn(
+                  SHOW[column.show ?? "md"],
+                  "truncate",
+                  column.align === "right" && "text-right",
+                )}
+              >
+                {column.header}
+              </span>
+            ))}
+            <span />
+          </div>
+
+          {sections.map(({ group, rows: sectionRows, start }) => (
+            <section
+              key={group?.key ?? "all"}
+              aria-label={group ? `${group.label}, ${group.count}` : undefined}
+              className="flex flex-col gap-2 @[700px]:col-span-full @[700px]:grid @[700px]:grid-cols-subgrid @[700px]:gap-x-6 @[700px]:gap-y-0"
+            >
+              {group && (
+                <motion.div
+                  custom={start}
+                  variants={rise}
+                  initial={enter}
+                  animate="show"
+                  className="flex items-baseline justify-between gap-3 px-1 pt-2 @[700px]:col-span-full @[700px]:border-t @[700px]:px-4 @[700px]:pt-3.5 @[700px]:pb-1.5"
+                >
+                  <h3 className="text-[13px] font-semibold">
+                    {group.label}
+                    <span className="text-muted-foreground font-space ml-1.5 text-xs font-normal tabular-nums">
+                      {group.count}
+                    </span>
+                  </h3>
+                  <span className="text-muted-foreground font-space text-[13px] tabular-nums">
+                    {formatCurrency(group.sum)}
+                  </span>
+                </motion.div>
+              )}
+              <ul className="flex flex-col gap-2 @[700px]:col-span-full @[700px]:grid @[700px]:grid-cols-subgrid @[700px]:gap-x-6 @[700px]:gap-y-0">
+                {sectionRows.map((row, i) => renderRow(row, start + i))}
+              </ul>
+            </section>
+          ))}
+        </div>
       </div>
-    </div>
+    </MotionConfig>
   );
 }
 

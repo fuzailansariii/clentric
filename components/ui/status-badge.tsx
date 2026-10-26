@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
-export type StatusTone = "info" | "success" | "warning" | "danger" | "neutral";
+export type StatusTone =
+  "info" | "success" | "warning" | "danger" | "neutral" | "violet" | "outline";
 
 // Tinted background + matching text color per tone. Shared with IconTile so
 // a list row's leading mark and its status pill always agree.
@@ -11,6 +12,10 @@ export const statusToneStyles: Record<StatusTone, string> = {
   warning: "bg-warning-600/12 text-warning-600",
   danger: "bg-danger-600/12 text-danger-600",
   neutral: "bg-foreground/8 text-muted-foreground",
+  violet:
+    "bg-violet-600/10 text-violet-700 dark:bg-violet-400/15 dark:text-violet-300",
+  // No fill: for things put away (archived).
+  outline: "text-muted-foreground ring-1 ring-inset ring-border",
 };
 
 export function StatusBadge({
