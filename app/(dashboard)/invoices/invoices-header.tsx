@@ -21,7 +21,8 @@ export function InvoicesHeader({
         { label: "Dashboard", href: "/dashboard" },
         { label: "Invoices" },
       ]}
-      mobileActions="inline"
+      // Phones create from the top bar's + button.
+      mobileActions="none"
       actions={
         showNew ? (
           <Link

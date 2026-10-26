@@ -12,6 +12,7 @@ import {
   WelcomeSkeleton,
 } from "@/components/dashboard/dashboard-skeletons";
 import { NewMenu } from "@/components/dashboard/new-menu";
+import { Rise } from "@/components/ui/rise";
 import {
   OnboardingSteps,
   type OnboardingProgress,
@@ -68,36 +69,48 @@ export default function Dashboard() {
 
       <DashboardContainer>
         <Suspense fallback={<WelcomeSkeleton />}>
-          <WelcomeSection />
+          <Rise>
+            <WelcomeSection />
+          </Rise>
         </Suspense>
 
         <div className="mt-6">
           <Suspense fallback={<AttentionSkeleton />}>
-            <AttentionSection />
+            <Rise>
+              <AttentionSection />
+            </Rise>
           </Suspense>
         </div>
 
         <div className="mt-6">
           <Suspense fallback={<StatTilesSkeleton />}>
-            <StatsSection />
+            <Rise>
+              <StatsSection />
+            </Rise>
           </Suspense>
         </div>
 
         <div className="mt-6">
           <Suspense fallback={<RevenueSkeleton />}>
-            <RevenueSection />
+            <Rise>
+              <RevenueSection />
+            </Rise>
           </Suspense>
         </div>
 
         <div className="mt-6">
           <Suspense fallback={<TablesSkeleton />}>
-            <TablesSection />
+            <Rise>
+              <TablesSection />
+            </Rise>
           </Suspense>
         </div>
 
         <div className="mt-6">
           <Suspense fallback={<ActivitySkeleton />}>
-            <ActivitySection />
+            <Rise>
+              <ActivitySection />
+            </Rise>
           </Suspense>
         </div>
       </DashboardContainer>

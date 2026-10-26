@@ -4,7 +4,6 @@ import { DataTablePagination } from "@/components/data-table/data-table-paginati
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { formatCurrency } from "@/lib/format-currency";
 import { ClientList } from "./client-list";
-import { ClientStatusFilter } from "./client-status-filter";
 import { ClientsHeader } from "./clients-header";
 import { getClientList } from "./queries";
 
@@ -12,13 +11,20 @@ type ClientsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
+const EMPTY_VIEW = {
+  owes: "No one owes you right now.",
+  in_progress: "No client has work in progress right now.",
+  quiet: "Every client has something open.",
+  archived: "No archived clients. Archive one from its ⋯ menu to tidy your list.",
+} as const;
+
 export default async function ClientsPage({ searchParams }: ClientsPageProps) {
   const params = await searchParams;
   const list = await getClientList(params);
   const search = typeof params.search === "string" ? params.search : "";
   const { counts } = list;
-  const filtered = Boolean(search || list.status);
-  const isEmpty = counts.all === 0 && !filtered;
+  // Archived clients still count: the Archived tab must stay reachable.
+  const isEmpty = counts.all + counts.archived === 0 && !search;
 
   return (
     <>
@@ -43,7 +49,6 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
           <div className="flex flex-col gap-4">
             <DataTableToolbar
               searchPlaceholder="Search clients..."
-              actions={<ClientStatusFilter value={list.status} />}
               filters={[
                 {
                   key: "view",
@@ -52,14 +57,15 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                   options: [
                     { value: "owes", label: "Owes you", count: counts.owes },
                     {
-                      value: "active",
-                      label: "Active work",
-                      count: counts.active,
+                      value: "in_progress",
+                      label: "In progress",
+                      count: counts.in_progress,
                     },
+                    { value: "quiet", label: "Quiet", count: counts.quiet },
                     {
-                      value: "idle",
-                      label: "No active work",
-                      count: counts.idle,
+                      value: "archived",
+                      label: "Archived",
+                      count: counts.archived,
                     },
                   ],
                 },
@@ -71,6 +77,7 @@ export default async function ClientsPage({ searchParams }: ClientsPageProps) {
                 noun="clients"
                 search={search}
                 clearHref="/clients"
+                emptyView={list.view ? EMPTY_VIEW[list.view] : undefined}
               />
             ) : (
               <ClientList clients={list.clients} groups={list.groups} />

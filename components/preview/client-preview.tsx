@@ -1,9 +1,6 @@
 import { AvatarInitials } from "@/components/ui/avatar-initials";
 import { StatusBadge } from "@/components/ui/status-badge";
-import {
-  clientStatusConfig,
-  type ClientStatus,
-} from "@/app/(dashboard)/clients/client-status-config";
+import { clientStateConfig } from "@/app/(dashboard)/clients/client-state";
 import { countryName } from "@/lib/countries";
 
 const labelClass =
@@ -15,18 +12,19 @@ export default function ClientPreview({
   company,
   email,
   country,
-  status,
+  isNew,
   hourlyRate,
 }: {
   name: string;
   company?: string;
   email?: string;
   country?: string;
-  status: ClientStatus;
+  /** A client being created shows the "New" badge the list will give them. */
+  isNew: boolean;
   hourlyRate?: string;
 }) {
   const shown = name.trim() || "Client name";
-  const config = clientStatusConfig[status];
+  const config = clientStateConfig.new;
   const place = countryName(country);
   const rate = Number(hourlyRate);
 
@@ -51,9 +49,11 @@ export default function ClientPreview({
               .join(" · ")}
           </p>
         </div>
-        <StatusBadge status={config.variant} variant="soft">
-          {config.label}
-        </StatusBadge>
+        {isNew && (
+          <StatusBadge status={config.tone} variant="soft">
+            {config.label}
+          </StatusBadge>
+        )}
       </div>
 
       <div className="mt-4 border-t pt-3.5">

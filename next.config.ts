@@ -24,7 +24,8 @@ const imagekitOrigin = originOf(
 // inline bootstrap. A nonce policy would force every page to render per request.
 const csp = [
   "default-src 'self'",
-  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
+  // Dev only: Vercel Analytics loads its debug script from its CDN; on Vercel it is same-origin.
+  `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval' https://va.vercel-scripts.com" : ""}`,
   "style-src 'self' 'unsafe-inline'",
   `img-src 'self' data: blob: ${imagekitOrigin}`,
   "font-src 'self'",

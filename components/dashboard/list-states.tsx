@@ -33,25 +33,38 @@ export function ListEmpty({
   );
 }
 
-/** Filters or search left nothing to show. */
+/**
+ * Search or a filter left nothing to show. An empty filter tab is a normal
+ * state, not an error, so only a failed search offers a way back.
+ */
 export function ListNoResults({
   noun,
   search,
   clearHref,
+  emptyView,
 }: {
   /** Plural, e.g. "invoices". */
   noun: string;
   search?: string;
   clearHref: string;
+  /** What an empty filter means, e.g. "No one owes you right now." */
+  emptyView?: string;
 }) {
   return (
     <div className="bg-card flex flex-wrap items-center justify-between gap-3 rounded-lg border px-5 py-6 shadow-xs">
       <span className="text-muted-foreground text-sm">
-        {search ? `No ${noun} match "${search}".` : `No ${noun} in this view.`}
+        {search
+          ? `No ${noun} match "${search}".`
+          : (emptyView ?? `No ${noun} here right now.`)}
       </span>
-      <Link href={clearHref} className={customButtonClasses("secondary", "sm")}>
-        Clear filters
-      </Link>
+      {search && (
+        <Link
+          href={clearHref}
+          className={customButtonClasses("secondary", "sm")}
+        >
+          Clear search
+        </Link>
+      )}
     </div>
   );
 }

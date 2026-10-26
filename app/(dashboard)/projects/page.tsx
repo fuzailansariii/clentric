@@ -4,6 +4,7 @@ import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { ProjectsHeader } from "./projects-header";
 import { ProjectCard } from "./project-card";
+import { Rise } from "@/components/ui/rise";
 import { getProjectBoard } from "./queries";
 
 type ProjectPageProps = {
@@ -38,7 +39,7 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
                 </p>
                 <Link
                   href="/projects/new"
-                  className="bg-primary text-primary-foreground mt-1.5 inline-flex h-9 items-center rounded-lg px-3.5 text-sm font-medium hover:opacity-90"
+                  className="bg-primary-solid text-primary-solid-foreground mt-1.5 inline-flex h-9 items-center rounded-lg px-3.5 text-sm font-medium hover:opacity-90"
                 >
                   Add Project
                 </Link>
@@ -73,14 +74,17 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
                 <div className="bg-card text-muted-foreground rounded-lg border px-5 py-7 text-sm shadow-xs">
                   {searching
                     ? `No projects match "${params.search}".`
-                    : "No projects in this view."}
+                    : "No projects here right now."}
                 </div>
               ) : (
                 // Columns follow the space the cards get, not the window: the sidebar takes real width.
                 <div className="@container">
                   <div className="grid grid-cols-1 gap-4 @[540px]:grid-cols-2 @[1020px]:grid-cols-3">
-                    {board.cards.map((project) => (
-                      <ProjectCard key={project.id} project={project} />
+                    {board.cards.map((project, index) => (
+                      // grid: the card still fills its row's height.
+                      <Rise key={project.id} index={index} className="grid">
+                        <ProjectCard project={project} />
+                      </Rise>
                     ))}
                   </div>
                 </div>

@@ -6,7 +6,7 @@ import {
   statusToneStyles,
   type StatusTone,
 } from "@/components/ui/status-badge";
-import { formatCurrencyWhole } from "@/lib/format-currency";
+import { CountUp } from "@/components/ui/count-up";
 import { cn } from "@/lib/utils";
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
@@ -21,7 +21,9 @@ export function StatTiles({ money }: { money: DashboardMoney | null }) {
     );
   }
 
-  const fmt = (value: string) => formatCurrencyWhole(value, money.currency);
+  const fmt = (value: string) => (
+    <CountUp value={Number(value)} currency={money.currency} />
+  );
 
   return (
     // Container query: the open sidebar eats into the width.
@@ -82,7 +84,7 @@ function Tile({
 }: {
   tone: StatusTone;
   label: string;
-  value: string;
+  value: ReactNode;
   children: ReactNode;
 }) {
   return (

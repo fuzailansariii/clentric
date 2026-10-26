@@ -71,6 +71,8 @@
   --color-secondary: var(--secondary);
   --color-primary-foreground: var(--primary-foreground);
   --color-primary: var(--primary);
+  --color-primary-solid: var(--primary-solid);
+  --color-primary-solid-foreground: var(--primary-solid-foreground);
   --color-popover-foreground: var(--popover-foreground);
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
@@ -95,6 +97,9 @@
   --popover-foreground: #111111;
   --primary: #3454d1;
   --primary-foreground: #ffffff;
+  /* Filled buttons: the same deep blue with white text in both themes. */
+  --primary-solid: #3454d1;
+  --primary-solid-foreground: #ffffff;
   --secondary: #f0efec;
   --secondary-foreground: #111111;
   --muted: #fafaf9;
@@ -134,6 +139,8 @@
   --popover-foreground: #f5f5f5;
   --primary: #7c93f0;
   --primary-foreground: #08090b;
+  --primary-solid: #4462e0;
+  --primary-solid-foreground: #ffffff;
   --secondary: #161616;
   --secondary-foreground: #f5f5f5;
   --muted: #0a0a0a;
