@@ -2,7 +2,7 @@
 
 Workspace for freelancers: clients, proposals clients accept online, projects with milestones, invoices with PDF, and a dashboard that shows what needs attention.
 
-**Stack:** Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Motion · Supabase (Auth + Postgres) · Drizzle ORM · Upstash Redis · Vitest · Playwright
+**Stack:** Next.js 16 (App Router, Turbopack) · React 19 · TypeScript · Tailwind CSS v4 · Motion · Supabase (Auth + Postgres) · Drizzle ORM · Upstash Redis · Vercel Analytics · Vitest · Playwright
 
 ## Getting started
 

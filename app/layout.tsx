@@ -3,6 +3,7 @@ import { Inter, Roboto_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ThemeProvider } from "next-themes";
+import { Analytics } from "@vercel/analytics/next";
 import { LEGAL } from "@/lib/legal-config";
 
 // Fonts
@@ -48,6 +49,7 @@ export default function RootLayout({
         >
           {children}
         </ThemeProvider>
+        <Analytics />
       </body>
     </html>
   );
