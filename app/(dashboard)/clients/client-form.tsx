@@ -15,17 +15,11 @@ import { CountryCombobox } from "@/components/ui/country-combobox";
 import { CustomButton } from "@/components/ui/custom-button";
 import { Field } from "@/components/ui/input";
 import { PhoneField, type PhoneFieldHandle } from "@/components/ui/phone-field";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { NO_CHANGE_MESSAGE } from "@/lib/error-message";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import type { ClientRow } from "@/src/db/schema/clients";
 import { createClientAction, updateClientAction } from "./actions";
-import { clientStatusConfig, type ClientStatus } from "./client-status-config";
 import { clientSchema, type ClientInput } from "./schema";
-
-const STATUS = (Object.keys(clientStatusConfig) as ClientStatus[]).map(
-  (value) => ({ value, label: clientStatusConfig[value].label }),
-);
 
 function Optional({ children }: { children: string }) {
   return (
@@ -66,7 +60,6 @@ export function ClientForm({
           phone: client.phone ?? "",
           country: client.country ?? undefined,
           notes: client.notes ?? "",
-          status: client.status,
           hourlyRate: client.hourlyRate ?? "",
         }
       : // Every key listed (country too), or react-hook-form counts the empty form as changed.
@@ -77,14 +70,13 @@ export function ClientForm({
           phone: "",
           country: undefined,
           notes: "",
-          status: "active",
           hourlyRate: "",
         },
   });
   const countryValue = useWatch({ control, name: "country" });
-  const [name, company, email, status, hourlyRate] = useWatch({
+  const [name, company, email, hourlyRate] = useWatch({
     control,
-    name: ["name", "company", "email", "status", "hourlyRate"],
+    name: ["name", "company", "email", "hourlyRate"],
   });
 
   const leave = useLeaveAfterSave({ reset, getValues });
@@ -208,25 +200,6 @@ export function ClientForm({
                   inputMode="decimal"
                   error={errors.hourlyRate?.message}
                 />
-                <div className="@[560px]:col-span-2">
-                  <span className="text-muted-foreground mb-1.5 block text-[13px] font-medium">
-                    Status
-                  </span>
-                  <Controller
-                    control={control}
-                    name="status"
-                    render={({ field }) => (
-                      <SegmentedControl
-                        label="Status"
-                        options={STATUS}
-                        value={field.value}
-                        onChange={field.onChange}
-                        className="grid w-full grid-cols-2 @[560px]:inline-flex @[560px]:w-auto"
-                        itemClassName="justify-center"
-                      />
-                    )}
-                  />
-                </div>
               </div>
             </DetailCard>
 
@@ -258,7 +231,7 @@ export function ClientForm({
               company={company}
               email={email}
               country={countryValue}
-              status={status ?? "active"}
+              isNew={!client}
               hourlyRate={hourlyRate}
             />
           </aside>

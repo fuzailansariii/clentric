@@ -6,9 +6,10 @@ import { ChevronRightIcon } from "lucide-react";
 import { MotionConfig, motion, type Variants } from "motion/react";
 import { formatCurrency } from "@/lib/format-currency";
 import { rise } from "@/lib/motion";
+import { useEnterInitial } from "@/components/ui/rise";
 import { cn } from "@/lib/utils";
 
-/** Where a column sits in the phone card: title | money | ⋮, then detail | status. */
+/** Where a column sits in the phone card: title | money, then status | detail | actions. */
 type PhoneRole = "title" | "money" | "detail" | "status";
 
 export type LedgerColumn<T> = {
@@ -70,7 +71,7 @@ function tracks<T>(columns: LedgerColumn<T>[], sizes: string[]) {
 // across rows and the only spare width goes to the fill column.
 const ROW = cn(
   "relative",
-  "@max-[699px]:grid @max-[699px]:grid-cols-[minmax(0,1fr)_auto_auto] @max-[699px]:gap-x-3 @max-[699px]:gap-y-2 @max-[699px]:[grid-template-areas:'title_money_act'_'detail_status_status']",
+  "@max-[699px]:grid @max-[699px]:grid-cols-[auto_minmax(0,1fr)_auto] @max-[699px]:items-center @max-[699px]:gap-x-3 @max-[699px]:gap-y-3 @max-[699px]:[grid-template-areas:'title_title_money'_'status_detail_act']",
   "@[700px]:col-span-full @[700px]:grid @[700px]:grid-cols-subgrid @[700px]:items-center",
 );
 
@@ -110,6 +111,7 @@ export function LedgerTable<T>({
   getGroup?: (row: T) => string;
   getAccent?: (row: T) => LedgerAccent;
 }) {
+  const enter = useEnterInitial();
   const style = {
     "--cols-md": tracks(columns, ["md"]),
     "--cols-lg": tracks(columns, ["md", "lg"]),
@@ -122,8 +124,8 @@ export function LedgerTable<T>({
       column.align === "right" && "text-right",
       column.phone ? PHONE_AREA[column.phone] : SHOW[column.show ?? "md"],
       column.phone && column.show && column.show !== "md" && SHOW[column.show],
-      column.phone === "status" && "@max-[699px]:justify-self-end",
-      column.phone === "money" && "@max-[699px]:text-right",
+      column.phone === "money" &&
+        "@max-[699px]:self-start @max-[699px]:text-right",
       column.phone === "detail" && "@max-[699px]:text-left",
     );
   const cellStyle = (column: LedgerColumn<T>) =>
@@ -151,7 +153,7 @@ export function LedgerTable<T>({
         key={getKey(row)}
         custom={index}
         variants={rise}
-        initial="hidden"
+        initial={enter}
         animate="show"
         whileHover="hover"
         className={cn(
@@ -227,7 +229,7 @@ export function LedgerTable<T>({
                 <motion.div
                   custom={start}
                   variants={rise}
-                  initial="hidden"
+                  initial={enter}
                   animate="show"
                   className="flex items-baseline justify-between gap-3 px-1 pt-2 @[700px]:col-span-full @[700px]:border-t @[700px]:px-4 @[700px]:pt-3.5 @[700px]:pb-1.5"
                 >

@@ -2,18 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  useEffect,
-  useOptimistic,
-  useRef,
-  useState,
-  useTransition,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 
 import PageHeader from "@/components/dashboard/page-header";
-import { FileText, PencilIcon, Receipt, Trash2Icon } from "lucide-react";
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  FileText,
+  PencilIcon,
+  Receipt,
+  Trash2Icon,
+} from "lucide-react";
 import { NewMenu } from "@/components/dashboard/new-menu";
 import { DetailCard, DetailList } from "@/components/dashboard/detail-parts";
 import {
@@ -28,17 +29,23 @@ import { DeleteDialog } from "@/components/delete-dialog";
 
 import { customButtonClasses } from "@/components/ui/custom-button";
 import { MetricStrip } from "@/components/ui/metric-strip";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StatusBadge, type StatusTone } from "@/components/ui/status-badge";
 import { countryName } from "@/lib/countries";
 import { formatCurrency } from "@/lib/format-currency";
 import { formatDate } from "@/lib/format-date";
 import { rise } from "@/lib/motion";
+import { useEnterInitial } from "@/components/ui/rise";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { cn } from "@/lib/utils";
 import type { ClientRow } from "@/src/db/schema/clients";
 import { deleteClientAction, updateClientAction } from "../actions";
-import { clientStatusConfig, type ClientStatus } from "../client-status-config";
+import { setClientArchived } from "../archive-client";
+import {
+  clientActivity,
+  clientStateConfig,
+  type ClientFacts,
+  type ClientState,
+} from "../client-state";
 
 export type ClientTab = {
   key: "projects" | "proposals" | "invoices";
@@ -58,20 +65,15 @@ export type ClientTab = {
   empty: { title: string; body: string; label: string; href: string };
 };
 
-type Summary = {
+type Summary = ClientFacts & {
+  state: ClientState;
   owes: string;
-  late: boolean;
   lifetime: string;
   sentInvoices: number;
-  activeProjects: number;
   projects: number;
   proposals: number;
   invoices: number;
 };
-
-const STATUS = (Object.keys(clientStatusConfig) as ClientStatus[]).map(
-  (value) => ({ value, label: clientStatusConfig[value].label }),
-);
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
@@ -86,31 +88,15 @@ export function ClientDetail({
   panel: ClientTab;
   search: string;
 }) {
+  const enter = useEnterInitial();
   const router = useRouter();
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [status, setOptimisticStatus] = useOptimistic(client.status);
-  const [, startStatus] = useTransition();
-
   const owes = Number(summary.owes);
-  const config = clientStatusConfig[status];
+  const late = summary.overdueInvoices > 0;
+  const archived = summary.state === "archived";
+  const config = clientStateConfig[summary.state];
   const company =
     client.company && client.company !== client.name ? client.company : null;
-
-  const changeStatus = (next: ClientStatus) => {
-    if (next === status) return;
-    startStatus(async () => {
-      setOptimisticStatus(next);
-      const result = await updateClientAction(client.id, { status: next });
-      if (result.success) {
-        toast.success(
-          `${client.name} is now ${clientStatusConfig[next].label.toLowerCase()}`,
-        );
-        router.refresh();
-      } else {
-        toast.error(result.error);
-      }
-    });
-  };
 
   const tabs = [
     { key: "projects", label: "Projects", count: summary.projects },
@@ -143,6 +129,16 @@ export function ClientDetail({
       icon: <PencilIcon className="size-4" />,
     },
     {
+      label: archived ? "Restore client" : "Archive client",
+      kind: "quiet",
+      onClick: () => void setClientArchived(client, !archived),
+      icon: archived ? (
+        <ArchiveRestoreIcon className="size-4" />
+      ) : (
+        <ArchiveIcon className="size-4" />
+      ),
+    },
+    {
       label: "Delete client",
       kind: "danger",
       onClick: () => setIsDeleteOpen(true),
@@ -155,7 +151,7 @@ export function ClientDetail({
       <PageHeader
         title={client.name}
         badge={
-          <StatusBadge status={config.variant} variant="soft">
+          <StatusBadge status={config.tone} variant="soft">
             {config.label}
           </StatusBadge>
         }
@@ -198,7 +194,7 @@ export function ClientDetail({
             <motion.div
               custom={0}
               variants={rise}
-              initial="hidden"
+              initial={enter}
               animate="show"
             >
               <MetricStrip
@@ -207,12 +203,12 @@ export function ClientDetail({
                   {
                     label: "Outstanding",
                     value: formatCurrency(summary.owes),
-                    sub: summary.late
+                    sub: late
                       ? "Includes an overdue invoice"
                       : owes
                         ? "Not due yet"
                         : "All settled",
-                    tone: summary.late ? "danger" : "default",
+                    tone: late ? "danger" : "default",
                   },
                   {
                     label: "Lifetime billed",
@@ -220,8 +216,8 @@ export function ClientDetail({
                     sub: `${plural(summary.sentInvoices, "invoice")} sent`,
                   },
                   {
-                    label: "Active projects",
-                    value: String(summary.activeProjects),
+                    label: "Open projects",
+                    value: String(summary.openProjects),
                     sub: `${summary.projects} in total`,
                   },
                 ]}
@@ -233,7 +229,7 @@ export function ClientDetail({
               <motion.div
                 custom={2}
                 variants={rise}
-                initial="hidden"
+                initial={enter}
                 animate="show"
                 className="max-md:hidden @[1000px]:col-start-2 @[1000px]:row-start-1"
               >
@@ -245,7 +241,7 @@ export function ClientDetail({
               <motion.section
                 custom={1}
                 variants={rise}
-                initial="hidden"
+                initial={enter}
                 animate="show"
                 className="bg-card @container min-w-0 overflow-hidden rounded-lg border shadow-xs @[1000px]:col-start-1 @[1000px]:row-span-2 @[1000px]:row-start-1"
               >
@@ -342,7 +338,7 @@ export function ClientDetail({
                             key={row.id}
                             custom={index}
                             variants={rise}
-                            initial="hidden"
+                            initial={enter}
                             animate="show"
                             className="border-t"
                           >
@@ -402,19 +398,24 @@ export function ClientDetail({
               <motion.aside
                 custom={3}
                 variants={rise}
-                initial="hidden"
+                initial={enter}
                 animate="show"
                 className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4 @[1000px]:col-start-2"
               >
                 <DetailCard title="Status">
-                  <SegmentedControl
-                    label="Client status"
-                    options={STATUS}
-                    value={status}
-                    onChange={changeStatus}
-                    className="grid w-full grid-cols-2"
-                    itemClassName="h-9 justify-center px-3 text-[13px]"
-                  />
+                  <div className="flex flex-col items-start gap-2">
+                    <StatusBadge status={config.tone} variant="soft">
+                      {config.label}
+                    </StatusBadge>
+                    <p className="text-sm">
+                      {clientActivity(summary.state, summary)}
+                    </p>
+                    <p className="text-muted-foreground text-[12.5px]">
+                      {archived
+                        ? "Archived: hidden from your client lists. Restore from the menu above."
+                        : "Updates on its own from their invoices, projects and proposals."}
+                    </p>
+                  </div>
                 </DetailCard>
 
                 <DetailCard title="Details">

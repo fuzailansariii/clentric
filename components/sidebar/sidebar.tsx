@@ -16,7 +16,6 @@ import { MobileDrawer } from "../mobile-drawer";
 import { SidebarNavLink, type NavBadge } from "./sidebar-nav-links";
 import { ReactNode } from "react";
 import { DashboardLogoLink } from "./dashboard-logo-link";
-import { NewMenu } from "../dashboard/new-menu";
 import { DEFAULT_SETTINGS_HREF } from "@/app/(dashboard)/settings/sections";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
@@ -113,7 +112,7 @@ export default function Sidebar({ footer, counts }: SidebarProps) {
       </aside>
 
       {/* ================= Mobile Sidebar ================= */}
-      {/* Settings lives in the account menu at the bottom. */}
+      {/* Settings lives in the account menu; "New" is the top bar's + button. */}
       <MobileDrawer
         open={isMobileOpen}
         onClose={closeMobile}
@@ -121,7 +120,6 @@ export default function Sidebar({ footer, counts }: SidebarProps) {
         bottom={footer && <InDrawer>{footer}</InDrawer>}
       >
         <InDrawer>
-          <NewMenu variant="row" onNavigate={closeMobile} className="mb-3" />
           <SidebarNavLink item={HOME_ITEM} onClick={closeMobile} />
           {WORKSPACE_ITEMS.map((item) => (
             <SidebarNavLink
