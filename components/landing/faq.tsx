@@ -32,7 +32,7 @@ const FAQS: { q: string; a: string; cat: Cat }[] = [
   {
     cat: "Getting started",
     q: "What does it cost?",
-    a: `Free covers your first client, Pro is $${PRICING.pro.price.monthly} a month for unlimited everything, and Agency arrives on ${PRICING.agency.launchDateLabel} for teams. Prices in USD, cancel anytime.`,
+    a: `Free covers your first client, Pro is $${PRICING.pro.price.monthly} a month for unlimited everything, and Agency arrives ${PRICING.agency.launchLabel} for teams. Prices in USD, cancel anytime.`,
   },
   {
     cat: "Payments",

@@ -5,7 +5,6 @@ import Link from "next/link";
 import { CheckIcon, MinusIcon, PlusIcon } from "lucide-react";
 import { LEGAL } from "@/lib/legal-config";
 import {
-  AGENCY_LAUNCH_DATE,
   PRICING,
   isComingSoon,
   pricePerMonth,
@@ -18,11 +17,6 @@ import { useOpenWaitlist } from "./waitlist-context";
 
 const { free, pro, agency } = PRICING;
 const MAX_SEATS = 25;
-const AGENCY_SHORT_DATE = new Date(`${AGENCY_LAUNCH_DATE}T00:00:00Z`).toLocaleDateString("en-US", {
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
 
 const CTA =
   "mt-4 flex h-10 sm:mt-5 w-full cursor-pointer items-center justify-center rounded-md border text-sm font-medium transition-[filter,scale] duration-150 hover:brightness-[.94] active:scale-[.98]";
@@ -120,7 +114,7 @@ export function Pricing({ today }: { today: string }) {
           desc={agency.tagline}
           price={`$${agencyPrice}`}
           per="/ month"
-          bill={`${seats} seats · +$${agency.extraSeatMonthly}/month per extra${agencyLive ? "" : ` · launches ${AGENCY_SHORT_DATE}`}`}
+          bill={`${seats} seats · +$${agency.extraSeatMonthly}/month per extra${agencyLive ? "" : ` · launches ${agency.launchLabel}`}`}
           inc={agency.featuresHeading}
           seats={
             <div className="mt-4 flex items-center justify-between gap-3 rounded-lg border bg-(--lp-sunk) py-2 pr-2 pl-3.5">
