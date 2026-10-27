@@ -1,16 +1,16 @@
 import { notFound } from "next/navigation";
-import { getInvoiceById, getInvoiceReminderDates } from "../queries";
-import { getClientById } from "../../clients/queries";
+import { getInvoiceById, getInvoiceReminderDates } from "../../queries";
+import { getClientById } from "../../../clients/queries";
 import {
   getClientProjectOptions,
   getInvoicesForProject,
   getMilestonesByProjectId,
   getProjectById,
-} from "../../projects/queries";
+} from "../../../projects/queries";
 import { getEmailStatus } from "@/lib/email/quota";
 import { boardProject } from "@/lib/project-progress";
 import { sumProjectInvoices } from "@/lib/project-ledger";
-import { InvoiceDetail } from "./invoice-detail";
+import { InvoiceDetail } from "../invoice-detail";
 
 type InvoicePageProps = {
   params: Promise<{ id: string }>;
