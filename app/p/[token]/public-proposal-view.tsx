@@ -155,7 +155,11 @@ export function PublicProposalView({ proposal, token }: Props) {
                 )}
               </div>
             </div>
-            <StatusBadge status={status.tone} variant="soft" className="shrink-0">
+            <StatusBadge
+              status={status.tone}
+              variant="soft"
+              className="shrink-0"
+            >
               {status.label}
             </StatusBadge>
           </header>
@@ -168,7 +172,7 @@ export function PublicProposalView({ proposal, token }: Props) {
               >
                 Proposal for {clientLabel}
               </p>
-              <h1 className="font-space mt-2 text-2xl leading-tight font-semibold tracking-tight text-balance sm:text-[34px]">
+              <h1 className="font-space mt-2 text-2xl leading-tight font-semibold tracking-tight text-balance wrap-anywhere sm:text-[34px]">
                 {proposal.title}
               </h1>
               <p className="text-muted-foreground mt-2 text-sm">
@@ -179,7 +183,7 @@ export function PublicProposalView({ proposal, token }: Props) {
             </div>
 
             {proposal.content?.trim() && (
-              <p className="text-sm leading-relaxed text-pretty whitespace-pre-line">
+              <p className="text-sm leading-relaxed text-pretty wrap-anywhere whitespace-pre-line">
                 {proposal.content}
               </p>
             )}
@@ -193,7 +197,7 @@ export function PublicProposalView({ proposal, token }: Props) {
                 <section key={stage.id}>
                   {stage.name && (
                     <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
-                      <h2 className="font-space text-base font-semibold">
+                      <h2 className="font-space min-w-0 text-base font-semibold wrap-anywhere">
                         {stage.name}
                       </h2>
                       {stage.timeframe && (
@@ -204,7 +208,7 @@ export function PublicProposalView({ proposal, token }: Props) {
                     </div>
                   )}
                   {stage.description && (
-                    <p className="text-muted-foreground mb-2 text-[13.5px] text-pretty whitespace-pre-line">
+                    <p className="text-muted-foreground mb-2 text-[13.5px] text-pretty wrap-anywhere whitespace-pre-line">
                       {stage.description}
                     </p>
                   )}
@@ -403,7 +407,7 @@ export function PublicProposalView({ proposal, token }: Props) {
                         );
                       })}
                       {outcome.deposit.payment.instructions?.trim() && (
-                        <p className="text-muted-foreground whitespace-pre-line">
+                        <p className="text-muted-foreground wrap-anywhere whitespace-pre-line">
                           {outcome.deposit.payment.instructions}
                         </p>
                       )}
@@ -420,7 +424,10 @@ export function PublicProposalView({ proposal, token }: Props) {
 
                 {outcome.deposit.emailedTo && (
                   <p className="text-muted-foreground flex items-start gap-2 text-sm wrap-anywhere">
-                    <Mail className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                    <Mail
+                      className="mt-0.5 size-4 shrink-0"
+                      aria-hidden="true"
+                    />
                     <span>
                       A PDF copy is on its way to{" "}
                       <span className="text-foreground font-medium">
@@ -480,7 +487,9 @@ export function PublicProposalView({ proposal, token }: Props) {
 
         {proposal.owner.testimonialQuote?.trim() && (
           <blockquote className="text-muted-foreground px-1 text-sm">
-            <p className="italic">&ldquo;{proposal.owner.testimonialQuote}&rdquo;</p>
+            <p className="italic">
+              &ldquo;{proposal.owner.testimonialQuote}&rdquo;
+            </p>
             {proposal.owner.testimonialAuthor?.trim() && (
               <footer className="mt-1 text-xs">
                 - {proposal.owner.testimonialAuthor}
@@ -494,7 +503,10 @@ export function PublicProposalView({ proposal, token }: Props) {
           {proposal.owner.clentricBranding && (
             <>
               {" · "}
-              <Link href="/" className="hover:text-foreground underline underline-offset-2">
+              <Link
+                href="/"
+                className="hover:text-foreground underline underline-offset-2"
+              >
                 Made with Clentric
               </Link>
             </>

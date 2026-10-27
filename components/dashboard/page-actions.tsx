@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Fragment, type ReactNode } from "react";
-import { MoreHorizontalIcon } from "lucide-react";
+import { Loader2, MoreHorizontalIcon } from "lucide-react";
 import { customButtonClasses } from "@/components/ui/custom-button";
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePdfDownload } from "@/hooks/use-pdf-download";
 import { cn } from "@/lib/utils";
 
 /** One action on a detail page, drawn as a card on wider screens and a menu on phones. */
@@ -21,12 +22,38 @@ export type PageAction = {
   icon?: ReactNode;
   onClick?: () => void;
   href?: string;
-  /** A file to save (PDF), not a page. */
+  /** A PDF to save, not a page. */
   download?: boolean;
   disabled?: boolean;
   /** Shown under the button in the card: why it's off, or emails left. */
   hint?: string | null;
 };
+
+const spinner = <Loader2 aria-hidden="true" className="size-4 animate-spin" />;
+
+function DownloadControl({
+  href,
+  action,
+  className,
+}: {
+  href: string;
+  action: PageAction;
+  className: string;
+}) {
+  const { download, isDownloading } = usePdfDownload();
+  return (
+    <button
+      type="button"
+      disabled={isDownloading}
+      aria-busy={isDownloading}
+      className={className}
+      onClick={() => download(href)}
+    >
+      {isDownloading ? spinner : action.icon}
+      {action.label}
+    </button>
+  );
+}
 
 function ActionControl({
   action,
@@ -43,9 +70,11 @@ function ActionControl({
   );
   if (action.href && action.download) {
     return (
-      <a href={action.href} download className={className}>
-        {content}
-      </a>
+      <DownloadControl
+        href={action.href}
+        action={action}
+        className={className}
+      />
     );
   }
   if (action.href) {
@@ -122,14 +151,22 @@ export function CardActions({
       {quiet.length > 0 && (
         <div className={cn("grid gap-1", main.length > 0 && "mt-2")}>
           {quiet.map((action) => (
-            <ActionControl key={action.label} action={action} className={quietClass} />
+            <ActionControl
+              key={action.label}
+              action={action}
+              className={quietClass}
+            />
           ))}
         </div>
       )}
       {danger.length > 0 && (
         <div className="mt-3 border-t pt-3">
           {danger.map((action) => (
-            <ActionControl key={action.label} action={action} className={dangerClass} />
+            <ActionControl
+              key={action.label}
+              action={action}
+              className={dangerClass}
+            />
           ))}
         </div>
       )}
@@ -163,8 +200,11 @@ export function HeaderActions({ actions }: { actions: PageAction[] }) {
 /** The same actions in the header's "..." menu on phones; Delete last, after a divider. */
 export function MoreMenu({ actions }: { actions: PageAction[] }) {
   const order = ["primary", "success", "secondary", "quiet", "danger"] as const;
-  const sorted = order.flatMap((kind) => actions.filter((a) => a.kind === kind));
+  const sorted = order.flatMap((kind) =>
+    actions.filter((a) => a.kind === kind),
+  );
   const itemClass = "focus:bg-sidebar-accent/50 cursor-pointer gap-2 px-2 py-2";
+  const { download, isDownloading } = usePdfDownload();
 
   return (
     <DropdownMenu>
@@ -175,35 +215,44 @@ export function MoreMenu({ actions }: { actions: PageAction[] }) {
         <MoreHorizontalIcon className="size-4" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" sideOffset={6} className="w-52 p-1.5">
-        {sorted.map((action, index) => (
-          <Fragment key={action.label}>
-            {action.kind === "danger" && index > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuItem
-              variant={action.kind === "danger" ? "destructive" : "default"}
-              disabled={action.disabled}
-              asChild={Boolean(action.href)}
-              onClick={action.href ? undefined : action.onClick}
-              className={itemClass}
-            >
-              {action.href && action.download ? (
-                <a href={action.href} download>
-                  {action.icon}
-                  {action.label}
-                </a>
-              ) : action.href ? (
-                <Link href={action.href}>
-                  {action.icon}
-                  {action.label}
-                </Link>
-              ) : (
-                <>
-                  {action.icon}
-                  {action.label}
-                </>
+        {sorted.map((action, index) => {
+          const pdfHref = action.download ? action.href : undefined;
+          const pageHref = action.download ? undefined : action.href;
+          return (
+            <Fragment key={action.label}>
+              {action.kind === "danger" && index > 0 && (
+                <DropdownMenuSeparator />
               )}
-            </DropdownMenuItem>
-          </Fragment>
-        ))}
+              <DropdownMenuItem
+                variant={action.kind === "danger" ? "destructive" : "default"}
+                disabled={
+                  action.disabled || (pdfHref !== undefined && isDownloading)
+                }
+                asChild={pageHref !== undefined}
+                onClick={
+                  pdfHref
+                    ? () => download(pdfHref)
+                    : pageHref
+                      ? undefined
+                      : action.onClick
+                }
+                className={itemClass}
+              >
+                {pageHref ? (
+                  <Link href={pageHref}>
+                    {action.icon}
+                    {action.label}
+                  </Link>
+                ) : (
+                  <>
+                    {action.icon}
+                    {action.label}
+                  </>
+                )}
+              </DropdownMenuItem>
+            </Fragment>
+          );
+        })}
       </DropdownMenuContent>
     </DropdownMenu>
   );

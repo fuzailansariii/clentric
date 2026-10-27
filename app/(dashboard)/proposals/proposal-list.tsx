@@ -193,7 +193,10 @@ export function ProposalList({
       getHref={(p) => `/proposals/${p.id}`}
       getLabel={(p) => `Open ${p.title}`}
       actions={(p) => (
-        <ProposalRowActions proposal={p} hasPaymentDetails={hasPaymentDetails} />
+        <ProposalRowActions
+          proposal={p}
+          hasPaymentDetails={hasPaymentDetails}
+        />
       )}
     />
   );
@@ -274,6 +277,13 @@ function ProposalRowActions({
     });
 
   // One icon per row: the next step for this proposal.
+  const duplicateInMenu = [
+    "draft",
+    "sent",
+    "viewed",
+    "expiring",
+    "accepted",
+  ].includes(state);
   let next: ReactNode;
   if (state === "draft") {
     next = (
@@ -353,30 +363,25 @@ function ProposalRowActions({
           </CustomButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-52">
-          {state === "draft" && (
-            <DropdownMenuItem onClick={send} disabled={Boolean(noEmail)}>
-              Send
+          {/* The row icon already holds the next step; the menu has the rest. */}
+          {(state === "viewed" || state === "expiring") && (
+            <DropdownMenuItem onClick={copyLink}>
+              Copy client link
             </DropdownMenuItem>
           )}
-          {(state === "sent" || state === "viewed" || state === "expiring") && (
-            <>
-              <DropdownMenuItem onClick={copyLink}>
-                Copy client link
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                onClick={emailAgain}
-                disabled={Boolean(noEmail)}
-              >
-                Email link again
-              </DropdownMenuItem>
-            </>
+          {state === "sent" && (
+            <DropdownMenuItem onClick={emailAgain} disabled={Boolean(noEmail)}>
+              Email link again
+            </DropdownMenuItem>
           )}
           {state === "expiring" && (
             <DropdownMenuItem disabled>
               Extend link · coming later
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={duplicate}>Duplicate</DropdownMenuItem>
+          {duplicateInMenu && (
+            <DropdownMenuItem onClick={duplicate}>Duplicate</DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"

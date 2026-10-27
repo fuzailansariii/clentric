@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  useOptimistic,
-  useState,
-  useTransition,
-  type ReactNode,
-} from "react";
+import { useOptimistic, useState, useTransition, type ReactNode } from "react";
 import {
   ArrowUpRight,
   FileSignature,
@@ -15,6 +10,7 @@ import {
   PlusIcon,
   Trash2Icon,
 } from "lucide-react";
+import { MotionConfig, motion } from "motion/react";
 import { toast } from "sonner";
 
 import PageHeader from "@/components/dashboard/page-header";
@@ -29,6 +25,7 @@ import {
   type PageAction,
 } from "@/components/dashboard/page-actions";
 import { MetricStrip, type Metric } from "@/components/ui/metric-strip";
+import { useEnterInitial } from "@/components/ui/rise";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format-currency";
@@ -40,6 +37,7 @@ import {
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
 import { boardProject } from "@/lib/project-progress";
 import { projectLedger, sumProjectInvoices } from "@/lib/project-ledger";
+import { rise } from "@/lib/motion";
 import { runActionWithToast } from "@/lib/run-action-with-toast";
 import { cn } from "@/lib/utils";
 import { invoiceStatusConfig } from "../invoices/invoice-status-config";
@@ -99,6 +97,7 @@ export function ProjectDetail({
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [status, setOptimisticStatus] = useOptimistic(project.status);
   const [, startStatus] = useTransition();
+  const enter = useEnterInitial();
 
   const hourly = project.pricing === "hourly";
   const money = (value: string | number) =>
@@ -203,54 +202,53 @@ export function ProjectDetail({
     deadline = `${formatDayValue(project.deadline)} · ${rel}`;
   }
 
-  const details: { label: string; value: ReactNode; danger?: boolean }[] =
-    [
-      {
-        label: "Client",
-        value: (
-          <Link
-            href={`/clients/${project.clientId}`}
-            className="text-primary hover:underline"
-          >
-            {project.clientName ?? "Unknown client"}
-          </Link>
-        ),
-      },
-      {
-        label: "Proposal",
-        value: fromProposal ? (
-          <Link
-            href={`/proposals/${fromProposal.id}`}
-            className="text-primary hover:underline"
-          >
-            {fromProposal.title}
-          </Link>
-        ) : (
-          "Started directly"
-        ),
-      },
-      { label: "Next", value: next },
-      { label: "Pricing", value: hourly ? "Hourly" : "Fixed price" },
-      {
-        label: hourly ? "Hourly rate" : "Rate for extra work",
-        value: project.hourlyRate ? `${money(project.hourlyRate)}/hr` : "-",
-      },
-      {
-        label: "Billing",
-        value: hourly
-          ? "As you go"
-          : project.billing === "end"
-            ? "One invoice at the end"
-            : "Per milestone",
-      },
-      {
-        label: "Start",
-        value: project.startDate ? formatDayValue(project.startDate) : "-",
-      },
-      { label: "Deadline", value: deadline, danger: deadlineLate },
-      { label: "Created", value: formatShortDate(project.createdAt) },
-      { label: "Last updated", value: formatShortDate(project.updatedAt) },
-    ];
+  const details: { label: string; value: ReactNode; danger?: boolean }[] = [
+    {
+      label: "Client",
+      value: (
+        <Link
+          href={`/clients/${project.clientId}`}
+          className="text-primary hover:underline"
+        >
+          {project.clientName ?? "Unknown client"}
+        </Link>
+      ),
+    },
+    {
+      label: "Proposal",
+      value: fromProposal ? (
+        <Link
+          href={`/proposals/${fromProposal.id}`}
+          className="text-primary hover:underline"
+        >
+          {fromProposal.title}
+        </Link>
+      ) : (
+        "Started directly"
+      ),
+    },
+    { label: "Next", value: next },
+    { label: "Pricing", value: hourly ? "Hourly" : "Fixed price" },
+    {
+      label: hourly ? "Hourly rate" : "Rate for extra work",
+      value: project.hourlyRate ? `${money(project.hourlyRate)}/hr` : "-",
+    },
+    {
+      label: "Billing",
+      value: hourly
+        ? "As you go"
+        : project.billing === "end"
+          ? "One invoice at the end"
+          : "Per milestone",
+    },
+    {
+      label: "Start",
+      value: project.startDate ? formatDayValue(project.startDate) : "-",
+    },
+    { label: "Deadline", value: deadline, danger: deadlineLate },
+    { label: "Created", value: formatShortDate(project.createdAt) },
+    { label: "Last updated", value: formatShortDate(project.updatedAt) },
+  ];
 
   const deposit = fromProposal?.deposit;
   const waitingForDeposit = deposit && !deposit.paid;
@@ -334,163 +332,200 @@ export function ProjectDetail({
       />
 
       <DashboardContainer>
-        <div className="@container flex flex-col gap-4 pb-4">
-          {waitingForDeposit && (
-            <div className="bg-warning-600/12 text-warning-600 flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3.5 text-[13.5px]">
-              <span>
-                <strong className="font-semibold">
-                  Waiting for deposit {deposit.number}
-                </strong>{" "}
-                · {money(deposit.total)} ·{" "}
-                {!deposit.sent
-                  ? "Not sent"
-                  : deposit.daysUntilDue === null
-                    ? "Sent"
-                    : formatDaysUntilDue(deposit.daysUntilDue)}
-              </span>
-              <Link
-                href={`/invoices/${deposit.id}`}
-                className={customButtonClasses("secondary", "sm")}
+        <MotionConfig reducedMotion="user">
+          <div className="@container flex flex-col gap-4 pb-4">
+            {waitingForDeposit && (
+              <motion.div
+                custom={0}
+                variants={rise}
+                initial={enter}
+                animate="show"
+                className="bg-warning-600/12 text-warning-600 flex flex-wrap items-center justify-between gap-3 rounded-lg px-4 py-3.5 text-[13.5px]"
               >
-                View invoice
-              </Link>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-2">
-            <MetricStrip items={metrics} columns={6} />
-            {hasTax && (
-              <p className="text-muted-foreground text-xs">
-                Amounts above are before tax. Invoices below show their total
-                with tax.
-              </p>
-            )}
-          </div>
-
-          <div className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]">
-            {/* First on narrow screens; atop the right column when wide. */}
-            <DetailCard className="@[1000px]:col-start-2 @[1000px]:row-start-1">
-              <CardActions actions={cardActions} hideOnPhone={false} />
-            </DetailCard>
-
-            <div className="flex min-w-0 flex-col gap-4 @[1000px]:col-start-1 @[1000px]:row-span-2 @[1000px]:row-start-1">
-              <MilestonesPanel
-                project={{
-                  id: project.id,
-                  clientId: project.clientId,
-                  billing: project.billing,
-                  currency: project.currency,
-                }}
-                milestones={milestones}
-              />
-
-              <section className="bg-card rounded-lg border p-4 shadow-xs sm:p-4.5">
-                <h2 className="mb-3 text-sm font-semibold">Description</h2>
-                <p
-                  className={cn(
-                    "text-sm leading-relaxed text-pretty whitespace-pre-line",
-                    !project.description && "text-muted-foreground",
-                  )}
+                <span>
+                  <strong className="font-semibold">
+                    Waiting for deposit {deposit.number}
+                  </strong>{" "}
+                  · {money(deposit.total)} ·{" "}
+                  {!deposit.sent
+                    ? "Not sent"
+                    : deposit.daysUntilDue === null
+                      ? "Sent"
+                      : formatDaysUntilDue(deposit.daysUntilDue)}
+                </span>
+                <Link
+                  href={`/invoices/${deposit.id}`}
+                  className={customButtonClasses("secondary", "sm")}
                 >
-                  {project.description || "No description provided."}
+                  View invoice
+                </Link>
+              </motion.div>
+            )}
+
+            <motion.div
+              custom={1}
+              variants={rise}
+              initial={enter}
+              animate="show"
+              className="flex flex-col gap-2"
+            >
+              <MetricStrip items={metrics} columns={6} />
+              {hasTax && (
+                <p className="text-muted-foreground text-xs">
+                  Amounts above are before tax. Invoices below show their total
+                  with tax.
                 </p>
-              </section>
+              )}
+            </motion.div>
 
-              <section className="bg-card overflow-hidden rounded-lg border shadow-xs">
-                <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-4.5">
-                  <h2 className="text-sm font-semibold">Invoices</h2>
-                  <span className="text-muted-foreground font-space text-[12.5px] tabular-nums">
-                    {invoices.length}
-                  </span>
-                </div>
-                {invoices.length === 0 ? (
-                  <p className="text-muted-foreground border-t px-4 py-4 text-[13.5px] sm:px-4.5">
-                    No invoices yet.
-                  </p>
-                ) : (
-                  <ul>
-                    {invoices.map((invoice) => {
-                      const config = invoiceStatusConfig[invoice.status];
-                      const number = formatInvoiceNumber(
-                        invoice.invoiceNumber,
-                        invoice.numberPrefix,
-                      );
-                      return (
-                        <li key={invoice.id} className="border-t">
-                          <Link
-                            href={`/invoices/${invoice.id}`}
-                            className="hover:bg-muted/50 focus-visible:ring-ring grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none sm:px-4.5 @[560px]:grid-cols-[minmax(0,1fr)_auto_8rem]"
-                          >
-                            <span className="min-w-0">
-                              <span className="block text-sm font-medium">
-                                {number}
-                              </span>
-                              <span className="text-muted-foreground block truncate text-[12.5px]">
-                                {[invoice.firstLine, invoiceNote(invoice)]
-                                  .filter(Boolean)
-                                  .join(" · ")}
-                              </span>
-                            </span>
-                            <span className="font-space text-right text-sm font-medium tabular-nums">
-                              {formatCurrency(invoice.total, invoice.currency)}
-                            </span>
-                            <span className="col-start-1 @[560px]:col-start-auto @[560px]:justify-self-end">
-                              <StatusBadge
-                                status={config.variant}
-                                variant="soft"
-                                size="sm"
-                              >
-                                {config.label}
-                              </StatusBadge>
-                            </span>
-                          </Link>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                )}
-              </section>
-            </div>
+            <div className="grid items-start gap-5 @[1000px]:grid-cols-[minmax(0,1fr)_21.25rem]">
+              {/* First on narrow screens; atop the right column when wide. */}
+              <motion.div
+                custom={2}
+                variants={rise}
+                initial={enter}
+                animate="show"
+                className="@[1000px]:col-start-2 @[1000px]:row-start-1"
+              >
+                <DetailCard>
+                  <CardActions actions={cardActions} hideOnPhone={false} />
+                </DetailCard>
+              </motion.div>
 
-            <aside className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4 @[1000px]:col-start-2">
-              <section className="bg-card rounded-lg border p-4 shadow-xs sm:p-4.5">
-                <h2 className="mb-3 text-sm font-semibold">Status</h2>
-                <SegmentedControl
-                  label="Project status"
-                  options={STATUS_OPTIONS}
-                  value={status}
-                  onChange={changeStatus}
-                  className="grid w-full grid-cols-2"
-                  itemClassName="h-9 justify-center px-3 text-[13px]"
+              <motion.div
+                custom={2}
+                variants={rise}
+                initial={enter}
+                animate="show"
+                className="flex min-w-0 flex-col gap-4 @[1000px]:col-start-1 @[1000px]:row-span-2 @[1000px]:row-start-1"
+              >
+                <MilestonesPanel
+                  project={{
+                    id: project.id,
+                    clientId: project.clientId,
+                    billing: project.billing,
+                    currency: project.currency,
+                  }}
+                  milestones={milestones}
                 />
-              </section>
 
-              <section className="bg-card rounded-lg border p-4 shadow-xs sm:p-4.5">
-                <h2 className="mb-1 text-sm font-semibold">Details</h2>
-                <dl>
-                  {details.map((row) => (
-                    <div
-                      key={row.label}
-                      className="flex items-baseline justify-between gap-4 border-t py-2.25 text-[13.5px] first:border-t-0"
-                    >
-                      <dt className="text-muted-foreground shrink-0">
-                        {row.label}
-                      </dt>
-                      <dd
-                        className={cn(
-                          "min-w-0 text-right font-medium wrap-anywhere",
-                          row.danger && "text-danger-600",
-                        )}
+                <section className="bg-card rounded-lg border p-4 shadow-xs sm:p-4.5">
+                  <h2 className="mb-3 text-sm font-semibold">Description</h2>
+                  <p
+                    className={cn(
+                      "text-sm leading-relaxed text-pretty wrap-anywhere whitespace-pre-line",
+                      !project.description && "text-muted-foreground",
+                    )}
+                  >
+                    {project.description || "No description provided."}
+                  </p>
+                </section>
+
+                <section className="bg-card overflow-hidden rounded-lg border shadow-xs">
+                  <div className="flex items-center justify-between gap-3 px-4 py-3.5 sm:px-4.5">
+                    <h2 className="text-sm font-semibold">Invoices</h2>
+                    <span className="text-muted-foreground font-space text-[12.5px] tabular-nums">
+                      {invoices.length}
+                    </span>
+                  </div>
+                  {invoices.length === 0 ? (
+                    <p className="text-muted-foreground border-t px-4 py-4 text-[13.5px] sm:px-4.5">
+                      No invoices yet.
+                    </p>
+                  ) : (
+                    <ul>
+                      {invoices.map((invoice) => {
+                        const config = invoiceStatusConfig[invoice.status];
+                        const number = formatInvoiceNumber(
+                          invoice.invoiceNumber,
+                          invoice.numberPrefix,
+                        );
+                        return (
+                          <li key={invoice.id} className="border-t">
+                            <Link
+                              href={`/invoices/${invoice.id}`}
+                              className="hover:bg-muted/50 focus-visible:ring-ring grid min-h-14 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 px-4 py-2.5 transition-colors focus-visible:ring-2 focus-visible:-outline-offset-2 focus-visible:outline-none sm:px-4.5 @[560px]:grid-cols-[minmax(0,1fr)_auto_8rem]"
+                            >
+                              <span className="min-w-0">
+                                <span className="block text-sm font-medium">
+                                  {number}
+                                </span>
+                                <span className="text-muted-foreground block truncate text-[12.5px]">
+                                  {[invoice.firstLine, invoiceNote(invoice)]
+                                    .filter(Boolean)
+                                    .join(" · ")}
+                                </span>
+                              </span>
+                              <span className="font-space text-right text-sm font-medium tabular-nums">
+                                {formatCurrency(
+                                  invoice.total,
+                                  invoice.currency,
+                                )}
+                              </span>
+                              <span className="col-start-1 @[560px]:col-start-auto @[560px]:justify-self-end">
+                                <StatusBadge
+                                  status={config.variant}
+                                  variant="soft"
+                                  size="sm"
+                                >
+                                  {config.label}
+                                </StatusBadge>
+                              </span>
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </section>
+              </motion.div>
+
+              <motion.aside
+                custom={3}
+                variants={rise}
+                initial={enter}
+                animate="show"
+                className="flex min-w-0 flex-col gap-4 @[1000px]:sticky @[1000px]:top-4 @[1000px]:col-start-2"
+              >
+                <section className="bg-card rounded-lg border p-4 shadow-xs sm:p-4.5">
+                  <h2 className="mb-3 text-sm font-semibold">Status</h2>
+                  <SegmentedControl
+                    label="Project status"
+                    options={STATUS_OPTIONS}
+                    value={status}
+                    onChange={changeStatus}
+                    className="grid w-full grid-cols-2"
+                    itemClassName="h-9 justify-center px-3 text-[13px]"
+                  />
+                </section>
+
+                <section className="bg-card rounded-lg border p-4 shadow-xs sm:p-4.5">
+                  <h2 className="mb-1 text-sm font-semibold">Details</h2>
+                  <dl>
+                    {details.map((row) => (
+                      <div
+                        key={row.label}
+                        className="flex items-baseline justify-between gap-4 border-t py-2.25 text-[13.5px] first:border-t-0"
                       >
-                        {row.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-              </section>
-            </aside>
+                        <dt className="text-muted-foreground shrink-0">
+                          {row.label}
+                        </dt>
+                        <dd
+                          className={cn(
+                            "min-w-0 text-right font-medium wrap-anywhere",
+                            row.danger && "text-danger-600",
+                          )}
+                        >
+                          {row.value}
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              </motion.aside>
+            </div>
           </div>
-        </div>
+        </MotionConfig>
 
         <DeleteDialog
           open={isDeleteOpen}

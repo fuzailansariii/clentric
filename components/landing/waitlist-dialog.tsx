@@ -103,7 +103,7 @@ function WaitlistDialogBody({ onClose }: { onClose: () => void }) {
         Join the Agency waitlist
       </DialogPrimitive.Title>
       <p className="mt-2 text-[15.5px] text-pretty text-(--lp-muted)">
-        The Agency plan launches {PRICING.agency.launchDateLabel}. Leave your
+        The Agency plan launches {PRICING.agency.launchLabel}. Leave your
         email and we&rsquo;ll write to you when it opens.
       </p>
 

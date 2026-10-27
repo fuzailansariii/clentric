@@ -1,9 +1,9 @@
 import { notFound } from "next/navigation";
-import { getProjectForProposal, getProposalById } from "../queries";
+import { getProjectForProposal, getProposalById } from "../../queries";
 import { getEmailStatus } from "@/lib/email/quota";
 import { emailConfig } from "@/lib/email/config";
-import { getHasPaymentDetails } from "../../settings/queries";
-import { ProposalDetailView } from "./proposal-detail";
+import { getHasPaymentDetails } from "../../../settings/queries";
+import { ProposalDetailView } from "../proposal-detail";
 
 type ProposalPageProps = {
   params: Promise<{ id: string }>;
