@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { StatusBadge } from "@/components/ui/status-badge";
+import { usePdfDownload } from "@/hooks/use-pdf-download";
 import { useUndoableAction } from "@/hooks/use-undoable-action";
 import { warnNotEmailed } from "@/lib/email/warn-not-emailed";
 import { formatCurrency } from "@/lib/format-currency";
@@ -186,6 +187,7 @@ function InvoiceRowActions({
   const no = number(invoice);
   const state = invoice.state;
   const pdfHref = `/api/invoices/${invoice.id}/pdf`;
+  const { download: downloadPdf, isDownloading } = usePdfDownload();
   const outstanding =
     state === "pending" || state === "overdue" || state === "claimed";
   const sendReason = !invoice.sendReady
@@ -232,6 +234,7 @@ function InvoiceRowActions({
   const working = busy ? "Working..." : null;
 
   // One icon per row: the next step, or the PDF when nothing waits on you.
+  const pdfInRow = !["draft", "overdue", "claimed"].includes(state);
   let next: ReactNode;
   if (state === "draft") {
     next = (
@@ -296,17 +299,8 @@ function InvoiceRowActions({
           </CustomButton>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
-          {state === "draft" && (
-            <DropdownMenuItem onClick={send} disabled={Boolean(sendReason)}>
-              Send
-            </DropdownMenuItem>
-          )}
-          {state === "claimed" && (
-            <DropdownMenuItem onClick={markPaid}>
-              Confirm received
-            </DropdownMenuItem>
-          )}
-          {outstanding && (
+          {/* The row icon already holds the next step; the menu has the rest. */}
+          {outstanding && state !== "overdue" && (
             <DropdownMenuItem onClick={sendReminder}>
               Send reminder
             </DropdownMenuItem>
@@ -319,15 +313,20 @@ function InvoiceRowActions({
               <Link href={`/invoices/${invoice.id}/edit`}>Edit</Link>
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem asChild>
-            {canDownloadPdf ? (
-              <a href={pdfHref} download>
-                Download PDF
-              </a>
-            ) : (
+          {!canDownloadPdf ? (
+            <DropdownMenuItem asChild>
               <Link href={UPGRADE_HREF}>Download PDF (Pro)</Link>
-            )}
-          </DropdownMenuItem>
+            </DropdownMenuItem>
+          ) : (
+            !pdfInRow && (
+              <DropdownMenuItem
+                disabled={isDownloading}
+                onClick={() => downloadPdf(pdfHref)}
+              >
+                Download PDF
+              </DropdownMenuItem>
+            )
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
@@ -345,7 +344,10 @@ function InvoiceRowActions({
         open={confirmSend}
         onOpenChange={setConfirmSend}
         title={`Send ${no}?`}
-        description={invoiceSendDescription(invoice.clientEmail, invoice.clientName)}
+        description={invoiceSendDescription(
+          invoice.clientEmail,
+          invoice.clientName,
+        )}
         confirmLabel="Send invoice"
         pendingLabel="Sending..."
         onConfirm={sendNow}

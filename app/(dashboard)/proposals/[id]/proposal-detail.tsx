@@ -457,7 +457,7 @@ export function ProposalDetailView({
                     >
                       Proposal
                     </p>
-                    <h2 className="font-space mt-1.5 text-[22px] leading-tight font-semibold tracking-tight text-balance @[560px]:text-[30px]">
+                    <h2 className="font-space mt-1.5 text-[22px] leading-tight font-semibold tracking-tight text-balance wrap-anywhere @[560px]:text-[30px]">
                       {proposal.title}
                     </h2>
                     <p className="text-muted-foreground mt-2 text-sm">
@@ -470,7 +470,7 @@ export function ProposalDetailView({
                   {proposal.content?.trim() && (
                     <div>
                       <p className={labelClass}>Summary</p>
-                      <p className="mt-1.5 text-sm leading-relaxed text-pretty whitespace-pre-line">
+                      <p className="mt-1.5 text-sm leading-relaxed text-pretty wrap-anywhere whitespace-pre-line">
                         {proposal.content}
                       </p>
                     </div>
@@ -485,7 +485,7 @@ export function ProposalDetailView({
                       <section key={stage.id}>
                         {stage.name && (
                           <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-4">
-                            <h3 className="font-space text-base font-semibold">
+                            <h3 className="font-space min-w-0 text-base font-semibold wrap-anywhere">
                               {stage.name}
                             </h3>
                             {stage.timeframe && (
@@ -496,7 +496,7 @@ export function ProposalDetailView({
                           </div>
                         )}
                         {stage.description && (
-                          <p className="text-muted-foreground mb-2 text-[13.5px] text-pretty whitespace-pre-line">
+                          <p className="text-muted-foreground mb-2 text-[13.5px] text-pretty wrap-anywhere whitespace-pre-line">
                             {stage.description}
                           </p>
                         )}
@@ -553,21 +553,18 @@ export function ProposalDetailView({
                                 </td>
                               </tr>
                             ))}
-                            {stage.name && (
-                              <tr>
-                                <td
-                                  colSpan={4}
-                                  className="text-muted-foreground pt-2 text-right text-[13px]"
-                                >
-                                  Stage subtotal{" "}
-                                  <span className="font-space text-foreground font-medium tabular-nums">
-                                    {money(subtotal)}
-                                  </span>
-                                </td>
-                              </tr>
-                            )}
                           </tbody>
                         </table>
+                        {/* Not a table row: a colSpan row gave the hidden
+                            Qty and Rate columns width on phones. */}
+                        {stage.name && (
+                          <p className="text-muted-foreground pt-2 text-right text-[13px]">
+                            Stage subtotal{" "}
+                            <span className="font-space text-foreground font-medium tabular-nums">
+                              {money(subtotal)}
+                            </span>
+                          </p>
+                        )}
                       </section>
                     );
                   })}

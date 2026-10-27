@@ -2,10 +2,10 @@ import Link from "next/link";
 import DashboardContainer from "@/components/dashboard/container";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
-import { ProjectsHeader } from "./projects-header";
-import { ProjectCard } from "./project-card";
+import { ProjectsHeader } from "../projects-header";
+import { ProjectCard } from "../project-card";
 import { Rise } from "@/components/ui/rise";
-import { getProjectBoard } from "./queries";
+import { getProjectBoard } from "../queries";
 
 type ProjectPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

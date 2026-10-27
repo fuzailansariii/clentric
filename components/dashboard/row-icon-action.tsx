@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import type { LucideIcon } from "lucide-react";
+import { Loader2, type LucideIcon } from "lucide-react";
 import { customButtonClasses } from "@/components/ui/custom-button";
+import { usePdfDownload } from "@/hooks/use-pdf-download";
 import {
   Tooltip,
   TooltipContent,
@@ -31,6 +32,7 @@ export function RowIconAction({
   ariaLabel?: string;
   onClick?: () => void;
   href?: string;
+  /** `href` is a PDF to save, not a page. */
   download?: boolean;
   disabledReason?: string | null;
   /** "attention" tints it primary: something waits on you. */
@@ -42,6 +44,7 @@ export function RowIconAction({
     cn("w-8 px-0!", tone === "attention" && "text-primary hover:text-primary"),
   );
   const content = <Icon className="size-4" aria-hidden="true" />;
+  const { download: downloadPdf, isDownloading } = usePdfDownload();
 
   let trigger;
   if (disabledReason) {
@@ -58,14 +61,20 @@ export function RowIconAction({
     );
   } else if (href && download) {
     trigger = (
-      <a
-        href={href}
-        download
+      <button
+        type="button"
+        onClick={() => downloadPdf(href)}
+        disabled={isDownloading}
+        aria-busy={isDownloading}
         aria-label={ariaLabel ?? label}
         className={className}
       >
-        {content}
-      </a>
+        {isDownloading ? (
+          <Loader2 className="size-4 animate-spin" aria-hidden="true" />
+        ) : (
+          content
+        )}
+      </button>
     );
   } else if (href) {
     trigger = (

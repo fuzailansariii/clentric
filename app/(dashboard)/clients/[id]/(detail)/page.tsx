@@ -1,18 +1,21 @@
 import { notFound, redirect } from "next/navigation";
-import { getClientById, getClientSummary } from "../queries";
-import { clientIdSchema } from "../schema";
-import { ClientDetail, type ClientTab } from "./client-details";
-import { getProjectBoard } from "../../projects/queries";
-import { getInvoiceList } from "../../invoices/queries";
-import { getProposalList } from "../../proposals/queries";
+import { getClientById, getClientSummary } from "../../queries";
+import { clientIdSchema } from "../../schema";
+import { ClientDetail, type ClientTab } from "../client-details";
+import { getProjectBoard } from "../../../projects/queries";
+import { getInvoiceList } from "../../../invoices/queries";
+import { getProposalList } from "../../../proposals/queries";
 import { formatCurrency } from "@/lib/format-currency";
 import { formatDayValue, formatShortDate } from "@/lib/format-due";
 import { formatInvoiceNumber } from "@/lib/format-invoice-number";
-import { invoiceNote, invoiceStateConfig } from "../../invoices/invoice-state";
+import {
+  invoiceNote,
+  invoiceStateConfig,
+} from "../../../invoices/invoice-state";
 import {
   proposalActivity,
   proposalStateConfig,
-} from "../../proposals/proposal-state";
+} from "../../../proposals/proposal-state";
 
 type ClientPageProps = {
   params: Promise<{ id: string }>;
@@ -28,17 +31,13 @@ export default async function ClientPage({
   const { id } = await params;
   const query = await searchParams;
 
-  // A malformed id can't be a client - 404 rather than a validation error.
   if (!clientIdSchema.safeParse(id).success) notFound();
-  // Old links opened the inline editor; editing has its own page now.
   if (query.edit === "true") redirect(`/clients/${id}/edit`);
 
   const tab = TABS.find((t) => t === query.tab) ?? "projects";
-  // Ten rows a page inside the tab.
   const listParams = { ...query, pageSize: "10" };
   const scope = { clientId: id };
 
-  // Only the open tab's list is fetched; the summary carries every tab's count.
   const [client, summary, projectList, proposalList, invoiceList] =
     await Promise.all([
       getClientById(id),

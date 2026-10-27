@@ -4,9 +4,9 @@ import { DataTablePagination } from "@/components/data-table/data-table-paginati
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { MetricStrip } from "@/components/ui/metric-strip";
 import { formatCurrency } from "@/lib/format-currency";
-import { InvoiceList } from "./invoice-list";
-import { InvoicesHeader } from "./invoices-header";
-import { getInvoiceList } from "./queries";
+import { InvoiceList } from "../invoice-list";
+import { InvoicesHeader } from "../invoices-header";
+import { getInvoiceList } from "../queries";
 import { getPlanFeatures } from "@/lib/billing";
 import { requireUser } from "@/lib/current-user";
 

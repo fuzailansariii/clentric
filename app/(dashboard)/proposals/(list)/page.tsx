@@ -4,10 +4,10 @@ import { DataTablePagination } from "@/components/data-table/data-table-paginati
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { MetricStrip } from "@/components/ui/metric-strip";
 import { formatCurrency } from "@/lib/format-currency";
-import { ProposalList } from "./proposal-list";
-import { ProposalsHeader } from "./proposals-header";
-import { getProposalList } from "./queries";
-import { getHasPaymentDetails } from "../settings/queries";
+import { ProposalList } from "../proposal-list";
+import { ProposalsHeader } from "../proposals-header";
+import { getProposalList } from "../queries";
+import { getHasPaymentDetails } from "../../settings/queries";
 
 type ProposalsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;

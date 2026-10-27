@@ -4,8 +4,8 @@ import {
   getMilestonesByProjectId,
   getProjectById,
   getProposalForProject,
-} from "../queries";
-import { ProjectDetail } from "../project-details";
+} from "../../queries";
+import { ProjectDetail } from "../../project-details";
 
 type ProjectDetailProps = {
   params: Promise<{ id: string }>;

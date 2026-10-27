@@ -3,9 +3,9 @@ import { ListEmpty, ListNoResults } from "@/components/dashboard/list-states";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { formatCurrency } from "@/lib/format-currency";
-import { ClientList } from "./client-list";
-import { ClientsHeader } from "./clients-header";
-import { getClientList } from "./queries";
+import { ClientList } from "../client-list";
+import { ClientsHeader } from "../clients-header";
+import { getClientList } from "../queries";
 
 type ClientsPageProps = {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
