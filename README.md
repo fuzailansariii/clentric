@@ -42,6 +42,7 @@ Open [http://localhost:3000](http://localhost:3000).
 | `npm run dev` | Dev server |
 | `npm run build` / `npm run start` | Production build / serve it |
 | `npm test` | Type-check, lint and unit tests (Vitest) |
+| `npm run test:isolation` | Ownership tests: one account can't read or change another's data (database in `.env`, a few minutes) |
 | `npm run test:e2e` | End-to-end tests (Playwright) against the dev server |
 | `E2E_PROD=1 E2E_BASE_URL=http://localhost:3100 npm run test:e2e` | End-to-end tests against a fresh production build on port 3100 |
 | `npx playwright show-report` | Open the last end-to-end report (screenshots and traces on failure) |
@@ -54,6 +55,7 @@ Open [http://localhost:3000](http://localhost:3000).
 - **Unit tests** live next to the code as `*.test.ts` (for example `lib/format-date.test.ts`).
 - **End-to-end tests** live in `e2e/`. They sign in a dedicated test account (`e2e@clentric.test`, override with `E2E_EMAIL`) through the Supabase admin API, so no email is sent. All of that account's data is deleted before and after every run. Without `SUPABASE_SERVICE_ROLE_KEY` the signed-in tests are skipped and the signed-out tests still run.
 - First time only: `npx playwright install chromium`.
+- **Isolation tests** live in `test/`. They prove every query and action only reads and changes the signed-in user's own data. Two test accounts (`isolation-a@clentric.test`, `isolation-b@clentric.test`) are created once; everything else is seeded inside a transaction that is rolled back, so no data is left behind. Needs `DATABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Run it before opening a PR.
 
 ## Database migrations
 
