@@ -20,7 +20,12 @@ const live = vi.hoisted(() => {
   ]) {
     process.env[name] = "";
   }
-  process.loadEnvFile(".env");
+  try {
+    process.loadEnvFile(".env");
+  } catch (error) {
+    // CI has no .env; it passes the same values as environment variables.
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+  }
   return {
     tx: null as object | null,
     user: null as { id: string; email: string } | null,
