@@ -9,6 +9,7 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "npm run typecheck && npm run lint && vitest run",
+    "test:isolation": "vitest run --config vitest.isolation.config.mts",
     "test:e2e": "playwright test",
     "grant": "tsx --env-file=.env scripts/grant.mts",
     "invite": "node --env-file=.env --disable-warning=ExperimentalWarning scripts/invite.mts",

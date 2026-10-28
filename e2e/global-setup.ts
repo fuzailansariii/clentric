@@ -1,13 +1,13 @@
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { createClient } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import {
+  adminClient,
   AUTH_FILE,
   deleteTestData,
   E2E_EMAIL,
+  ensureTestUser,
   requireEnv,
-  testDb,
 } from "./support/env";
 
 // Signs the test account in with an admin-minted code; no email is sent.
@@ -22,26 +22,8 @@ export default async function globalSetup() {
 
   const url = requireEnv("NEXT_PUBLIC_SUPABASE_URL");
   const anonKey = requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
-  const admin = createClient(url, requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-
-  // The beta sign-up hook refuses emails that aren't invited.
-  const db = testDb();
-  try {
-    await db`insert into beta_invites (email, note) values (${E2E_EMAIL.toLowerCase()}, 'e2e') on conflict (email) do nothing`;
-  } finally {
-    await db.end();
-  }
-
-  const created = await admin.auth.admin.createUser({
-    email: E2E_EMAIL,
-    email_confirm: true,
-    user_metadata: { full_name: "E2E Tester" },
-  });
-  if (created.error && created.error.code !== "email_exists") {
-    throw created.error;
-  }
+  const admin = adminClient();
+  await ensureTestUser(admin, E2E_EMAIL, "E2E Tester");
 
   const link = await admin.auth.admin.generateLink({
     type: "magiclink",
