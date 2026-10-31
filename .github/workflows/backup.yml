@@ -1,0 +1,17 @@
+name: "backup-ci"
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu24.04
+    environment: backup
+    timeout-minutes: 15
+    steps:
+      - run: echo "db url set? ${{ secrets.PROD_DB_URL != '' }}"
