@@ -6,7 +6,6 @@ import { MobileTopBar } from "@/components/sidebar/mobile-topbar";
 import { getAuthUser } from "@/lib/current-user";
 import { redirect } from "next/navigation";
 import SidebarFooter from "@/components/sidebar/sidebar-footer";
-import { logoutAction } from "../(auth)/action";
 import { getDashboardData, getSidebarCounts } from "./queries";
 import { Toaster } from "@/components/ui/sonner";
 import { VerticalScale } from "@/components/ui/scale-border";
@@ -78,7 +77,6 @@ export default async function DashboardLayout({
                   avatarUrl: profile?.avatar ?? undefined,
                 }}
                 plan={plan}
-                onLogoutClick={logoutAction}
               />
             }
           />
@@ -91,7 +89,6 @@ export default async function DashboardLayout({
                 email: authUser.email ?? "",
               }}
               plan={plan}
-              onLogoutClick={logoutAction}
             />
             <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
               {children}

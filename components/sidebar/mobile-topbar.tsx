@@ -15,10 +15,9 @@ import {
 type MobileTopBarProps = {
   user: AccountMenuUser;
   plan: Plan;
-  onLogoutClick?: () => void | Promise<void>;
 };
 
-export function MobileTopBar({ user, plan, onLogoutClick }: MobileTopBarProps) {
+export function MobileTopBar({ user, plan }: MobileTopBarProps) {
   const { openMobile } = useSidebar();
   return (
     <div className="grid h-14 grid-cols-[1fr_auto_1fr] items-center border-b px-4 md:hidden">
@@ -44,12 +43,7 @@ export function MobileTopBar({ user, plan, onLogoutClick }: MobileTopBarProps) {
               />
             </TopBarButton>
           </DropdownMenuTrigger>
-          <AccountMenuContent
-            user={user}
-            plan={plan}
-            onLogoutClick={onLogoutClick}
-            side="bottom"
-          />
+          <AccountMenuContent user={user} plan={plan} side="bottom" />
         </DropdownMenu>
       </div>
     </div>
