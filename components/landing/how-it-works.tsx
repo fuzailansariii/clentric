@@ -113,7 +113,7 @@ export function HowItWorks() {
           <div aria-live="polite" className="flex min-h-22 flex-col gap-1.5">
             <span className="relative self-start text-[14.5px] text-(--lp-muted)">
               {CHORES[chore][0]}
-              <span className="absolute inset-x-0 top-[55%] h-[1.5px] bg-(--lp-muted)" />
+              <span className="absolute inset-x-0 top-[55%] border-t border-(--lp-muted)/70" />
             </span>
             <span className="font-space text-[21px] leading-[1.25] font-medium tracking-[-0.02em] text-pretty">
               {CHORES[chore][1]}
@@ -138,8 +138,9 @@ export function HowItWorks() {
                 </span>
                 <span className="relative justify-self-start text-[15px] text-(--lp-muted)">
                   {before}
+                  {/* A border, not a 1px fill: stays one crisp pixel on scaled screens. */}
                   <span
-                    className="absolute inset-x-0 top-[55%] h-[1.5px] origin-left bg-(--lp-muted)"
+                    className="absolute inset-x-0 top-[55%] origin-left border-t border-(--lp-muted)/70"
                     style={{
                       transform: struck ? "scaleX(1)" : "scaleX(0)",
                       transition: "transform .7s cubic-bezier(.6,0,.2,1) .45s",
