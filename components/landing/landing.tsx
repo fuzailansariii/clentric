@@ -64,7 +64,10 @@ export function Landing({ today, signedIn }: { today: string; signedIn: boolean 
 
   return (
     <WaitlistContext.Provider value={() => setAgencyOpen(true)}>
-      <div ref={root} id="top" className="lp bg-background text-foreground relative min-h-screen overflow-x-clip">
+      <div
+        ref={root}
+        className="lp bg-background text-foreground relative min-h-screen overflow-x-clip"
+      >
         <FrameRails />
         <header className="sticky top-0 z-50">
           <Navbar active={active} signedIn={signedIn} />

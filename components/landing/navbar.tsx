@@ -183,6 +183,22 @@ export function Navbar({
     setOpen(false);
     setProd(false);
   };
+  // Already on the home page: glide to the top and drop any #section from the URL.
+  const goHome = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    closeAll();
+    if (
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+    event.preventDefault();
+    if (window.location.hash) window.history.pushState(null, "", "/");
+    window.scrollTo({ top: 0 });
+  };
   const startProdClose = () => {
     if (!canHover()) return;
     clearTimeout(closeTimer.current);
@@ -218,8 +234,8 @@ export function Navbar({
         <FrameRails />
         <div className={cn(FRAME, "relative flex items-stretch", "h-14")}>
           <Link
-            href="#top"
-            onClick={closeAll}
+            href="/"
+            onClick={goHome}
             aria-label="Clentric home"
             className="group flex items-center gap-2.5 border-r border-(--lp-frame) px-5 text-base font-semibold tracking-[-0.015em] sm:px-6"
           >
