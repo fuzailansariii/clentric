@@ -124,7 +124,7 @@ const agency = {
   status: "coming_soon" as AgencyStatus,
   badge: { coming_soon: "Coming soon", live: "For teams" },
   /** No fixed day yet; reads after "launches" or "arrives". */
-  launchLabel: "in November 2026",
+  launchLabel: "soon",
   price: { monthly: 29 } satisfies PlanPrice,
   includedSeats: 3,
   extraSeatMonthly: 6,
