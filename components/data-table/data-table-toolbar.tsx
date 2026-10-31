@@ -4,14 +4,9 @@ import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { cn } from "@/lib/utils";
 import { SearchIcon } from "lucide-react";
 import { MotionConfig, motion } from "motion/react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import {
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useListNavigation } from "./list-navigation";
 
 type FilterOption = {
   label: string;
@@ -43,14 +38,14 @@ export function DataTableToolbar({
   actions,
   className,
 }: DataTableToolbarProps) {
-  const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
+  // `query` already holds the last click, so quick clicks build on each other.
+  const { query, navigate } = useListNavigation();
 
-  const searchParamsRef = useRef(searchParams);
+  const searchParamsRef = useRef(query);
   useEffect(() => {
-    searchParamsRef.current = searchParams;
-  }, [searchParams]);
+    searchParamsRef.current = query;
+  }, [query]);
 
   const urlSearch = searchParams.get("search") ?? "";
   const [searchValue, setSearchValue] = useState(urlSearch);
@@ -62,18 +57,15 @@ export function DataTableToolbar({
     if (urlSearch !== debouncedSearch) setSearchValue(urlSearch);
   }
 
-  const updateParams = useCallback(
-    (updates: Record<string, string | null>) => {
-      const params = new URLSearchParams(searchParamsRef.current.toString());
-      for (const [key, value] of Object.entries(updates)) {
-        if (value) params.set(key, value);
-        else params.delete(key);
-      }
-      params.set("page", "1");
-      router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    },
-    [pathname, router],
-  );
+  const updateParams = (updates: Record<string, string | null>) => {
+    const params = new URLSearchParams(searchParamsRef.current.toString());
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    }
+    params.set("page", "1");
+    navigate(params);
+  };
 
   useEffect(() => {
     const currentSearch = searchParamsRef.current.get("search") ?? "";
@@ -111,7 +103,7 @@ export function DataTableToolbar({
             of wrapping into a grid. */}
         <MotionConfig reducedMotion="user">
           {filters.map((filter) => {
-            const currentValue = searchParams.get(filter.key) ?? "";
+            const currentValue = query.get(filter.key) ?? "";
 
             return (
               <div

@@ -1,8 +1,8 @@
 "use client";
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useListNavigation } from "./list-navigation";
 
 type DataTablePaginationProps = {
   page: number;
@@ -16,26 +16,31 @@ type DataTablePaginationProps = {
 // card's bottom bar from 640px up. The top border lives here (not on the
 // footer slot) because this returns null when there's nothing to page.
 export function DataTablePagination({
-  page,
+  page: loadedPage,
   pageSize,
   total,
   totalPages,
   className,
 }: DataTablePaginationProps) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const { query, navigate } = useListNavigation();
 
   if (total === 0) return null;
 
+  // The clicked page shows at once; the rows follow when they load.
+  const requested = Number(query.get("page"));
+  const page =
+    Number.isInteger(requested) && requested >= 1 && requested <= totalPages
+      ? requested
+      : loadedPage;
+
   const goToPage = (nextPage: number) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(query.toString());
     params.set("page", String(nextPage));
-    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    navigate(params);
   };
 
-  const start = (page - 1) * pageSize + 1;
-  const end = Math.min(page * pageSize, total);
+  const start = (loadedPage - 1) * pageSize + 1;
+  const end = Math.min(loadedPage * pageSize, total);
 
   return (
     <div

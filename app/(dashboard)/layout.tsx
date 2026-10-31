@@ -8,6 +8,7 @@ import { redirect } from "next/navigation";
 import SidebarFooter from "@/components/sidebar/sidebar-footer";
 import { getDashboardData, getSidebarCounts } from "./queries";
 import { Toaster } from "@/components/ui/sonner";
+import { ListNavigationProvider } from "@/components/data-table/list-navigation";
 import { VerticalScale } from "@/components/ui/scale-border";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { formatDate } from "@/lib/format-date";
@@ -91,7 +92,7 @@ export default async function DashboardLayout({
               plan={plan}
             />
             <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-              {children}
+              <ListNavigationProvider>{children}</ListNavigationProvider>
             </main>
           </div>
         </div>
