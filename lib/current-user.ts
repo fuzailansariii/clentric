@@ -2,7 +2,7 @@ import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { db } from "@/src/db";
 import { users } from "@/src/db/schema/users";
-import { AppError } from "./errors";
+import { AppError, logError } from "./errors";
 import { createClient } from "./supabase/server";
 
 /**
@@ -33,8 +33,40 @@ const getDeletionRequestedAt = cache(async (userId: string) => {
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  return row?.deletionRequestedAt ?? null;
+  if (row) return row.deletionRequestedAt;
+
+  await createMissingUserRow(userId);
+  return null;
 });
+
+/**
+ * The sign-up trigger normally makes this row. Without it settings 404 and
+ * every write fails, so make it here the same way the trigger does.
+ */
+async function createMissingUserRow(userId: string) {
+  const user = await getAuthUser();
+  if (!user?.email || user.id !== userId) return;
+
+  try {
+    const created = await db
+      .insert(users)
+      .values({
+        id: user.id,
+        email: user.email,
+        name: user.user_metadata?.full_name ?? user.email,
+      })
+      .onConflictDoNothing()
+      .returning({ id: users.id });
+    if (!created.length) {
+      logError(
+        "createMissingUserRow",
+        new Error("users row missing and its email is taken by another row"),
+      );
+    }
+  } catch (error) {
+    logError("createMissingUserRow", error);
+  }
+}
 
 /**
  * The signed-in user, refused while their account is pending deletion — so
