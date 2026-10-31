@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { DatePickerField } from "@/components/date-picker-field";
 import { DeleteDialog } from "@/components/delete-dialog";
 import { CustomButton } from "@/components/ui/custom-button";
+import { FillBar } from "@/components/ui/fill-bar";
 import { Field } from "@/components/ui/input";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format-currency";
@@ -139,7 +140,11 @@ export function MilestonesPanel({
   const handleToggle = (milestone: MilestoneItem) => {
     const status = milestone.status === "completed" ? "pending" : "completed";
     startMutation(async () => {
-      applyOptimistic({ type: "update", id: milestone.id, changes: { status } });
+      applyOptimistic({
+        type: "update",
+        id: milestone.id,
+        changes: { status },
+      });
       const result = await setMilestoneStatusAction(milestone.id, status);
       if (!result.success) {
         toast.error(result.error);
@@ -208,19 +213,18 @@ export function MilestonesPanel({
           aria-label={`${done} of ${total} milestones done`}
           className="flex gap-0.75 px-4 pb-3.5 sm:px-4.5"
         >
-          {items.map((m) => (
-            <span
-              key={m.id}
-              className={cn(
-                "h-1.5 flex-1 rounded-xs",
-                canInvoice(m, project.billing)
-                  ? "bg-success-600"
-                  : m.status === "completed"
-                    ? "bg-primary"
-                    : "bg-foreground/10",
-              )}
-            />
-          ))}
+          {items.map((m, i) => {
+            const ready = canInvoice(m, project.billing);
+            return (
+              <FillBar
+                key={m.id}
+                value={ready || m.status === "completed" ? 1 : 0}
+                fillClassName={ready ? "bg-success-600" : "bg-primary"}
+                delay={Math.min(i, 8) * 0.05}
+                className="bg-foreground/10 h-1.5 flex-1 rounded-xs"
+              />
+            );
+          })}
         </div>
       ) : (
         <p className="text-muted-foreground px-4 pb-3.5 text-[13.5px] sm:px-4.5">
@@ -476,7 +480,10 @@ function MilestoneEditRow({
         onSubmit={handleSubmit}
         onKeyDown={(event) => {
           // Escape in a text input cancels; inside the date picker it just closes it.
-          if (event.key === "Escape" && event.target instanceof HTMLInputElement) {
+          if (
+            event.key === "Escape" &&
+            event.target instanceof HTMLInputElement
+          ) {
             event.preventDefault();
             onCancel();
           }

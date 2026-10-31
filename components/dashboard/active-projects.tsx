@@ -7,6 +7,7 @@ import {
   DashboardCard,
   DashboardCardEmpty,
 } from "@/components/dashboard/dashboard-card";
+import { FillBar } from "@/components/ui/fill-bar";
 import { formatDaysUntilDue, formatShortDate } from "@/lib/format-due";
 import { cn } from "@/lib/utils";
 
@@ -84,19 +85,16 @@ function ProjectRow({ project }: { project: ActiveProject }) {
         <ClientCell name={project.clientName} className="hidden @lg:flex" />
 
         <div className="flex items-center gap-2">
-          <span
+          <FillBar
             role="progressbar"
             aria-label="Milestones done"
             aria-valuenow={percent}
             aria-valuemin={0}
             aria-valuemax={100}
-            className="bg-foreground/10 h-1.5 w-12 overflow-hidden rounded-full"
-          >
-            <span
-              className="bg-primary block h-full rounded-full"
-              style={{ width: `${percent}%` }}
-            />
-          </span>
+            value={percent / 100}
+            fillClassName="bg-primary"
+            className="bg-foreground/10 h-1.5 w-12 rounded-full"
+          />
           <span className="text-muted-foreground w-7 text-xs tabular-nums">
             {total === 0 ? "-" : `${done}/${total}`}
           </span>

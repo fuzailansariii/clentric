@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { AvatarInitials } from "@/components/ui/avatar-initials";
+import { FillBar } from "@/components/ui/fill-bar";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { formatCurrency } from "@/lib/format-currency";
-import { cn } from "@/lib/utils";
 import type { ProjectBoardCard } from "./queries";
 
+// A todo segment keeps a fill colour so it shows while emptying.
 const SEGMENT = {
   done: "bg-primary",
   ready: "bg-success-600",
-  todo: "bg-foreground/10",
+  todo: "bg-primary",
 } as const;
 
 /** "Oct 2" from a YYYY-MM-DD date, without a timezone shift. */
@@ -86,9 +87,12 @@ export function ProjectCard({ project }: { project: ProjectBoardCard }) {
             className="flex gap-0.75"
           >
             {board.segments.map((state, i) => (
-              <span
+              <FillBar
                 key={i}
-                className={cn("h-1.5 flex-1 rounded-xs", SEGMENT[state])}
+                value={state === "todo" ? 0 : 1}
+                fillClassName={SEGMENT[state]}
+                delay={Math.min(i, 8) * 0.05}
+                className="bg-foreground/10 h-1.5 flex-1 rounded-xs"
               />
             ))}
           </div>
