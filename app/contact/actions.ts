@@ -4,7 +4,7 @@ import { headers } from "next/headers";
 import { z } from "zod";
 
 import { logError } from "@/lib/errors";
-import { isRateLimited } from "@/lib/rate-limit";
+import { isPublicRateLimited } from "@/lib/public-limit";
 import { LEGAL } from "@/lib/legal-config";
 import type { ActionResult } from "@/lib/action-result";
 import { emailConfig } from "@/lib/email/config";
@@ -88,8 +88,19 @@ export async function submitContactForm(
       };
     }
 
+    // IP first, so a blocked sender doesn't use up the site-wide daily cap.
+    // The cap keeps Resend's daily quota free for sign-in codes.
     const ip = await clientIp();
-    if (isRateLimited(`contact:${ip}`, { max: 3, windowMs: 10 * 60 * 1000 })) {
+    if (
+      (await isPublicRateLimited("contact", ip, {
+        max: 3,
+        windowMs: 10 * 60 * 1000,
+      })) ||
+      (await isPublicRateLimited("contact-daily", "all", {
+        max: 20,
+        windowMs: 24 * 60 * 60 * 1000,
+      }))
+    ) {
       return {
         success: false,
         error: `Too many messages just now. Please try again in a few minutes, or email ${LEGAL.supportEmail} directly.`,

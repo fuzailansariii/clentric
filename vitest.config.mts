@@ -7,6 +7,7 @@ export default defineConfig({
   },
   test: {
     include: ["**/*.test.ts"],
-    exclude: ["node_modules/**", ".next/**"],
+    // test/ needs the database and takes minutes: run it with npm run test:isolation.
+    exclude: ["node_modules/**", ".next/**", "test/**"],
   },
 });

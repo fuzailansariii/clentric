@@ -6,9 +6,9 @@ import { MobileTopBar } from "@/components/sidebar/mobile-topbar";
 import { getAuthUser } from "@/lib/current-user";
 import { redirect } from "next/navigation";
 import SidebarFooter from "@/components/sidebar/sidebar-footer";
-import { logoutAction } from "../(auth)/action";
 import { getDashboardData, getSidebarCounts } from "./queries";
 import { Toaster } from "@/components/ui/sonner";
+import { ListNavigationProvider } from "@/components/data-table/list-navigation";
 import { VerticalScale } from "@/components/ui/scale-border";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { formatDate } from "@/lib/format-date";
@@ -78,7 +78,6 @@ export default async function DashboardLayout({
                   avatarUrl: profile?.avatar ?? undefined,
                 }}
                 plan={plan}
-                onLogoutClick={logoutAction}
               />
             }
           />
@@ -91,10 +90,9 @@ export default async function DashboardLayout({
                 email: authUser.email ?? "",
               }}
               plan={plan}
-              onLogoutClick={logoutAction}
             />
             <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
-              {children}
+              <ListNavigationProvider>{children}</ListNavigationProvider>
             </main>
           </div>
         </div>

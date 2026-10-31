@@ -17,17 +17,12 @@ import {
 type SidebarFooterProps = {
   user: AccountMenuUser & { avatarUrl?: string };
   plan: Plan;
-  onLogoutClick?: () => void | Promise<void>;
 };
 
 const BILLING_HREF = "/settings/billing";
 
 /** Account section at the bottom of the desktop sidebar. */
-export default function SidebarFooter({
-  user,
-  plan,
-  onLogoutClick,
-}: SidebarFooterProps) {
+export default function SidebarFooter({ user, plan }: SidebarFooterProps) {
   const { isCollapsed: collapsedState, closeMobile } = useSidebar();
   const inDrawer = useInDrawer();
   const isCollapsed = collapsedState && !inDrawer;
@@ -55,21 +50,14 @@ export default function SidebarFooter({
             </TooltipTrigger>
             <TooltipContent side="right">{user.name}</TooltipContent>
           </Tooltip>
-          <AccountMenuContent
-            user={user}
-            plan={plan}
-            onLogoutClick={onLogoutClick}
-            side="right"
-          />
+          <AccountMenuContent user={user} plan={plan} side="right" />
         </DropdownMenu>
       </div>
     );
   }
 
   return (
-    <div
-      className={cn("relative w-full px-3 py-3", !inDrawer && "border-t")}
-    >
+    <div className={cn("relative w-full px-3 py-3", !inDrawer && "border-t")}>
       <div
         className={cn(
           "flex w-full items-center gap-2 rounded-md p-1",
@@ -109,7 +97,10 @@ export default function SidebarFooter({
         </div>
 
         {inDrawer && (
-          <ChevronsUpDown size={16} className="text-muted-foreground shrink-0" />
+          <ChevronsUpDown
+            size={16}
+            className="text-muted-foreground shrink-0"
+          />
         )}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -130,11 +121,7 @@ export default function SidebarFooter({
               )}
             </button>
           </DropdownMenuTrigger>
-          <AccountMenuContent
-            user={user}
-            plan={plan}
-            onLogoutClick={onLogoutClick}
-          />
+          <AccountMenuContent user={user} plan={plan} />
         </DropdownMenu>
       </div>
     </div>

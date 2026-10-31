@@ -1,0 +1,42 @@
+name: "Isolation"
+
+on:
+  pull_request:
+    branches: [dev, main]
+    paths:
+      - "app/**"
+      - "lib/**"
+      - "src/db/**"
+      - "supabase/migrations/**"
+      - "test/**"
+      - "e2e/support/**"
+      - "package-lock.json"
+      - "vitest.isolation.config.mts"
+      - ".github/workflows/isolation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  isolations:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: isolation-db
+      cancel-in-progress: false
+    steps:
+      - name: "Get the code"
+        uses: actions/checkout@v5
+      - name: "Set up node"
+        uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+          cache: npm
+      - name: "Install packages"
+        run: npm ci
+      - name: "Ownership isolation tests"
+        run: npm run test:isolation
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

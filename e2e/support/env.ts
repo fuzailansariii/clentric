@@ -1,5 +1,6 @@
 import { config } from "dotenv";
 import postgres from "postgres";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 config({ path: ".env", quiet: true });
 
@@ -19,6 +20,46 @@ export function requireEnv(name: string): string {
 /** Direct database access, for test setup and cleanup only. */
 export function testDb() {
   return postgres(requireEnv("DATABASE_URL"), { prepare: false, max: 1 });
+}
+
+/** Supabase with the service role, for creating and signing in test accounts. */
+export function adminClient(): SupabaseClient {
+  return createClient(
+    requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
+    requireEnv("SUPABASE_SERVICE_ROLE_KEY"),
+    { auth: { persistSession: false, autoRefreshToken: false } },
+  );
+}
+
+/** Creates the confirmed test account if it's missing; returns its user id. */
+export async function ensureTestUser(
+  admin: SupabaseClient,
+  email: string,
+  fullName: string,
+): Promise<string> {
+  const sql = testDb();
+  try {
+    // The beta sign-up hook refuses emails that aren't invited.
+    await sql`insert into beta_invites (email, note) values (${email.toLowerCase()}, 'test') on conflict (email) do nothing`;
+
+    const created = await admin.auth.admin.createUser({
+      email,
+      email_confirm: true,
+      user_metadata: { full_name: fullName },
+    });
+    if (created.error && created.error.code !== "email_exists") {
+      throw created.error;
+    }
+    if (created.data.user) return created.data.user.id;
+
+    const [row] = await sql<{ id: string }[]>`
+      select id from users where lower(email) = ${email.toLowerCase()}
+    `;
+    if (!row) throw new Error(`No users row for ${email}.`);
+    return row.id;
+  } finally {
+    await sql.end();
+  }
 }
 
 /** Removes everything the test account owns, leaving the account itself. */
