@@ -127,7 +127,7 @@ export const LEGAL = {
       // Disappears on its own once PRICING.agency.status is "live".
       note:
         PRICING.agency.status === "coming_soon"
-          ? `Coming soon - launching ${PRICING.agency.launchLabel}`
+          ? `Launching ${PRICING.agency.launchLabel}`
           : "",
       summary: "For small teams.",
       includes: [
