@@ -13,5 +13,31 @@ jobs:
     runs-on: ubuntu-24.04
     environment: backup
     timeout-minutes: 15
+    env:
+      PROD_DB_URL: ${{ secrets.PROD_DB_URL }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
     steps:
-      - run: echo "db url set? ${{ secrets.PROD_DB_URL != '' }}"
+      - name: "Supabase setup"
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: "Copy database"
+        run: |
+          supabase db dump --db-url "$PROD_DB_URL" -f roles.sql --role-only
+          supabase db dump --db-url "$PROD_DB_URL" -f schema.sql
+          supabase db dump --db-url "$PROD_DB_URL" -f data.sql --use-copy --data-only
+          ls -lh *.sql
+      - name: "Lock backup"
+        run: |
+          tar czf backup.tar.gz roles.sql schema.sql data.sql
+          echo "$BACKUP_PASSPHRASE" | gpg --batch --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 -o backup.tar.gz.gpg backup.tar.gz
+          rm roles.sql schema.sql data.sql backup.tar.gz
+          ls -lh
+      - name: "Store backup"
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod-backup-${{ github.run_id }}
+          path: backup.tar.gz.gpg
+          retention-days: 30
+          if-no-files-found: error
