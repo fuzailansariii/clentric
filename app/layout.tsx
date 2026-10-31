@@ -32,9 +32,12 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
+      // Next turns smooth scroll off during route changes, so only #hash jumps glide.
+      data-scroll-behavior="smooth"
       className={cn(
         "h-full",
         "antialiased",
+        "scroll-smooth motion-reduce:scroll-auto",
         robotoMono.variable,
         "font-sans",
         inter.variable,
