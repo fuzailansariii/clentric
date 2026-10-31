@@ -8,6 +8,7 @@ import {
   ChevronRightIcon,
   FileTextIcon,
   FolderIcon,
+  LoaderCircleIcon,
   LogOutIcon,
   ReceiptIcon,
   UsersIcon,
@@ -15,9 +16,50 @@ import {
 import { LogoMark } from "@/components/logo";
 import { LinkProgress } from "@/components/ui/link-progress";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
-import { logoutToHomeAction } from "@/app/(auth)/action";
+import { useLogout } from "@/hooks/use-logout";
 import { cn } from "@/lib/utils";
 import { FRAME, FrameLine, FrameRails } from "./parts";
+
+/** Logs out and stays on the landing page, which then shows Log in / Sign up. */
+function LogoutButton({
+  className,
+  iconClassName,
+  showLabel = false,
+}: {
+  className: string;
+  iconClassName: string;
+  showLabel?: boolean;
+}) {
+  const { logout, isLoggingOut, error } = useLogout("/");
+  const Icon = isLoggingOut ? LoaderCircleIcon : LogOutIcon;
+  // No toaster on the landing page, so a failure shows on the button itself.
+  const label = isLoggingOut
+    ? "Logging out..."
+    : error
+      ? "Could not log out, try again"
+      : "Log out";
+
+  return (
+    <button
+      type="button"
+      onClick={logout}
+      disabled={isLoggingOut}
+      aria-label={showLabel ? undefined : label}
+      title={showLabel ? undefined : label}
+      className={cn(
+        className,
+        "disabled:cursor-wait",
+        error && "text-danger-600 hover:text-danger-600",
+      )}
+    >
+      <Icon
+        className={cn(iconClassName, isLoggingOut && "animate-spin")}
+        aria-hidden="true"
+      />
+      {showLabel && label}
+    </button>
+  );
+}
 
 const PRODUCT = [
   {
@@ -174,13 +216,7 @@ export function Navbar({
         style={{ transitionTimingFunction: EASE }}
       >
         <FrameRails />
-        <div
-          className={cn(
-            FRAME,
-            "relative flex items-stretch",
-            "h-14",
-          )}
-        >
+        <div className={cn(FRAME, "relative flex items-stretch", "h-14")}>
           <Link
             href="#top"
             onClick={closeAll}
@@ -320,16 +356,10 @@ export function Navbar({
             <div className="hidden items-center gap-1.5 border-l border-(--lp-frame) px-3.5 min-[700px]:flex lg:px-5">
               {signedIn ? (
                 <>
-                  <form action={logoutToHomeAction} className="hidden lg:block">
-                    <button
-                      type="submit"
-                      aria-label="Log out"
-                      title="Log out"
-                      className={cn(BTN, GHOST, "w-9 px-0")}
-                    >
-                      <LogOutIcon className="size-3.75" aria-hidden="true" />
-                    </button>
-                  </form>
+                  <LogoutButton
+                    className={cn(BTN, GHOST, "hidden w-9 px-0 lg:inline-flex")}
+                    iconClassName="size-3.75"
+                  />
                   <Link
                     href="/dashboard"
                     // Full prefetch (data too): signed-in visitors land on a ready dashboard.
@@ -341,7 +371,10 @@ export function Navbar({
                     )}
                   >
                     Go to dashboard
-                    <ChevronRightIcon aria-hidden="true" className="size-3.75 transition-transform group-hover/btn:translate-x-0.5" />
+                    <ChevronRightIcon
+                      aria-hidden="true"
+                      className="size-3.75 transition-transform group-hover/btn:translate-x-0.5"
+                    />
                     <LinkProgress />
                   </Link>
                 </>
@@ -546,19 +579,15 @@ function MobilePanel({
         >
           {signedIn ? (
             <>
-              <form action={logoutToHomeAction} className="contents">
-                <button
-                  type="submit"
-                  className={cn(
-                    BTN,
-                    OUTLINE,
-                    "h-12 w-full text-[15px] min-[700px]:h-11",
-                  )}
-                >
-                  <LogOutIcon className="size-4" aria-hidden="true" />
-                  Log out
-                </button>
-              </form>
+              <LogoutButton
+                className={cn(
+                  BTN,
+                  OUTLINE,
+                  "h-12 w-full text-[15px] min-[700px]:h-11",
+                )}
+                iconClassName="size-4"
+                showLabel
+              />
               <Link
                 href="/dashboard"
                 prefetch

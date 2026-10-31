@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { AnimatePresence, MotionConfig, motion } from "motion/react";
 
@@ -25,6 +25,10 @@ import {
 } from "@/components/dashboard/page-actions";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
+import {
+  ListPendingFade,
+  useListNavigation,
+} from "@/components/data-table/list-navigation";
 import { DeleteDialog } from "@/components/delete-dialog";
 
 import { customButtonClasses } from "@/components/ui/custom-button";
@@ -103,6 +107,10 @@ export function ClientDetail({
     { key: "proposals", label: "Proposals", count: summary.proposals },
     { key: "invoices", label: "Invoices", count: summary.invoices },
   ] as const;
+  // The clicked tab lights up at once; its rows follow when they load.
+  const { query, navigate } = useListNavigation();
+  const shownTab =
+    tabs.find((t) => t.key === query.get("tab"))?.key ?? "projects";
   const hasAny = panel.allCount > 0 || Boolean(search);
   const work = summary.projects + summary.invoices;
 
@@ -251,14 +259,17 @@ export function ClientDetail({
                   className="flex scrollbar-none gap-0.5 overflow-x-auto overflow-y-hidden border-b px-2.5 [&::-webkit-scrollbar]:hidden"
                 >
                   {tabs.map((tab) => {
-                    const on = tab.key === panel.key;
+                    const on = tab.key === shownTab;
                     return (
-                      <Link
+                      <TabLink
                         key={tab.key}
-                        role="tab"
-                        aria-selected={on}
+                        on={on}
                         href={`/clients/${client.id}?tab=${tab.key}`}
-                        scroll={false}
+                        onOpen={() =>
+                          navigate(new URLSearchParams({ tab: tab.key }), {
+                            push: true,
+                          })
+                        }
                         className={cn(
                           "relative inline-flex h-11 items-center gap-1 px-2.5 text-[13.5px] font-medium whitespace-nowrap transition-colors",
                           on
@@ -282,13 +293,13 @@ export function ClientDetail({
                             className="bg-primary absolute inset-x-2.5 bottom-0 h-0.5"
                           />
                         )}
-                      </Link>
+                      </TabLink>
                     );
                   })}
                 </div>
 
                 {hasAny ? (
-                  <>
+                  <ListPendingFade>
                     <motion.dl
                       key={panel.key}
                       initial={{ opacity: 0 }}
@@ -378,9 +389,9 @@ export function ClientDetail({
                         />
                       </div>
                     )}
-                  </>
+                  </ListPendingFade>
                 ) : (
-                  <div className="flex max-w-120 flex-col items-start gap-2 px-4.5 py-7">
+                  <ListPendingFade className="flex max-w-120 flex-col items-start gap-2 px-4.5 py-7">
                     <p className="font-semibold">{panel.empty.title}</p>
                     <p className="text-muted-foreground text-[13.5px]">
                       {panel.empty.body}
@@ -391,7 +402,7 @@ export function ClientDetail({
                     >
                       {panel.empty.label}
                     </Link>
-                  </div>
+                  </ListPendingFade>
                 )}
               </motion.section>
 
@@ -543,5 +554,56 @@ function NotesCard({
         className="border-border bg-input/20 focus-visible:border-ring focus-visible:ring-ring/20 w-full rounded-lg border px-3 py-2 text-sm focus-visible:ring-2 focus-visible:outline-none"
       />
     </DetailCard>
+  );
+}
+
+/**
+ * A client work tab. It preloads its page on hover or touch (not on sight, so
+ * opening a client costs no extra loads), and opens it through `onOpen`.
+ */
+function TabLink({
+  href,
+  on,
+  onOpen,
+  className,
+  children,
+}: {
+  href: string;
+  on: boolean;
+  onOpen: () => void;
+  className: string;
+  children: ReactNode;
+}) {
+  const [intent, setIntent] = useState(false);
+  const showIntent = () => setIntent(true);
+
+  return (
+    <Link
+      role="tab"
+      aria-selected={on}
+      href={href}
+      scroll={false}
+      prefetch={intent}
+      onMouseEnter={showIntent}
+      onFocus={showIntent}
+      onTouchStart={showIntent}
+      onClick={(event) => {
+        // New tab, new window and the like keep the browser's own behaviour.
+        if (
+          event.button !== 0 ||
+          event.metaKey ||
+          event.ctrlKey ||
+          event.shiftKey ||
+          event.altKey
+        ) {
+          return;
+        }
+        event.preventDefault();
+        if (!on) onOpen();
+      }}
+      className={className}
+    >
+      {children}
+    </Link>
   );
 }

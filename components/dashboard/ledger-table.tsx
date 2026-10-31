@@ -7,6 +7,7 @@ import { MotionConfig, motion, type Variants } from "motion/react";
 import { formatCurrency } from "@/lib/format-currency";
 import { rise } from "@/lib/motion";
 import { useEnterInitial } from "@/components/ui/rise";
+import { ListPendingFade } from "@/components/data-table/list-navigation";
 import { cn } from "@/lib/utils";
 
 /** Where a column sits in the phone card: title | money, then status | detail | actions. */
@@ -194,7 +195,7 @@ export function LedgerTable<T>({
 
   return (
     <MotionConfig reducedMotion="user">
-      <div className="@container" style={style}>
+      <ListPendingFade className="@container" style={style}>
         <div className="@[700px]:bg-card flex flex-col gap-2 @[700px]:grid @[700px]:grid-cols-(--cols-md) @[700px]:gap-x-6 @[700px]:gap-y-0 @[700px]:overflow-hidden @[700px]:rounded-lg @[700px]:border @[700px]:shadow-xs @[1000px]:grid-cols-(--cols-lg) @[1240px]:grid-cols-(--cols-xl)">
           <div
             aria-hidden="true"
@@ -250,7 +251,7 @@ export function LedgerTable<T>({
             </section>
           ))}
         </div>
-      </div>
+      </ListPendingFade>
     </MotionConfig>
   );
 }

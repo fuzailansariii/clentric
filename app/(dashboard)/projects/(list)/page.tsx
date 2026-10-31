@@ -2,6 +2,7 @@ import Link from "next/link";
 import DashboardContainer from "@/components/dashboard/container";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTablePagination } from "@/components/data-table/data-table-pagination";
+import { ListPendingFade } from "@/components/data-table/list-navigation";
 import { ProjectsHeader } from "../projects-header";
 import { ProjectCard } from "../project-card";
 import { Rise } from "@/components/ui/rise";
@@ -78,7 +79,7 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
                 </div>
               ) : (
                 // Columns follow the space the cards get, not the window: the sidebar takes real width.
-                <div className="@container">
+                <ListPendingFade className="@container">
                   <div className="grid grid-cols-1 gap-4 @[540px]:grid-cols-2 @[1020px]:grid-cols-3">
                     {board.cards.map((project, index) => (
                       // grid: the card still fills its row's height.
@@ -87,7 +88,7 @@ export default async function Projects({ searchParams }: ProjectPageProps) {
                       </Rise>
                     ))}
                   </div>
-                </div>
+                </ListPendingFade>
               )}
 
               {board.totalPages > 1 && (

@@ -1,9 +1,11 @@
 "use client";
 
 import type { ComponentProps } from "react";
+import { toast } from "sonner";
 import {
   ArrowUp,
   CreditCard,
+  LoaderCircleIcon,
   LogOut,
   Settings,
   SunMoon,
@@ -13,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { useTheme } from "next-themes";
 import { useSidebar } from "./sidebar-provider";
 import { useIsCurrentPage } from "@/hooks/use-is-current-page";
+import { useLogout } from "@/hooks/use-logout";
 import { DEFAULT_SETTINGS_HREF } from "@/app/(dashboard)/settings/sections";
 import {
   DropdownMenuContent,
@@ -41,7 +44,6 @@ export const PLAN_LABELS: Record<Plan, string> = {
 type AccountMenuContentProps = {
   user: AccountMenuUser;
   plan: Plan;
-  onLogoutClick?: () => void | Promise<void>;
   side?: ComponentProps<typeof DropdownMenuContent>["side"];
   align?: ComponentProps<typeof DropdownMenuContent>["align"];
 };
@@ -53,7 +55,6 @@ type AccountMenuContentProps = {
 export function AccountMenuContent({
   user,
   plan,
-  onLogoutClick,
   side = "top",
   align = "end",
 }: AccountMenuContentProps) {
@@ -61,6 +62,9 @@ export function AccountMenuContent({
   const router = useRouter();
   const isCurrentPage = useIsCurrentPage();
   const { theme, setTheme } = useTheme();
+  const { logout, isLoggingOut } = useLogout("/login", (message) =>
+    toast.error(message),
+  );
 
   // Navigating also closes the mobile drawer, like the nav links do. The
   // page you're already on isn't refetched; the menu just closes.
@@ -87,6 +91,7 @@ export function AccountMenuContent({
         {plan === "free" && (
           <DropdownMenuItem
             onClick={() => go("/settings/billing")}
+            disabled={isLoggingOut}
             aria-label="Upgrade to Pro"
             className="gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-600 focus:bg-amber-500/15 focus:text-amber-600 dark:text-amber-500 dark:focus:text-amber-500"
           >
@@ -98,6 +103,7 @@ export function AccountMenuContent({
       <DropdownMenuSeparator />
       <DropdownMenuItem
         onClick={() => go("/settings/account")}
+        disabled={isLoggingOut}
         className="items-center"
       >
         <User className="size-3.5" />
@@ -105,6 +111,7 @@ export function AccountMenuContent({
       </DropdownMenuItem>
       <DropdownMenuItem
         onClick={() => go("/settings/billing")}
+        disabled={isLoggingOut}
         className="items-center"
       >
         <CreditCard className="size-3.5" />
@@ -112,13 +119,17 @@ export function AccountMenuContent({
       </DropdownMenuItem>
       <DropdownMenuItem
         onClick={() => go(DEFAULT_SETTINGS_HREF)}
+        disabled={isLoggingOut}
         className="items-center"
       >
         <Settings className="size-3.5" />
         Settings
       </DropdownMenuItem>
       <DropdownMenuSub>
-        <DropdownMenuSubTrigger className="items-center">
+        <DropdownMenuSubTrigger
+          disabled={isLoggingOut}
+          className="items-center"
+        >
           <SunMoon className="size-3.5" />
           Theme
         </DropdownMenuSubTrigger>
@@ -134,13 +145,20 @@ export function AccountMenuContent({
       <DropdownMenuSeparator />
       <DropdownMenuItem
         variant="destructive"
-        // Called with no arguments: this is a server action, and
-        // the click event can't be sent to the server.
-        onClick={() => void onLogoutClick?.()}
+        // Keeps the menu open, so the spinner shows until the login page arrives.
+        onSelect={(event) => {
+          event.preventDefault();
+          logout();
+        }}
+        aria-disabled={isLoggingOut}
         className="items-center"
       >
-        <LogOut className="size-3.5" />
-        Log out
+        {isLoggingOut ? (
+          <LoaderCircleIcon className="size-3.5 animate-spin" />
+        ) : (
+          <LogOut className="size-3.5" />
+        )}
+        {isLoggingOut ? "Logging out..." : "Log out"}
       </DropdownMenuItem>
     </DropdownMenuContent>
   );
